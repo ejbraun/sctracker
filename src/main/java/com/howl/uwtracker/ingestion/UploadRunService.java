@@ -45,6 +45,12 @@ public class UploadRunService {
                     size, machineKey.getId(), party.mapId());
             throw new ApiException(HttpStatus.BAD_REQUEST, "party size must be 8");
         }
+        if (request.objective() == null) {
+            log.warn("rejecting upload: missing objective section (machineKeyId={}, mapId={})",
+                    machineKey.getId(), party.mapId());
+            throw new ApiException(HttpStatus.BAD_REQUEST, "objective is required");
+        }
+
         // maps is a curated set, seeded by migration (specs/backend/01) — not auto-discovered from
         // whatever map_id an upload happens to carry.
         if (!gameMapRepository.existsById(party.mapId())) {

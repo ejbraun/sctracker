@@ -222,6 +222,20 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void rejectsMissingObjectiveSection() throws Exception {
+        String key = issueMachineKey();
+        PartyDto party = new PartyDto(UTC_START_SECONDS, MAP_ID, "T1", "victory", validParty());
+        UploadRunRequest request = new UploadRunRequest(party, null);
+
+        mockMvc.perform(post("/upload-run")
+                        .header("X-Machine-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+        assertThat(runRepository.findAll()).isEmpty();
+    }
+
+    @Test
     void rejectsPartySizeOtherThanEight() throws Exception {
         String key = issueMachineKey();
         List<PartyMemberDto> tooFew = List.of(validParty().get(0));
