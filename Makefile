@@ -50,7 +50,7 @@ db-up: mysql-up mysql-wait migrate
 # Backend integration tests (src/test/java/**/*IntegrationTest.java) run against a real MySQL via
 # Testcontainers — self-contained, spins its own container up and down per run, no db-up needed.
 test-backend:
-	 C:\Program Files\JetBrains\IntelliJ IDEA 2026.2.0.1\plugins\maven-plugin\lib\maven3\bin\mvn.cmd test
+	 ./mvnw test
 
 # Starts the Spring Boot app in the background against docker-compose's mysql (db-up), for
 # test-frontend below. Not meant to be left running — pair with backend-down.

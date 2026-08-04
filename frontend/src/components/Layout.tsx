@@ -32,11 +32,11 @@ export function Layout() {
         <Link className={styles.navLink} to="/characters">
           Characters
         </Link>
-        <Link className={styles.navLink} to="/how-to-use">
-          How to Use
-        </Link>
         <Link className={styles.navLink} to="/account">
           Account
+        </Link>
+        <Link className={styles.navLink} to="/how-to-use">
+          How to Use
         </Link>
         <span className={styles.spacer} />
         <button onClick={handleLogout}>Logout</button>

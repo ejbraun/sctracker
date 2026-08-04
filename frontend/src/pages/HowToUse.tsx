@@ -119,6 +119,22 @@ export function HowToUse() {
           </li>
         </ol>
       </Panel>
+
+      <Panel className={styles.section}>
+        <h2>Source code</h2>
+        <ul>
+          <li>
+            <a href="https://github.com/ejbraun/GWToolboxpp/tree/party-log-plugin/plugins/SCTracker" target="_blank" rel="noreferrer">
+              GWToolbox plugin (SCTracker)
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/ejbraun/sctracker" target="_blank" rel="noreferrer">
+              Website (frontend + backend)
+            </a>
+          </li>
+        </ul>
+      </Panel>
     </div>
   );
 }
