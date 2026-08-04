@@ -1,0 +1,6 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--gw-font-body);
+}

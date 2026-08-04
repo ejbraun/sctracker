@@ -1,0 +1,103 @@
+/* specs/frontend/06-theme.md — design tokens for the Guild Wars 1-inspired look. */
+:root {
+  /* chrome */
+  --gw-bg-dark: #1a120b;
+  --gw-panel-dark: #2b1d12;
+  --gw-border-gold: #b8860b;
+  --gw-border-gold-bright: #d4af37;
+
+  /* content panels */
+  --gw-parchment: #e8dcc3;
+  --gw-parchment-dark: #cfc0a0;
+  --gw-text-on-parchment: #2b1d12;
+  --gw-text-on-dark: #e8dcc3;
+
+  /* status */
+  --gw-success: #4a7c3f;
+  --gw-danger: #7c2d2d;
+  --gw-muted: #6b6355;
+
+  /* typography */
+  --gw-font-display: 'Cinzel', serif;
+  --gw-font-body: 'EB Garamond', Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--gw-bg-dark);
+  color: var(--gw-text-on-dark);
+  font-family: var(--gw-font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+button,
+.gw-display {
+  font-family: var(--gw-font-display);
+}
+
+a {
+  color: var(--gw-border-gold-bright);
+}
+
+table {
+  /* Auto, not 100% — sizes to its own content (columns sit close together) rather than always
+     stretching to fill its panel, which spread sparse/few-column tables out awkwardly. Tables with
+     genuinely wide content (e.g. a column listing 8 participant names) still end up wide on their
+     own, since auto-width sizes to what a table's cells actually need, not smaller. */
+  border-collapse: collapse;
+  width: auto;
+  font-family: var(--gw-font-body);
+}
+
+th,
+td {
+  padding: 0.5rem 15rem 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--gw-parchment-dark);
+}
+
+th:last-child,
+td:last-child {
+  padding-right: 0.75rem;
+}
+
+button {
+  background: var(--gw-panel-dark);
+  color: var(--gw-text-on-dark);
+  border: 2px solid var(--gw-border-gold);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+button:hover {
+  border-color: var(--gw-border-gold-bright);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input,
+select {
+  font-family: var(--gw-font-body);
+  background: var(--gw-parchment);
+  color: var(--gw-text-on-parchment);
+  border: 2px solid var(--gw-border-gold);
+  padding: 0.4rem 0.6rem;
+  border-radius: 0;
+}

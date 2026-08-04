@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="007-create-run-objectives" author="uwtracker">
+        <createTable tableName="run_objectives">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="run_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sequence" type="SMALLINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="TINYINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_ms" type="BIGINT UNSIGNED"/>
+            <column name="done_ms" type="BIGINT UNSIGNED"/>
+            <column name="duration_ms" type="BIGINT UNSIGNED"/>
+            <!-- Nesting depth from the payload — found in a real sample, not in the original spec draft. -->
+            <column name="indent" type="TINYINT UNSIGNED" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="run_objectives" columnNames="run_id, sequence"
+                              constraintName="uq_run_objectives_run_seq"/>
+        <createIndex indexName="idx_run_objectives_run_name" tableName="run_objectives">
+            <column name="run_id"/>
+            <column name="name"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="run_objectives" baseColumnNames="run_id"
+                                  constraintName="fk_run_objectives_run"
+                                  referencedTableName="runs" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

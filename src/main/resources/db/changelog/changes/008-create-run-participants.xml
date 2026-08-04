@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="008-create-run-participants" author="uwtracker">
+        <createTable tableName="run_participants">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="run_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="character_id" type="BIGINT UNSIGNED"/>
+            <column name="raw_name" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="primary_profession_id" type="TINYINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="secondary_profession_id" type="TINYINT UNSIGNED"/>
+            <column name="role" type="VARCHAR(16)"/>
+            <column name="party_index" type="TINYINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Found in a real payload sample, not in the original spec draft: party slots can be
+                 AI-controlled heroes/henchmen, not just human players. -->
+            <column name="is_player" type="TINYINT(1)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_hero" type="TINYINT(1)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_henchman" type="TINYINT(1)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="run_participants" columnNames="run_id, raw_name"
+                              constraintName="uq_run_participants_run_name"/>
+        <createIndex indexName="idx_run_participants_character" tableName="run_participants">
+            <column name="character_id"/>
+        </createIndex>
+        <createIndex indexName="idx_run_participants_role" tableName="run_participants">
+            <column name="role"/>
+        </createIndex>
+        <createIndex indexName="idx_run_participants_raw_name" tableName="run_participants">
+            <column name="raw_name"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="run_participants" baseColumnNames="run_id"
+                                  constraintName="fk_run_participants_run"
+                                  referencedTableName="runs" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="run_participants" baseColumnNames="character_id"
+                                  constraintName="fk_run_participants_character"
+                                  referencedTableName="characters" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="run_participants" baseColumnNames="primary_profession_id"
+                                  constraintName="fk_run_participants_primary_prof"
+                                  referencedTableName="professions" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="run_participants" baseColumnNames="secondary_profession_id"
+                                  constraintName="fk_run_participants_secondary_prof"
+                                  referencedTableName="professions" referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,41 @@
+# 07 — Deployment (GCP Cloud Run + Cloud SQL)
+
+## Dockerfile (multi-stage)
+
+1. **Node stage**: build the React app (`npm ci && npm run build`), producing a static bundle.
+2. **Maven stage**: copy the React build output into `src/main/resources/static/` *before* `mvn package`, so Spring Boot serves it as static content from the fat jar — one artifact, no separate frontend server or nginx sidecar.
+3. **Runtime stage**: minimal JRE base image (matching the Java 25 build), copy only the built jar from stage 2, `ENTRYPOINT ["java", "-jar", "app.jar"]`.
+
+Container listens on `8080` (matches `server.port`, spec 00's repo layout).
+
+## Cloud Run service
+
+- **Session storage vs. autoscaling** (cross-ref [03-auth](03-auth.md)): v1 runs with `min-instances=1` and no autoscale-out, since sessions are in-memory per-instance. Don't raise `max-instances` above 1 without first switching to Spring Session JDBC — silently doing so would cause random logouts as requests bounce between instances.
+- Environment: `SPRING_PROFILES_ACTIVE=prod` activates `application-prod.properties`.
+
+## Cloud SQL connection
+
+Use the Cloud Run's native Cloud SQL integration (`--add-cloudsql-instances` / the Cloud SQL connection field in the console) rather than a public IP + allowlist. This mounts a unix socket at `/cloudsql/<INSTANCE_CONNECTION_NAME>`; the app connects via the Cloud SQL MySQL Socket Factory:
+
+`pom.xml`: `com.google.cloud.sql:mysql-socket-factory-connector-j-8`
+
+`application-prod.properties`:
+```properties
+spring.datasource.url=jdbc:mysql:///${DB_NAME}?cloudSqlInstance=${INSTANCE_CONNECTION_NAME}&socketFactory=com.google.cloud.sql.mysql.SocketFactory
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+```
+This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managing IP allowlists or SSL certs by hand, and the connector handles credential rotation/mTLS transparently.
+
+## Secrets
+
+`DB_USERNAME`/`DB_PASSWORD` (and `INSTANCE_CONNECTION_NAME`/`DB_NAME` if not baked into the image) come from Secret Manager, injected via Cloud Run's `--set-secrets` at deploy time — never baked into the image or committed to the repo.
+
+## Migrations on boot
+
+`spring.liquibase.enabled=true` — the app applies pending changesets on every startup. Liquibase's `DATABASECHANGELOGLOCK` table serializes concurrent instance startups safely (only one instance actually runs the migration; others wait), so this is safe even during a Cloud Run rolling deploy. Runbook note: if an instance crashes mid-migration and leaves the lock held, it needs a manual `liquibase releaseLocks` (via the same `make migrate`-style CLI invocation pointed at prod, spec 01) before the next deploy can proceed — not automated, just documented here so it's not a mystery when it happens.
+
+## Local vs. prod config
+
+- `application.properties` — local defaults, MySQL via `docker-compose.yml` on `localhost:3306`.
+- `application-prod.properties` — Cloud SQL socket URL, `cookie.secure=true` (spec 03), activated via `SPRING_PROFILES_ACTIVE=prod`.

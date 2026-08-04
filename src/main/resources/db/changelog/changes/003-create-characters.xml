@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="003-create-characters" author="uwtracker">
+        <createTable tableName="characters">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="person_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="character_name" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_characters_name"/>
+            </column>
+            <column name="default_role" type="VARCHAR(16)"/>
+            <column name="created_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_characters_person" tableName="characters">
+            <column name="person_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="characters" baseColumnNames="person_id"
+                                  constraintName="fk_characters_person"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

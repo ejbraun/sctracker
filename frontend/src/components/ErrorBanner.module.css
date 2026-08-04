@@ -1,0 +1,7 @@
+.banner {
+  border: 2px solid var(--gw-danger);
+  color: var(--gw-danger);
+  background: var(--gw-parchment);
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}

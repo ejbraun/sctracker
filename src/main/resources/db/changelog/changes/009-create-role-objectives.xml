@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="009-create-role-objectives" author="uwtracker">
+        <createTable tableName="role_objectives">
+            <column name="map_id" type="INT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="objective_name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="role_objectives" columnNames="map_id, objective_name, role"
+                        constraintName="pk_role_objectives"/>
+        <addForeignKeyConstraint baseTableName="role_objectives" baseColumnNames="map_id"
+                                  constraintName="fk_role_objectives_map"
+                                  referencedTableName="maps" referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

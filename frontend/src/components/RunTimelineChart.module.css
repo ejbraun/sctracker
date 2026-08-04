@@ -1,0 +1,77 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-family: var(--gw-font-body);
+  font-size: 0.9rem;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.scrollArea {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 2px solid var(--gw-border-gold);
+  background: var(--gw-parchment);
+}
+
+.caption {
+  font-size: 0.85rem;
+  color: var(--gw-text-on-dark);
+  opacity: 0.8;
+}
+
+.point {
+  cursor: pointer;
+}
+
+.point:focus {
+  outline: 2px solid var(--gw-border-gold-bright);
+  outline-offset: 2px;
+}
+
+.axisLine {
+  stroke: var(--gw-text-on-parchment);
+  stroke-opacity: 0.4;
+}
+
+.gridLine {
+  stroke: var(--gw-parchment-dark);
+  stroke-width: 1;
+}
+
+.tickLabel {
+  fill: var(--gw-text-on-parchment);
+  font-family: var(--gw-font-body);
+  font-size: 11px;
+}
+
+.tooltipBg {
+  fill: var(--gw-panel-dark);
+  stroke: var(--gw-border-gold);
+  stroke-width: 1.5;
+}
+
+.tooltipValue {
+  fill: var(--gw-text-on-dark);
+  font-family: var(--gw-font-body);
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.tooltipSecondary {
+  fill: var(--gw-text-on-dark);
+  font-family: var(--gw-font-body);
+  font-size: 11px;
+  opacity: 0.85;
+}

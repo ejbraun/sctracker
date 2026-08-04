@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Signup is gated behind a single-use invite key — only the SHA-256 hash is ever stored
+         (same reasoning/algorithm as machine_keys.key_hash, see MachineKeyHasher), so a leaked
+         database dump can't be turned back into working keys. Actual key rows are seeded by
+         016-seed-signup-keys.xml; plaintext lives outside this repo entirely (see
+         scripts/generate-signup-keys.mjs). -->
+    <changeSet id="015-create-signup-keys" author="uwtracker">
+        <createTable tableName="signup_keys">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="key_hash" type="CHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_signup_keys_hash"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="used_at" type="DATETIME(6)"/>
+            <column name="used_by_person_id" type="BIGINT UNSIGNED"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="signup_keys" baseColumnNames="used_by_person_id"
+                                  constraintName="fk_signup_keys_used_by_person"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+    </changeSet>
+
+</databaseChangeLog>

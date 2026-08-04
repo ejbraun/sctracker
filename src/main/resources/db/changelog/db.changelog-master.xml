@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <include file="db/changelog/changes/001-create-professions.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/002-create-people.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/003-create-characters.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/004-create-machine-keys.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/005-create-maps.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/006-create-runs.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/007-create-run-objectives.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/008-create-run-participants.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/009-create-role-objectives.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/010-add-people-alias.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/011-seed-supported-maps.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/012-drop-characters-default-role.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/013-seed-underworld-role-objectives.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/014-add-run-participants-deaths.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/015-create-signup-keys.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/016-seed-signup-keys.xml" relativeToChangelogFile="false"/>
+
+</databaseChangeLog>

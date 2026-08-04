@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="001-create-professions" author="uwtracker">
+        <createTable tableName="professions">
+            <column name="id" type="TINYINT UNSIGNED">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(20)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_professions_name"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="001-seed-professions" author="uwtracker">
+        <insert tableName="professions"><column name="id" valueNumeric="1"/><column name="name" value="Warrior"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="2"/><column name="name" value="Ranger"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="3"/><column name="name" value="Monk"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="4"/><column name="name" value="Necromancer"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="5"/><column name="name" value="Mesmer"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="6"/><column name="name" value="Elementalist"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="7"/><column name="name" value="Assassin"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="8"/><column name="name" value="Ritualist"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="9"/><column name="name" value="Paragon"/></insert>
+        <insert tableName="professions"><column name="id" valueNumeric="10"/><column name="name" value="Dervish"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

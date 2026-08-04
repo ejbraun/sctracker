@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="006-create-runs" author="uwtracker">
+        <createTable tableName="runs">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="map_id" type="INT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="utc_start" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- NOT a timestamp: a steady_clock/load-screen millisecond counter with no absolute
+                 meaning, confirmed against a real GWToolboxdll payload sample — see Run.java. -->
+            <column name="instance_start_ms" type="BIGINT UNSIGNED"/>
+            <column name="objective_start" type="DATETIME(6)"/>
+            <column name="end_reason" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="completed" type="TINYINT(1)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="duration_ms" type="BIGINT UNSIGNED"/>
+            <column name="created_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex indexName="idx_runs_map_start" tableName="runs">
+            <column name="map_id"/>
+            <column name="utc_start"/>
+        </createIndex>
+        <createIndex indexName="idx_runs_map_completed" tableName="runs">
+            <column name="map_id"/>
+            <column name="completed"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="runs" baseColumnNames="map_id"
+                                  constraintName="fk_runs_map"
+                                  referencedTableName="maps" referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

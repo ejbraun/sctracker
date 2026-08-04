@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- 20 single-use signup keys. Only the SHA-256 hash is stored — generated once via
+         scripts/generate-signup-keys.mjs; the plaintext lives outside this repo entirely (see that
+         script's header comment). Run that script again (against a running dev DB) any time more
+         keys are needed — it mints and inserts them directly, no new migration required. -->
+    <changeSet id="016-seed-signup-keys" author="uwtracker">
+        <insert tableName="signup_keys"><column name="key_hash" value="64364365bc3d692943559dee6d1cbc1f40a58a7a0fe63e182ac409b7460117d3"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="e62ef9dff77f7ded7ce26d13b431f8d160d8d40b45becf8ad6b319caa91d27bb"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="6ca322fda29bd836c87b0d75f6b5c9629522f2e7608c6b1c854828b8d463f8de"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="295617bf6790edee8b9ca2086cea1a2504fe598be237324bcadaf89d37c2e686"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="fe305b9e19723b8a7614e7210b4984085a0d2218862488fe3cda232c369b0cd2"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="f0a482566f00382ac534f1907d940648a5f56b8e281cc359b71b0b174e41485d"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="2d13586bb782b30be49ff4d0bd716595fce1ca2025bfeb1eb09eaf35edfa9776"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="837df48b106124ce4dccf80170e7407f319725f5c91062c44380b42722c2f898"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="c1ee3def3b09834a28bcebb7cf4ce436f97720c6bfc85c6b926cf2311501db67"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="5c6cd0c3ee1609fe3afe7e21b869ec2c8ccad36aa26ee91f6ec06409ae9a1da6"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="decff3b70c7631e7915c8f568fd1028b42e92471a0bcc5fb989f782bc2059e62"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="a1b6a4436e53cbc4ef54717de106c2a040c6faff3db53ff64aa8589152998c71"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="b3a016c1f86d19e063bbc48ae8a0e639f94bd95abb7828fce02340b6b4e31772"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="1b72c212a9ce00b22d0ddd7c098d432a6891b99272bf0a55c911edeba16c90b5"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="2d830cad711494c70770260fe1a192099ebcf45cda4a62334da3af8ae915e9ea"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="c2a3049f96a18dd691b35e0cc94b7f8d5b9229cec33c30f04d905c2e49f19e82"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="12131eeb7ba7dce38733fb7707878015594d1e167b6c055d061c6bca3e91ee77"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="5bd4bd35a9dcff02059330832a8825cfb99fb22bb5728cfb4277f695cb02e5fc"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="308a98cf31af3c246eb977be4c7009e8e0dcf55c55271c518ddc7994e84b937c"/></insert>
+        <insert tableName="signup_keys"><column name="key_hash" value="01103aa62dc8c7d762172647c29db995d1d12de7ddfb37a39bb88bba843ca4b0"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

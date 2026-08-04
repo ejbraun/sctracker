@@ -1,0 +1,15 @@
+.header {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.unlinked {
+  color: var(--gw-muted);
+  font-style: italic;
+}

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Public-facing display identity, separate from username (private, login-only). Nullable and
+         set later via PATCH /api/account/alias, unique when present; MySQL's unique index permits
+         any number of NULLs, so accounts that haven't set one yet don't collide. -->
+    <changeSet id="010-add-people-alias" author="uwtracker">
+        <addColumn tableName="people">
+            <column name="alias" type="VARCHAR(64)">
+                <constraints nullable="true" unique="true" uniqueConstraintName="uq_people_alias"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

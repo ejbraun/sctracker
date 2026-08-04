@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Removed: a character's role varies run to run (see run_participants.role, derived per
+         upload from the actual profession combo — RoleDerivation), so a single fixed "default"
+         per character never reflected reality and wasn't used by any logic, only displayed. -->
+    <changeSet id="012-drop-characters-default-role" author="uwtracker">
+        <dropColumn tableName="characters" columnName="default_role"/>
+    </changeSet>
+
+</databaseChangeLog>

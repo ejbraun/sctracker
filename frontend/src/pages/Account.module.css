@@ -1,0 +1,44 @@
+.section {
+  margin-bottom: 2rem;
+}
+
+.keyForm,
+.aliasForm {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.aliasHint {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.revealBox {
+  border: 2px solid var(--gw-border-gold-bright);
+  background: var(--gw-panel-dark);
+  color: var(--gw-text-on-dark);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rawKey {
+  font-family: monospace;
+  font-size: 1rem;
+  background: var(--gw-bg-dark);
+  padding: 0.5rem;
+  display: block;
+  margin: 0.5rem 0;
+  word-break: break-all;
+}
+
+.warning {
+  color: var(--gw-border-gold-bright);
+  font-size: 0.9rem;
+}
+
+.revoked {
+  opacity: 0.5;
+  text-decoration: line-through;
+}

@@ -1,0 +1,23 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form {
+  width: 320px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-family: var(--gw-font-body);
+}
+
+.form button {
+  width: 100%;
+  margin-top: 0.5rem;
+}

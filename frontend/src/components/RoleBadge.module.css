@@ -1,0 +1,17 @@
+.badge {
+  display: inline-block;
+  font-family: var(--gw-font-display);
+  font-size: 0.85rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--gw-border-gold);
+  background: var(--gw-panel-dark);
+  color: var(--gw-text-on-dark);
+  text-transform: capitalize;
+}
+
+.unresolved {
+  color: var(--gw-muted);
+  border-color: var(--gw-muted);
+  font-style: italic;
+  text-transform: none;
+}

@@ -1,0 +1,27 @@
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.subsection {
+  margin-top: 1.5rem;
+}
+
+.rank {
+  font-family: var(--gw-font-display);
+  width: 2.5rem;
+}
+
+.participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.participant {
+  font-size: 0.85rem;
+}
+
+.emptyState {
+  color: var(--gw-muted);
+  font-style: italic;
+}

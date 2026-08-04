@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- maps is now a curated, well-defined set rather than auto-discovered from whatever map_id an
+         upload happens to carry (see UploadRunService, which rejects any map_id not seeded here).
+         Currently just the Underworld; add more rows here (with a real GW1 map_id and name) as more
+         maps are supported. Map id 72 confirmed against a real GWToolboxdll payload sample, see
+         specs/backend/00-overview.md's "Timestamps" section. -->
+    <changeSet id="011-seed-supported-maps" author="uwtracker">
+        <insert tableName="maps">
+            <column name="id" valueNumeric="72"/>
+            <column name="name" value="Underworld"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,40 @@
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav {
+  background: var(--gw-panel-dark);
+  border-bottom: 2px solid var(--gw-border-gold);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.brand {
+  font-family: var(--gw-font-display);
+  font-size: 1.25rem;
+  color: var(--gw-border-gold-bright);
+  margin-right: 0.5rem;
+}
+
+.navLink {
+  color: var(--gw-text-on-dark);
+  text-decoration: none;
+  font-family: var(--gw-font-display);
+}
+
+.navLink:hover {
+  color: var(--gw-border-gold-bright);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.content {
+  padding: 1.5rem;
+  flex: 1;
+}

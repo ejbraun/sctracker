@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Which roles' section times count toward that objective's personal best (specs/backend/05 —
+         "role-gated"). 009-create-role-objectives.xml only created the table; it was never seeded,
+         so every Sections "Your best" cell showed "no data" regardless of role. Underworld (map 72),
+         matching the real 11-stop route in scripts/seed-uw-runs.mjs's ROUTE array. -->
+    <changeSet id="013-seed-underworld-role-objectives" author="uwtracker">
+        <!-- Chamber: LT, spiker, sos, T2 -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Chamber"/><column name="role" value="LT"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Chamber"/><column name="role" value="spiker"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Chamber"/><column name="role" value="sos"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Chamber"/><column name="role" value="T2"/></insert>
+
+        <!-- Restore: every role -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="T1"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="T2"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="T3"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="T4"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="LT"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="spiker"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="sos"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Restore"/><column name="role" value="emo"/></insert>
+
+        <!-- Escort: LT, spiker, sos, emo -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Escort"/><column name="role" value="LT"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Escort"/><column name="role" value="spiker"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Escort"/><column name="role" value="sos"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Escort"/><column name="role" value="emo"/></insert>
+
+        <!-- UWG: LT, emo, spiker, sos -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="UWG"/><column name="role" value="LT"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="UWG"/><column name="role" value="emo"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="UWG"/><column name="role" value="spiker"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="UWG"/><column name="role" value="sos"/></insert>
+
+        <!-- Vale: LT, emo, spiker, sos -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Vale"/><column name="role" value="LT"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Vale"/><column name="role" value="emo"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Vale"/><column name="role" value="spiker"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Vale"/><column name="role" value="sos"/></insert>
+
+        <!-- Waste: T1 -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Waste"/><column name="role" value="T1"/></insert>
+
+        <!-- Pits: T3, T4 -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Pits"/><column name="role" value="T3"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Pits"/><column name="role" value="T4"/></insert>
+
+        <!-- Planes: T3, T4 -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Planes"/><column name="role" value="T3"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Planes"/><column name="role" value="T4"/></insert>
+
+        <!-- Mnts: T2 -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Mnts"/><column name="role" value="T2"/></insert>
+
+        <!-- Pools: T2 -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Pools"/><column name="role" value="T2"/></insert>
+
+        <!-- Dhuum: every role -->
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="T1"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="T2"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="T3"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="T4"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="LT"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="spiker"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="sos"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Dhuum"/><column name="role" value="emo"/></insert>
+    </changeSet>
+
+</databaseChangeLog>
