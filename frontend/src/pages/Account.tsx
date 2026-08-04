@@ -81,8 +81,8 @@ export function Account() {
         <h2>Machine keys</h2>
         <p>
           Used by the GW1 SDK plugin to authenticate uploads. Don't have the plugin yet?{' '}
-          <a href="/downloads/GWToolboxdll.dll" download>
-            Download GWToolboxdll
+          <a href="/SCTracker.dll" download>
+            Download SCTracker.dll
           </a>
           .
         </p>

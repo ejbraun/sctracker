@@ -61,7 +61,7 @@ export function LoserboardsPage() {
       </Panel>
 
       <Panel className={styles.section}>
-        <h2>Worst</h2>
+        <h2>Worst Completions</h2>
         {worstQuery.isLoading && <p>Loading…</p>}
         {worstQuery.data && worstQuery.data.length === 0 && (
           <p className={styles.emptyState}>No completed runs recorded for this map yet.</p>
@@ -99,7 +99,7 @@ export function LoserboardsPage() {
       </Panel>
 
       <Panel className={styles.section}>
-        <h2>Deaths by role</h2>
+        <h2>Deaths By Role</h2>
         {roleDeathsQuery.isLoading && <p>Loading…</p>}
         {roleDeathsQuery.data &&
           ROLES.map((role, index) => {
@@ -140,7 +140,7 @@ export function LoserboardsPage() {
       </Panel>
 
       <Panel className={styles.section}>
-        <h2>Fails by role</h2>
+        <h2>Quest Fails By Role</h2>
         {roleFailsQuery.isLoading && <p>Loading…</p>}
         {roleFailsQuery.data &&
           ROLES.map((role, index) => {
@@ -181,7 +181,7 @@ export function LoserboardsPage() {
       </Panel>
 
       <Panel className={styles.section}>
-        <h2>Global fails</h2>
+        <h2>Resign Fails By User</h2>
         {globalFailsQuery.isLoading && <p>Loading…</p>}
         {globalFailsQuery.data && globalFailsQuery.data.length === 0 && (
           <p className={styles.emptyState}>No runs recorded for this map yet.</p>

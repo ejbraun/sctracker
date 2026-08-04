@@ -44,7 +44,7 @@ export function LeaderboardPage() {
 
   return (
     <div>
-      <h1>Leaderboard</h1>
+      <h1>Leaderboards</h1>
 
       <Panel className={styles.section}>
         <label>

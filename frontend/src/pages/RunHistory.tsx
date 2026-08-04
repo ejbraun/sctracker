@@ -106,7 +106,7 @@ export function RunHistory() {
       <h1>Run History</h1>
 
       <Panel className={styles.chartSection}>
-        <h2>Duration over time</h2>
+        <h2>Runs by Elapsed Time - Faceted by Run Result</h2>
         {chartQuery.isLoading && <p>Loading…</p>}
         {chartQuery.data && <RunTimelineChart runs={chartQuery.data.items} />}
       </Panel>
