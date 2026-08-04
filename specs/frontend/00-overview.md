@@ -61,6 +61,7 @@ Thin `fetch` wrapper with a `/api` base path: JSON request/response, throws a ty
 | `/login` | Login | public |
 | `/signup` | Signup | public |
 | `/` | Dashboard / map picker | protected |
+| `/how-to-use` | Onboarding guide (setup + adding characters) | protected |
 | `/account` | Profile + machine keys | protected |
 | `/characters` | Character management | protected |
 | `/leaderboards/:mapId` | Leaderboard for a map | protected |

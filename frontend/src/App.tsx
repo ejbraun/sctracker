@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { Dashboard } from './pages/Dashboard';
 import { Account } from './pages/Account';
+import { HowToUse } from './pages/HowToUse';
 import { Characters } from './pages/Characters';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LoserboardsPage } from './pages/LoserboardsPage';
@@ -27,6 +28,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/how-to-use" element={<HowToUse />} />
                 <Route path="/account" element={<Account />} />
                 <Route path="/characters" element={<Characters />} />
                 <Route path="/leaderboards/:mapId" element={<LeaderboardPage />} />

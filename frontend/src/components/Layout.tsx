@@ -19,7 +19,7 @@ export function Layout() {
   return (
     <div className={styles.shell}>
       <nav className={styles.nav}>
-        <span className={styles.brand}>uwtracker</span>
+        <span className={styles.brand}>gwsctracker</span>
         <Link className={styles.navLink} to="/">
           Leaderboards
         </Link>
@@ -31,6 +31,9 @@ export function Layout() {
         </Link>
         <Link className={styles.navLink} to="/characters">
           Characters
+        </Link>
+        <Link className={styles.navLink} to="/how-to-use">
+          How to Use
         </Link>
         <Link className={styles.navLink} to="/account">
           Account
