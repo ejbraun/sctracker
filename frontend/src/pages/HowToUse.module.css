@@ -57,3 +57,9 @@
   margin-top: 1rem;
   font-size: 0.9rem;
 }
+
+/* Dark box nested inside the (parchment) panel, so Panel.module.css's darker on-parchment link
+   color would be unreadable here — back to the light gold that reads against a dark background. */
+.note a {
+  color: var(--gw-border-gold-bright);
+}

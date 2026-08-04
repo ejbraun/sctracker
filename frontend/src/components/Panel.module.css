@@ -8,3 +8,15 @@
     0 2px 6px rgba(0, 0, 0, 0.4);
   padding: 1rem 1.25rem;
 }
+
+/* theme.css's global `a` color (--gw-border-gold-bright) is tuned for the dark nav/note
+   backgrounds — too low-contrast against this panel's light parchment, so links inside a panel
+   get their own darker, underlined treatment instead. */
+.panel a {
+  color: var(--gw-text-on-parchment);
+  text-decoration: underline;
+}
+
+.panel a:hover {
+  color: var(--gw-border-gold);
+}
