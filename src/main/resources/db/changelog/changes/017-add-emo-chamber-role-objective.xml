@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- 013-seed-underworld-role-objectives.xml missed emo on Chamber - emo (Elementalist/Monk)
+         does take part in the Chamber trial alongside LT/spiker/sos, same as it does on
+         Escort/UWG/Vale. -->
+    <changeSet id="017-add-emo-chamber-role-objective" author="uwtracker">
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="72"/><column name="objective_name" value="Chamber"/><column name="role" value="emo"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

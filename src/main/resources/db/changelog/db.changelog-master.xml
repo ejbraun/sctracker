@@ -21,5 +21,6 @@
     <include file="db/changelog/changes/014-add-run-participants-deaths.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/015-create-signup-keys.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/016-seed-signup-keys.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/017-add-emo-chamber-role-objective.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
