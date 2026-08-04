@@ -53,14 +53,14 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
     private static List<PartyMemberDto> validParty() {
         return new ArrayList<>(List.of(
-                new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0),
-                new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0),
-                new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0),
-                new PartyMemberDto("T4", ELEMENTALIST, MESMER, true, false, false, 0),
-                new PartyMemberDto("LT", MESMER, ASSASSIN, true, false, false, 0),
-                new PartyMemberDto("Spiker", DERVISH, WARRIOR, true, false, false, 0),
-                new PartyMemberDto("SoS", RITUALIST, RANGER, true, false, false, 0),
-                new PartyMemberDto("Emo", ELEMENTALIST, MONK, true, false, false, 0)
+                new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null),
+                new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, null),
+                new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null),
+                new PartyMemberDto("T4", ELEMENTALIST, MESMER, true, false, false, 0, null),
+                new PartyMemberDto("LT", MESMER, ASSASSIN, true, false, false, 0, null),
+                new PartyMemberDto("Spiker", DERVISH, WARRIOR, true, false, false, 0, null),
+                new PartyMemberDto("SoS", RITUALIST, RANGER, true, false, false, 0, null),
+                new PartyMemberDto("Emo", ELEMENTALIST, MONK, true, false, false, 0, null)
         ));
     }
 
@@ -120,6 +120,25 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         assertThat(participants.get(7).getRole()).isEqualTo("emo");
         assertThat(participants.get(0).isPlayer()).isTrue();
         assertThat(participants.get(0).isHero()).isFalse();
+    }
+
+    @Test
+    void roleHintOverridesPartyPositionForTrappers() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> members = validParty();
+        // Swap which array position claims which trapper role via role_hint - contradicts the
+        // plain party order (index 0/1/2 => T1/T2/T3) that would otherwise apply.
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t2"));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t1"));
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
+
+        upload(key, request);
+
+        Run run = runRepository.findAll().get(0);
+        List<RunParticipant> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
+        assertThat(participants.get(0).getRole()).isEqualTo("T2");
+        assertThat(participants.get(1).getRole()).isEqualTo("T1");
+        assertThat(participants.get(2).getRole()).isEqualTo("T3");
     }
 
     @Test
@@ -296,7 +315,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     void rejectsUnknownProfessionId() throws Exception {
         String key = issueMachineKey();
         List<PartyMemberDto> members = validParty();
-        members.set(0, new PartyMemberDto("T1", 999, ASSASSIN, true, false, false, 0));
+        members.set(0, new PartyMemberDto("T1", 999, ASSASSIN, true, false, false, 0, null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
 
         mockMvc.perform(post("/upload-run")

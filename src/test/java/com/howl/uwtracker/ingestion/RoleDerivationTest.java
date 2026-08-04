@@ -22,7 +22,11 @@ class RoleDerivationTest {
     private static final int DERVISH = 10;
 
     private static PartyMemberDto member(String name, int primary, int secondary) {
-        return new PartyMemberDto(name, primary, secondary, true, false, false, 0);
+        return new PartyMemberDto(name, primary, secondary, true, false, false, 0, null);
+    }
+
+    private static PartyMemberDto member(String name, int primary, int secondary, String roleHint) {
+        return new PartyMemberDto(name, primary, secondary, true, false, false, 0, roleHint);
     }
 
     /** T1/T2/T3 (Ranger/Assassin) + T4/LT/emo/spiker/sos in party order 3-7. */
@@ -118,5 +122,71 @@ class RoleDerivationTest {
         party.set(3, member("Reversed", MESMER, ELEMENTALIST));
         List<String> roles = RoleDerivation.resolveRoles(party);
         assertNull(roles.get(3));
+    }
+
+    @Test
+    void allThreeHintedInArrayOrderMatchesPositionalResult() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("T1", RANGER, ASSASSIN, "t1"));
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T1", roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
+
+    @Test
+    void hintsOverridePositionWhenOutOfOrder() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("ActuallyT2", RANGER, ASSASSIN, "t2"));
+        party.set(1, member("ActuallyT1", RANGER, ASSASSIN, "t1"));
+        party.set(2, member("ActuallyT3", RANGER, ASSASSIN, "t3"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(0));
+        assertEquals("T1", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
+
+    @Test
+    void partialHintFillsRemainingLabelsPositionally() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("T1", RANGER, ASSASSIN, "t1"));
+        // indices 1 and 2 left un-hinted (null roleHint, via fullValidParty()'s plain members)
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T1", roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
+
+    @Test
+    void hintIsCaseNormalizedToUppercase() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(1));
+    }
+
+    @Test
+    void duplicateHintFirstWinsSecondFallsBackPositionally() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("FirstT1", RANGER, ASSASSIN, "t1"));
+        party.set(1, member("AlsoClaimsT1", RANGER, ASSASSIN, "t1"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T1", roles.get(0));
+        // index 1's duplicate hint is ignored; falls back to whichever label pass 2 assigns it
+        // (the next unclaimed label, in position order, since index 0 already took T1).
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
+
+    @Test
+    void invalidHintValueFallsBackLikeNoHint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("T1", RANGER, ASSASSIN, "t9"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T1", roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
     }
 }

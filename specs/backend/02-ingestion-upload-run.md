@@ -45,6 +45,8 @@ Profession IDs use the official GW1 numbering from `professions` (spec 01): `1`=
 
 **`party_members[]` has three fields not in the original draft**, found in this sample: `is_player`, `is_hero`, `is_henchman` (booleans). Party slots can be AI-controlled heroes/henchmen, not just human players — e.g. a solo player running with a full hero/henchman team, like the sample above. **Resolved**: real guild 8-man parties are always all human players, so the party-size-8 rule below already guarantees this — no special handling needed for role derivation, validation, or leaderboard eligibility. (Smaller/mixed parties, like this sample's solo capture, are simply rejected by the size check before it would matter.) Stored on `run_participants` for fidelity, not read by any logic.
 
+**`party_members[]` also carries an optional `role_hint`** (string, `"t1"`/`"t2"`/`"t3"`), set by newer plugin builds for a Ranger/Assassin-primary member once they cast one of a fixed set of trapping skills — see "Role derivation" below for how it's consumed. Absent on older plugin builds, and per-member rather than guaranteed for the whole party.
+
 **`objectives[]` has one field not in the original draft**: `indent` (integer, nesting depth — always `0` in samples seen so far). Stored on `run_objectives` for fidelity; not yet used by anything.
 
 **Timestamp format — confirmed against the real sample above** (superseding the original draft's "assume epoch milliseconds for everything"):
@@ -77,12 +79,26 @@ Executed in a single transaction per request.
 
 Pure function, `resolveRoles(partyMembers[8]) -> String[8]` (or an equivalent array-in/array-out shape) — keep it isolated from the DB layer so it's directly unit-testable against fixture party arrays.
 
-```
-role[0] = "T1"
-role[1] = "T2"
-role[2] = "T3"
-```
-These three are positional, not profession-based — they share the same profession combo (Ranger/Assassin) and can't be told apart any other way.
+**`role_hint`** (optional, per party member): the plugin sets this once a Ranger/Assassin-primary
+member casts one of a fixed set of trapping skills — first-match-wins, value is `"t1"`/`"t2"`/`"t3"`
+(lowercase on the wire; case-normalized to `T1`/`T2`/`T3` here). It's per-member, not guaranteed for
+the whole party — a real T1/T2/T3 player simply won't have one yet if they haven't cast the mapped
+skill this run (e.g. an early resign). Resolution order:
+
+1. **Hints first**: for any member with a valid, non-duplicate `role_hint`, assign that label
+   directly, wherever they actually sit in the party array. An invalid value or a duplicate claim
+   of a label another member already took is logged as a WARN and treated as absent for that member.
+2. **Positional fallback**: whichever of `T1`/`T2`/`T3` step 1 left unclaimed are filled from party
+   positions `0, 1, 2` in order, skipping any position a hint already claimed. With no hints present
+   at all (older plugin builds), this reduces to the original rule:
+   ```
+   role[0] = "T1"
+   role[1] = "T2"
+   role[2] = "T3"
+   ```
+   These three are positional as a last resort, not profession-based — they share the same
+   profession combo (Ranger/Assassin) and, absent a hint, can't be told apart any other way.
+3. **Profession combo**: everything still unassigned (normally indices 3–7) resolves as below.
 
 For indices 3–7, match the (primary, secondary) pair — **ordered**, primary first, matching the "X/Y" GW1 community shorthand used in the requirements (primary `X`, secondary `Y`):
 
