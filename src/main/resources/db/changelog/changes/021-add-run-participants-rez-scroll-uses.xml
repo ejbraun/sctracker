@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- "rez_scroll_uses" per party member — a newly-observed field on the upload payload, same
+         situation as 014's "deaths": defaults to 0 for a payload that omits it (older plugin version). -->
+    <changeSet id="021-add-run-participants-rez-scroll-uses" author="uwtracker">
+        <addColumn tableName="run_participants">
+            <column name="rez_scroll_uses" type="SMALLINT UNSIGNED" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

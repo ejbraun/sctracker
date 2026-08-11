@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- RangerNecro (Ranger/Necromancer) is the reverse combo of Necro (Necromancer/Ranger) and
+         fills the same party niche, so it inherits Necro's (map, objective) gating verbatim. Must
+         run after 019, which is what creates the 'Necro' rows this copies. -->
+    <changeSet id="020-seed-rangernecro-role-objectives" author="uwtracker">
+        <sql>
+            INSERT INTO role_objectives (map_id, objective_name, role)
+            SELECT map_id, objective_name, 'RangerNecro' FROM role_objectives WHERE role = 'Necro';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

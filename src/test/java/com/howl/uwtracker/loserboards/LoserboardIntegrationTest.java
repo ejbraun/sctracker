@@ -39,7 +39,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),
-                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths()));
+                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), blueprint.getRezScrollUses()));
         }
         return run;
     }
@@ -49,7 +49,11 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     private RunParticipant participant(PlayerCharacter character, String rawName, Profession profession, String role, int index, int deaths) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, deaths);
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, deaths, 0);
+    }
+
+    private RunParticipant participantWithRezScrollUses(PlayerCharacter character, String rawName, Profession profession, String role, int index, int rezScrollUses) {
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, rezScrollUses);
     }
 
     private PlayerCharacter character(Person person, String name) {
@@ -101,47 +105,24 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void roleFailsOnlyCountsWipesAtAGatedObjective() throws Exception {
-        MockHttpSession session = signup("rolefailviewer", "password123");
+    void roleDeathsOrdersByDeathsPerRunNotRawTotal() throws Exception {
+        MockHttpSession session = signup("deathsrateviewer", "password123");
         GameMap map = map();
         Profession warrior = professionRepository.findById(1).orElseThrow();
 
-        // Only "T1" is gated in for this objective.
-        roleObjectiveRepository.save(new RoleObjective(new RoleObjectiveId(MAP_ID, OBJECTIVE_NAME, "T1")));
+        // FewButFatal: 1 run, 5 deaths -> 5.0/run. ManyButSafe: 10 runs, 20 deaths total -> 2.0/run.
+        // Raw total favors ManyButSafe (20 > 5); rate favors FewButFatal (5.0 > 2.0) — must sort by rate.
+        seedRun(map, 10_000L, true, "unknown", participant(null, "FewButFatal", warrior, "T1", 0, 5));
+        for (int i = 0; i < 10; i++) {
+            seedRun(map, 10_000L, true, "unknown", participant(null, "ManyButSafe", warrior, "T1", 0, 2));
+        }
 
-        Run t1Wipe = seedRun(map, 10_000L, false, "wipe", participant(null, "T1er", warrior, "T1", 0));
-        runObjectiveRepository.save(new RunObjective(t1Wipe, 0, OBJECTIVE_NAME, 1, 0L, 4000L, 4000L, 0));
-
-        // spiker also wipes on this objective, but spiker isn't gated in for it — doesn't count.
-        Run spikerWipe = seedRun(map, 10_000L, false, "wipe", participant(null, "Spikerer", warrior, "spiker", 0));
-        runObjectiveRepository.save(new RunObjective(spikerWipe, 0, OBJECTIVE_NAME, 1, 0L, 4000L, 4000L, 0));
-
-        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/role-fails").session(session))
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/role-deaths").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.role=='T1' && @.user=='T1er')].total_runs").value(1))
-                .andExpect(jsonPath("$[?(@.role=='T1' && @.user=='T1er')].fails").value(1))
-                .andExpect(jsonPath("$[?(@.role=='T1' && @.user=='T1er')].percentage").value(100.0))
-                .andExpect(jsonPath("$[?(@.role=='spiker' && @.user=='Spikerer')].total_runs").value(1))
-                .andExpect(jsonPath("$[?(@.role=='spiker' && @.user=='Spikerer')].fails").value(0))
-                .andExpect(jsonPath("$[?(@.role=='spiker' && @.user=='Spikerer')].percentage").value(0.0));
-    }
-
-    @Test
-    void roleFailsExcludesResigns() throws Exception {
-        MockHttpSession session = signup("resignroleviewer", "password123");
-        GameMap map = map();
-        Profession warrior = professionRepository.findById(1).orElseThrow();
-
-        roleObjectiveRepository.save(new RoleObjective(new RoleObjectiveId(MAP_ID, OBJECTIVE_NAME, "T1")));
-
-        // Same shape as a wipe (objective at status=1, gated to T1) but end_reason is "resign" — must not count.
-        Run resign = seedRun(map, 10_000L, false, "resign", participant(null, "Resigner", warrior, "T1", 0));
-        runObjectiveRepository.save(new RunObjective(resign, 0, OBJECTIVE_NAME, 1, 0L, 4000L, 4000L, 0));
-
-        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/role-fails").session(session))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.role=='T1' && @.user=='Resigner')].total_runs").value(1))
-                .andExpect(jsonPath("$[?(@.role=='T1' && @.user=='Resigner')].fails").value(0));
+                .andExpect(jsonPath("$[0].user").value("FewButFatal"))
+                .andExpect(jsonPath("$[0].avg_deaths").value(5.0))
+                .andExpect(jsonPath("$[1].user").value("ManyButSafe"))
+                .andExpect(jsonPath("$[1].avg_deaths").value(2.0));
     }
 
     @Test
@@ -166,6 +147,29 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void globalFailsOrdersByResignPercentageNotRawCount() throws Exception {
+        MockHttpSession session = signup("resignrateviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        // SingleResigner: 1 run, 1 resign -> 100%. FrequentRunner: 4 runs, 2 resigns -> 50%.
+        // Raw resign count favors FrequentRunner (2 > 1); percentage favors SingleResigner (100 > 50).
+        seedRun(map, 5_000L, false, "resign", participant(null, "SingleResigner", warrior, "T1", 0));
+
+        seedRun(map, 5_000L, false, "resign", participant(null, "FrequentRunner", warrior, "T1", 0));
+        seedRun(map, 5_000L, false, "resign", participant(null, "FrequentRunner", warrior, "T1", 0));
+        seedRun(map, 10_000L, true, "unknown", participant(null, "FrequentRunner", warrior, "T1", 0));
+        seedRun(map, 10_000L, true, "unknown", participant(null, "FrequentRunner", warrior, "T1", 0));
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/global-fails").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user").value("SingleResigner"))
+                .andExpect(jsonPath("$[0].percentage").value(100.0))
+                .andExpect(jsonPath("$[1].user").value("FrequentRunner"))
+                .andExpect(jsonPath("$[1].percentage").value(50.0));
+    }
+
+    @Test
     void globalFailsExcludesWipes() throws Exception {
         MockHttpSession session = signup("globalwipeviewer", "password123");
         Person person = personEntity("wipeprone");
@@ -182,24 +186,133 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void roleFailsRespectsFromToTimeWindow() throws Exception {
-        MockHttpSession session = signup("rolefailwindow", "password123");
+    void longestBadStreakFindsLongestRunOfConsecutiveResignsAndWipesCombined() throws Exception {
+        MockHttpSession session = signup("badstreakviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Instant now = Instant.now();
+        // Dave: wipe, resign, COMPLETED, wipe, resign, wipe -> longest bad streak is the trailing 3
+        // (resign/wipe share one "bad outcome" category; the completed run in the middle breaks it).
+        seedRun(map, now.minusSeconds(600), 10_000L, false, "wipe", participant(null, "Dave", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(500), 10_000L, false, "resign", participant(null, "Dave", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(400), 10_000L, true, "unknown", participant(null, "Dave", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(300), 10_000L, false, "wipe", participant(null, "Dave", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(200), 10_000L, false, "resign", participant(null, "Dave", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(100), 10_000L, false, "wipe", participant(null, "Dave", warrior, "T1", 0));
+
+        // Eve: two bad runs in a row -> streak of 2, shorter than Dave's (verifies ranking).
+        seedRun(map, now.minusSeconds(500), 10_000L, false, "wipe", participant(null, "Eve", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(400), 10_000L, false, "resign", participant(null, "Eve", warrior, "T1", 0));
+
+        // Frank never has a bad run -> has no is_hit=1 island, absent from the results entirely.
+        seedRun(map, now.minusSeconds(500), 10_000L, true, "unknown", participant(null, "Frank", warrior, "T1", 0));
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/streaks/bad").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].user").value("Dave"))
+                .andExpect(jsonPath("$[0].streak").value(3))
+                .andExpect(jsonPath("$[1].user").value("Eve"))
+                .andExpect(jsonPath("$[1].streak").value(2));
+    }
+
+    @Test
+    void longestBadStreakUnknownEndReasonBreaksTheStreak() throws Exception {
+        MockHttpSession session = signup("unknownbreak", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Instant now = Instant.now();
+        // wipe, wipe, UNKNOWN (not completed, but not resign/wipe either), wipe -> two separate
+        // streaks of 2, not one streak of 3 — "unknown" is its own island, not a "bad" hit.
+        seedRun(map, now.minusSeconds(400), 10_000L, false, "wipe", participant(null, "Between", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(300), 10_000L, false, "wipe", participant(null, "Between", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(200), 10_000L, false, "unknown", participant(null, "Between", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(100), 10_000L, false, "wipe", participant(null, "Between", warrior, "T1", 0));
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/streaks/bad").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.user=='Between')].streak").value(2));
+    }
+
+    @Test
+    void longestBadStreakRespectsFromToTimeWindow() throws Exception {
+        MockHttpSession session = signup("badstreakwindow", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Instant now = Instant.now();
+        seedRun(map, now.minusSeconds(30 * 24 * 3600 + 200), 10_000L, false, "wipe", participant(null, "OldLoser", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(30 * 24 * 3600 + 100), 10_000L, false, "wipe", participant(null, "OldLoser", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(30 * 24 * 3600), 10_000L, false, "wipe", participant(null, "OldLoser", warrior, "T1", 0));
+
+        seedRun(map, now.minusSeconds(3600), 10_000L, false, "resign", participant(null, "RecentLoser", warrior, "T1", 0));
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/streaks/bad").session(session)
+                        .param("from", now.minusSeconds(24 * 3600).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].user").value("RecentLoser"))
+                .andExpect(jsonPath("$[0].streak").value(1));
+    }
+
+    @Test
+    void mostRezScrollUsesRanksPerPlayerNotPerRunTotal() throws Exception {
+        MockHttpSession session = signup("rezscrollviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        // One run where two players each used scrolls — ranked individually, not summed to 7.
+        seedRun(map, 10_000L, true, "unknown",
+                participantWithRezScrollUses(null, "BigUser", warrior, "T1", 0, 5),
+                participantWithRezScrollUses(null, "SmallUser", warrior, "T2", 1, 2));
+        // A lone big single-run performance in a separate (wiped) run — still counts.
+        seedRun(map, 10_000L, false, "wipe", participantWithRezScrollUses(null, "SoloHero", warrior, "T1", 0, 9));
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/rez-scrolls").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user").value("SoloHero"))
+                .andExpect(jsonPath("$[0].rez_scroll_uses").value(9))
+                .andExpect(jsonPath("$[1].user").value("BigUser"))
+                .andExpect(jsonPath("$[1].rez_scroll_uses").value(5))
+                .andExpect(jsonPath("$[2].user").value("SmallUser"))
+                .andExpect(jsonPath("$[2].rez_scroll_uses").value(2));
+    }
+
+    @Test
+    void sectionSlowestStartRanksBySlowestArrival() throws Exception {
+        MockHttpSession session = signup("slowstartviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Run earlyArrival = seedRun(map, 40_000L, true, "unknown", participant(null, "EarlyArriver", warrior, "T1", 0));
+        runObjectiveRepository.save(new RunObjective(earlyArrival, 0, OBJECTIVE_NAME, 2, 1000L, 9000L, 8000L, 0));
+
+        Run lateArrival = seedRun(map, 35_000L, true, "unknown", participant(null, "LateArriver", warrior, "T1", 0));
+        runObjectiveRepository.save(new RunObjective(lateArrival, 0, OBJECTIVE_NAME, 2, 5000L, 6000L, 1000L, 0));
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].run_id").value(lateArrival.getId()))
+                .andExpect(jsonPath("$[0].start_ms").value(5000));
+    }
+
+    @Test
+    void sectionSlowestStartIncludesFullPartyNotJustGatedRoles() throws Exception {
+        MockHttpSession session = signup("slowstartparticipants", "password123");
         GameMap map = map();
         Profession warrior = professionRepository.findById(1).orElseThrow();
 
         roleObjectiveRepository.save(new RoleObjective(new RoleObjectiveId(MAP_ID, OBJECTIVE_NAME, "T1")));
 
-        Instant now = Instant.now();
-        Run recentWipe = seedRun(map, now.minusSeconds(3600), 10_000L, false, "wipe", participant(null, "Recent", warrior, "T1", 0));
-        runObjectiveRepository.save(new RunObjective(recentWipe, 0, OBJECTIVE_NAME, 1, 0L, 4000L, 4000L, 0));
+        Run run = seedRun(map, 35_000L, true, "unknown",
+                participant(null, "GatedTank", warrior, "T1", 0),
+                participant(null, "UngatedSpiker", warrior, "spiker", 1));
+        runObjectiveRepository.save(new RunObjective(run, 0, OBJECTIVE_NAME, 2, 1000L, 4000L, 3000L, 0));
 
-        Run oldWipe = seedRun(map, now.minusSeconds(30 * 24 * 3600), 10_000L, false, "wipe", participant(null, "Old", warrior, "T1", 0));
-        runObjectiveRepository.save(new RunObjective(oldWipe, 0, OBJECTIVE_NAME, 1, 0L, 4000L, 4000L, 0));
-
-        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/role-fails").session(session)
-                        .param("from", now.minusSeconds(24 * 3600).toString()))
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.user=='Recent')].total_runs").value(1))
-                .andExpect(jsonPath("$[?(@.user=='Old')]").isEmpty());
+                .andExpect(jsonPath("$[0].participants.length()").value(2));
     }
 }

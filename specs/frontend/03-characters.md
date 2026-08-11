@@ -6,7 +6,7 @@ Protected page, `/characters`. Pairs with `specs/backend/04-characters.md` (whic
 Table from `GET /api/characters`: `character_name`, `default_role` (blank if unset), a "Remove" action per row.
 
 ## Add
-A form: `character_name` (required text), `default_role` (optional dropdown of the 8 role codes — `T1`/`T2`/`T3`/`T4`/`LT`/`spiker`/`sos`/`emo`, hardcoded per `specs/frontend/00-overview.md`'s static-reference-data note) → `POST /api/characters`.
+A form: `character_name` (required text), `default_role` (optional dropdown of the 11 role codes — `T1`/`T2`/`T3`/`T4`/`LT`/`Spiker`/`Derv`/`SoS`/`Necro`/`RangerNecro`/`Emo`, hardcoded per `specs/frontend/00-overview.md`'s static-reference-data note) → `POST /api/characters`.
 - `409` (name already registered — by this person or anyone else, since names are globally unique) shown inline on the name field.
 - On success: refetch the list, clear the form.
 

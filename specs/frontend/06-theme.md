@@ -61,7 +61,7 @@ Nav/sidebar chrome uses the dark tokens (`--gw-bg-dark` / `--gw-panel-dark`) wit
 ## Status & role indicators
 
 - Run completion badge (`specs/backend/06-run-history.md`'s `completed`/`end_reason`): green (`--gw-success`) for completed, red (`--gw-danger`) for wipe, muted grey (`--gw-muted`) for resign/unknown.
-- Role badges (T1–T4, LT, spiker, sos, emo, `specs/backend/02-ingestion-upload-run.md`): small text pills in the display font, one flat accent color per badge for v1 — no per-profession iconography yet (see below).
+- Role badges (T1–T4, LT, Spiker, Derv, SoS, Necro, RangerNecro, Emo, `specs/backend/02-ingestion-upload-run.md`): small text pills in the display font, one flat accent color per badge for v1 — no per-profession iconography yet (see below).
 - `role = null` (unresolved profession combo): render with `--gw-muted` and an explicit "unresolved" label rather than blanking it out — it's diagnostic information worth surfacing, not an empty cell.
 
 ## Deferred: profession/skill iconography

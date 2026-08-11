@@ -2,6 +2,39 @@
   margin-bottom: 1.5rem;
 }
 
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.grid > .section {
+  margin-bottom: 0;
+  /* Grid items default to min-width: auto (sized to their content's min-content width), which lets
+     a wide table push past its column and spill under the neighboring panel instead of respecting
+     the track width. min-width: 0 makes this item actually honor the grid column, and overflow-x
+     is a fallback safety net for whatever still doesn't fit after the tighter sizing below. */
+  min-width: 0;
+  overflow-x: auto;
+  /* Capped so a content-heavy panel (e.g. Deaths By Role's ten per-role sub-tables) scrolls within
+     itself instead of stretching the whole row to match it — align-items: start above already
+     keeps shorter neighbors from being stretched down to match a tall one. */
+  max-height: 64rem;
+  overflow-y: auto;
+}
+
+/* Tighter than theme.css's default table sizing, specifically for these two-per-row panels — smaller
+   font and column padding so a table is more likely to fit its half-width column without scrolling. */
+.grid table {
+  font-size: 0.8rem;
+}
+
+.grid th,
+.grid td {
+  padding: 0.35rem 0.6rem 0.35rem 0.5rem;
+}
+
 .subsection {
   margin-top: 1.5rem;
 }

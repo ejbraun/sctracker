@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Singleton table (always exactly one row, id=1) tracking the currently-deployed
+         SCTracker.dll's content hash and when that content was first observed. Populated/updated
+         by PluginDllVersionInitializer on every app startup, comparing a freshly-computed SHA-256
+         of the classpath resource against the stored hash — NOT the file's on-disk last-modified
+         time, which resets on every deploy regardless of whether the dll actually changed (the
+         Dockerfile COPYs a fresh src/ tree into the build container every time). detected_at only
+         advances when the content genuinely changes, which is what the "new plugin version
+         available" banner needs to compare against each person's last_plugin_download_at (022)
+         without false-positiving on unrelated deploys. -->
+    <changeSet id="023-create-plugin-dll-version" author="uwtracker">
+        <createTable tableName="plugin_dll_version">
+            <column name="id" type="TINYINT UNSIGNED">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="content_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detected_at" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

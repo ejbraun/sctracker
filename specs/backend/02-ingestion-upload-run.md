@@ -45,7 +45,7 @@ Profession IDs use the official GW1 numbering from `professions` (spec 01): `1`=
 
 **`party_members[]` has three fields not in the original draft**, found in this sample: `is_player`, `is_hero`, `is_henchman` (booleans). Party slots can be AI-controlled heroes/henchmen, not just human players — e.g. a solo player running with a full hero/henchman team, like the sample above. **Resolved**: real guild 8-man parties are always all human players, so the party-size-8 rule below already guarantees this — no special handling needed for role derivation, validation, or leaderboard eligibility. (Smaller/mixed parties, like this sample's solo capture, are simply rejected by the size check before it would matter.) Stored on `run_participants` for fidelity, not read by any logic.
 
-**`party_members[]` also carries an optional `role_hint`** (string, `"t1"`/`"t2"`/`"t3"`), set by newer plugin builds for a Ranger/Assassin-primary member once they cast one of a fixed set of trapping skills — see "Role derivation" below for how it's consumed. Absent on older plugin builds, and per-member rather than guaranteed for the whole party.
+**`party_members[]` also carries an optional `role_hint`** (string, `"t1"`/`"t2"`/`"t3"`, or `"unknown"` before one of those resolves), set by newer plugin builds for a Ranger/Assassin-primary member once they cast one of a fixed set of trapping skills — see "Role derivation" below for how it's consumed. Absent on older plugin builds, and per-member rather than guaranteed for the whole party.
 
 **`objectives[]` has one field not in the original draft**: `indent` (integer, nesting depth — always `0` in samples seen so far). Stored on `run_objectives` for fidelity; not yet used by anything.
 
@@ -81,38 +81,44 @@ Pure function, `resolveRoles(partyMembers[8]) -> String[8]` (or an equivalent ar
 
 **`role_hint`** (optional, per party member): the plugin sets this once a Ranger/Assassin-primary
 member casts one of a fixed set of trapping skills — first-match-wins, value is `"t1"`/`"t2"`/`"t3"`
-(lowercase on the wire; case-normalized to `T1`/`T2`/`T3` here). It's per-member, not guaranteed for
-the whole party — a real T1/T2/T3 player simply won't have one yet if they haven't cast the mapped
-skill this run (e.g. an early resign). Resolution order:
+(lowercase on the wire; case-normalized to `T1`/`T2`/`T3` here), or `"unknown"` if that hasn't
+happened yet. It's per-member, not guaranteed for the whole party — a real T1/T2/T3 player simply
+won't have a resolved hint yet if they haven't cast the mapped skill this run (e.g. an early
+resign). Resolution order:
 
-1. **Hints first**: for any member with a valid, non-duplicate `role_hint`, assign that label
-   directly, wherever they actually sit in the party array. An invalid value or a duplicate claim
-   of a label another member already took is logged as a WARN and treated as absent for that member.
-2. **Positional fallback**: whichever of `T1`/`T2`/`T3` step 1 left unclaimed are filled from party
-   positions `0, 1, 2` in order, skipping any position a hint already claimed. With no hints present
-   at all (older plugin builds), this reduces to the original rule:
-   ```
-   role[0] = "T1"
-   role[1] = "T2"
-   role[2] = "T3"
-   ```
-   These three are positional as a last resort, not profession-based — they share the same
-   profession combo (Ranger/Assassin) and, absent a hint, can't be told apart any other way.
-3. **Profession combo**: everything still unassigned (normally indices 3–7) resolves as below.
+1. **Hints first**: for any member with a valid, non-duplicate `role_hint` of `"t1"`/`"t2"`/`"t3"`,
+   assign that label directly, wherever they actually sit in the party array. A missing `role_hint`
+   or a literal `"unknown"` (case-insensitive) leaves that member's role unresolved (`null`) with no
+   log — it's the plugin's normal not-yet-resolved state, not an error. Any other invalid value, or
+   a duplicate claim of a label another member already took, is logged as a WARN and also treated as
+   absent for that member.
+2. **No positional fallback**: unlike earlier plugin builds, a member with no valid hint stays
+   `null` rather than being guessed from its position (`0`/`1`/`2`) — Ranger/Assassin members are
+   otherwise indistinguishable, so guessing was a source of silently-wrong labels once hints existed
+   at all. `T1`/`T2`/`T3` can now only come from an explicit hint.
+3. **Profession combo**: everything still unassigned (normally indices 3–7, plus any T1/T2/T3 slot
+   left unresolved by step 1) resolves as below.
 
 For indices 3–7, match the (primary, secondary) pair — **ordered**, primary first, matching the "X/Y" GW1 community shorthand used in the requirements (primary `X`, secondary `Y`):
 
 | Role | Combo (primary/secondary) |
 |---|---|
-| `T4` | Elementalist / Mesmer |
+| `T4` | Mesmer / Elementalist |
 | `LT` | Mesmer / Assassin |
-| `emo` | Elementalist / Monk |
-| `spiker` | Dervish / *(any secondary)* **or** Mesmer / Ranger |
-| `sos` | Ritualist / Ranger **or** Necromancer / Ranger |
+| `Emo` | Elementalist / Monk |
+| `Derv` | Dervish / *(any secondary)* |
+| `Spiker` | Mesmer / Ranger |
+| `SoS` | Ritualist / Ranger |
+| `Necro` | Necromancer / Ranger |
+| `RangerNecro` | Ranger / Necromancer |
 
 No match → `role = null`, log a WARN with the run context and the raw `(primary, secondary)` pair, but do **not** reject the upload.
 
-**Assumption flagged in spec 00**: this ordered interpretation is inferred from the requirements' notation (`spiker = Dervish/anything` only makes sense as a wildcard on the *secondary* slot of an ordered pair) but hasn't been validated against real party data. If real uploads show roles resolving to `null` unexpectedly, check this first before assuming the algorithm is wrong.
+**Assumption flagged in spec 00**: this ordered interpretation is inferred from the requirements' notation (`Derv = Dervish/anything` only makes sense as a wildcard on the *secondary* slot of an ordered pair) but hasn't been validated against real party data. If real uploads show roles resolving to `null` unexpectedly, check this first before assuming the algorithm is wrong.
+
+**History**: Derv and Necro used to be folded into Spiker and SoS respectively (Dervish primaries counted as Spiker; Necromancer/Ranger counted as SoS) — split into their own roles in changelog 019, which also normalized the role codes from lowercase (`spiker`/`sos`/`emo`) to this Title-Case scheme.
+
+**`RangerNecro`** (Ranger/Necromancer — the reverse combo of `Necro`) fills the same party niche as `Necro`, so it shares `Necro`'s `role_objectives` gating (spec 05) verbatim — seeded by changelog 020. Adjust independently later if RangerNecro's actual trial involvement turns out to differ.
 
 ## Response
 

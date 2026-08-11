@@ -43,7 +43,7 @@ alongside username/password, so the site isn't open to the public.
 
 - **Ingestion** (`POST /upload-run`) — accepts the plugin's party/objective payload, dedups
   concurrent uploads from different party members into one `runs` row (a MySQL named lock scoped
-  per-map), derives each player's role (T1–T4, LT, spiker, sos, emo) from their profession combo,
+  per-map), derives each player's role (T1–T4, LT, Spiker, Derv, SoS, Necro, RangerNecro, Emo) from their profession combo,
   and links participants to registered characters by exact name match.
 - **Leaderboards** — fastest completed full runs, fastest per-objective ("section") times, and
   personal bests (aggregated across every character a person has linked). Section personal bests

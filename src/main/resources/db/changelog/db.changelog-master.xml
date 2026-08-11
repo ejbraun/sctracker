@@ -22,5 +22,13 @@
     <include file="db/changelog/changes/015-create-signup-keys.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/016-seed-signup-keys.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/017-add-emo-chamber-role-objective.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/018-remove-t2-chamber-role-objective.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/019-split-derv-necro-roles.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/020-seed-rangernecro-role-objectives.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/021-add-run-participants-rez-scroll-uses.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/022-add-people-last-plugin-download-at.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/023-create-plugin-dll-version.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/024-create-tracked-items.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/025-create-run-participant-item-drops.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

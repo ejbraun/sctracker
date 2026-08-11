@@ -3,11 +3,13 @@ package com.howl.uwtracker.leaderboards;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.history.RunSpecifications;
+import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
 import com.howl.uwtracker.leaderboards.dto.PersonalBestEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.PersonalSectionBestResponse;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
+import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
 import com.howl.uwtracker.repository.RoleObjectiveRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
@@ -94,6 +96,28 @@ public class LeaderboardService {
                 .toList();
     }
 
+    /**
+     * "Fastest to reach this objective" — pacing, not clear speed (see {@link #section}). Not
+     * role-gated: the full party is shown, since everyone in the run shared that pace, not just
+     * whichever role "earns credit" for the objective itself.
+     */
+    @Transactional(readOnly = true)
+    public List<SectionEntryResponse> sectionStart(Integer mapId, String objectiveName, Integer limit, Instant from, Instant to) {
+        List<RunObjective> objectives = runObjectiveRepository.findFastestStartForMapObjective(
+                mapId, objectiveName, from, to, PageRequest.of(0, limit == null ? DEFAULT_LIMIT : limit));
+
+        return objectives.stream()
+                .map(ro -> {
+                    List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ro.getRun().getId())
+                            .stream()
+                            .map(ParticipantSummary::from)
+                            .toList();
+                    return new SectionEntryResponse(ro.getRun().getId(), ro.getDurationMs(), ro.getRun().getUtcStart(),
+                            ro.getStartMs(), ro.getDoneMs(), participants);
+                })
+                .toList();
+    }
+
     public Long personalOverallBestMs(Long personId, Integer mapId) {
         return leaderboardQueryRepository.findPersonalOverallBestMs(personId, mapId);
     }
@@ -135,6 +159,36 @@ public class LeaderboardService {
                 .toList();
 
         return new PersonalSectionBestResponse(ref.durationMs(), ref.startMs(), ref.doneMs(), participants);
+    }
+
+    /**
+     * The person's own fastest arrival at this objective (across every linked character), full party
+     * of that run shown — see {@link #sectionStart} for why this isn't role-gated like
+     * {@link #personalSectionBestMs}.
+     */
+    @Transactional(readOnly = true)
+    public PersonalSectionBestResponse personalSectionFastestStart(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+        PersonalSectionBestRunRef ref = leaderboardQueryRepository.findPersonalSectionFastestStartRun(personId, mapId, objectiveName, from, to);
+        if (ref == null) {
+            return null;
+        }
+
+        List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ref.runId())
+                .stream()
+                .map(ParticipantSummary::from)
+                .toList();
+
+        return new PersonalSectionBestResponse(ref.durationMs(), ref.startMs(), ref.doneMs(), participants);
+    }
+
+    /** Global ranking only — no personal "Yours" counterpart for this stat. */
+    public List<UserStreakResponse> longestCompletedStreak(Integer mapId, Integer limit, Instant from, Instant to) {
+        return leaderboardQueryRepository.findLongestCompletedStreak(mapId, limit == null ? DEFAULT_LIMIT : limit, from, to);
+    }
+
+    /** Global ranking only — no personal "Yours" counterpart for this stat. */
+    public List<ItemDropLeaderResponse> luckiestPlayers(Integer mapId, Instant from, Instant to) {
+        return leaderboardQueryRepository.findLuckiestPlayers(mapId, from, to);
     }
 
     private Set<String> gatedRolesFor(Integer mapId, String objectiveName) {

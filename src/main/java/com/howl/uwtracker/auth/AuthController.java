@@ -7,7 +7,9 @@ import com.howl.uwtracker.auth.dto.PersonResponse;
 import com.howl.uwtracker.auth.dto.SignupRequest;
 import com.howl.uwtracker.auth.dto.UpdateAliasRequest;
 import com.howl.uwtracker.domain.Person;
+import com.howl.uwtracker.domain.PluginDllVersion;
 import com.howl.uwtracker.repository.PersonRepository;
+import com.howl.uwtracker.repository.PluginDllVersionRepository;
 import com.howl.uwtracker.web.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+
 /** specs/backend/03-auth.md. */
 @RestController
 @RequestMapping("/api")
@@ -25,24 +29,27 @@ public class AuthController {
 
     private final AuthService authService;
     private final PersonRepository personRepository;
+    private final PluginDllVersionRepository pluginDllVersionRepository;
 
-    public AuthController(AuthService authService, PersonRepository personRepository) {
+    public AuthController(AuthService authService, PersonRepository personRepository,
+                           PluginDllVersionRepository pluginDllVersionRepository) {
         this.authService = authService;
         this.personRepository = personRepository;
+        this.pluginDllVersionRepository = pluginDllVersionRepository;
     }
 
     @PostMapping("/signup")
     public ResponseEntity<PersonResponse> signup(@RequestBody SignupRequest request, HttpServletRequest httpRequest) {
         Person person = authService.signup(request.username(), request.password(), request.signupKey());
         startSession(httpRequest, person);
-        return ResponseEntity.status(HttpStatus.CREATED).body(PersonResponse.from(person));
+        return ResponseEntity.status(HttpStatus.CREATED).body(PersonResponse.from(person, newPluginVersionAvailable(person)));
     }
 
     @PostMapping("/login")
     public ResponseEntity<PersonResponse> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         Person person = authService.login(request.username(), request.password());
         startSession(httpRequest, person);
-        return ResponseEntity.ok(PersonResponse.from(person));
+        return ResponseEntity.ok(PersonResponse.from(person, newPluginVersionAvailable(person)));
     }
 
     @PostMapping("/logout")
@@ -58,17 +65,32 @@ public class AuthController {
     public ResponseEntity<PersonResponse> me(@CurrentPersonId Long personId) {
         Person person = personRepository.findById(personId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "not authenticated"));
-        return ResponseEntity.ok(PersonResponse.from(person));
+        return ResponseEntity.ok(PersonResponse.from(person, newPluginVersionAvailable(person)));
     }
 
     @PatchMapping("/account/alias")
     public ResponseEntity<PersonResponse> updateAlias(@CurrentPersonId Long personId, @RequestBody UpdateAliasRequest request) {
         Person person = authService.updateAlias(personId, request.alias());
-        return ResponseEntity.ok(PersonResponse.from(person));
+        return ResponseEntity.ok(PersonResponse.from(person, newPluginVersionAvailable(person)));
     }
 
     private void startSession(HttpServletRequest request, Person person) {
         HttpSession session = request.getSession(true);
         session.setAttribute(SessionKeys.PERSON_ID, person.getId());
+    }
+
+    /**
+     * Only true once this person has downloaded the plugin at least once (a person who's never
+     * downloaded has nothing to "update," so the banner stays off for them) AND a newer dll build
+     * has been detected since. See PluginDllVersionInitializer for how/when that detection happens.
+     */
+    private boolean newPluginVersionAvailable(Person person) {
+        Instant lastDownload = person.getLastPluginDownloadAt();
+        if (lastDownload == null) {
+            return false;
+        }
+        return pluginDllVersionRepository.findById(PluginDllVersion.SINGLETON_ID)
+                .map(version -> lastDownload.isBefore(version.getDetectedAt()))
+                .orElse(false);
     }
 }

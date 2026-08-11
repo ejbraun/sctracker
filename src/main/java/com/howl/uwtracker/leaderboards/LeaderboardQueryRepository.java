@@ -1,5 +1,7 @@
 package com.howl.uwtracker.leaderboards;
 
+import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
+import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -42,6 +44,8 @@ public class LeaderboardQueryRepository {
      * run ref; the full gated participant list for that run (everyone gated in, not just the
      * person's own character — see {@link LeaderboardService#personalSectionBestMs}) is assembled
      * separately via JPA, since that touches lazy associations raw JDBC can't map onto directly.
+     * {@code status = 2} (Completed) excludes Failed objectives — GWToolboxdll still fills in a real
+     * {@code duration_ms} for those, so without this filter a quick death can out-rank a real clear.
      */
     public PersonalSectionBestRunRef findPersonalSectionBestRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
         List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
@@ -49,7 +53,7 @@ public class LeaderboardQueryRepository {
                         "JOIN run_participants rp ON rp.run_id = ro.run_id " +
                         "JOIN characters c ON c.id = rp.character_id " +
                         "JOIN role_objectives rol ON rol.map_id = ? AND rol.objective_name = ro.name AND rol.role = rp.role " +
-                        "WHERE c.person_id = ? AND ro.name = ? AND ro.duration_ms IS NOT NULL " +
+                        "WHERE c.person_id = ? AND ro.name = ? AND ro.status = 2 AND ro.duration_ms IS NOT NULL " +
                         "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
                         "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
                         "ORDER BY ro.duration_ms ASC LIMIT 1",
@@ -76,6 +80,99 @@ public class LeaderboardQueryRepository {
                         "ORDER BY r.duration_ms ASC LIMIT ?",
                 (rs, rowNum) -> new PersonalBestRunRef(rs.getLong("id"), rs.getLong("duration_ms"), rs.getTimestamp("utc_start").toInstant()),
                 personId, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
+    }
+
+    /**
+     * Personal fastest-to-reach-objective, across every character the person has linked — not
+     * role-gated like {@link #findPersonalSectionBestRun}: arrival time is about the person's own
+     * pace getting there, not "who earned credit" for that trial, so any run they were in counts
+     * regardless of their role in it. Just the run ref; the full party for that run is assembled
+     * separately via JPA, same as {@link LeaderboardService#section}.
+     */
+    public PersonalSectionBestRunRef findPersonalSectionFastestStartRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+        List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
+                "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
+                        "JOIN run_participants rp ON rp.run_id = ro.run_id " +
+                        "JOIN characters c ON c.id = rp.character_id " +
+                        "WHERE c.person_id = ? AND ro.name = ? AND ro.start_ms IS NOT NULL " +
+                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
+                        "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
+                        "ORDER BY ro.start_ms ASC LIMIT 1",
+                (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
+                        readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
+                personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
+     * Longest run of consecutive completed runs per user, best streak only, ranked — a "gaps and
+     * islands" query: {@code rn - rn_hit} is constant across a run of consecutive rows sharing the
+     * same {@code is_hit} value (within a user's own utc_start-ordered timeline), so grouping on it
+     * isolates each unbroken streak; {@code best_per_user} then keeps only each user's longest one
+     * before the final ranking. Same {@code COALESCE(p.alias, rp.raw_name)} identity as
+     * {@code LoserboardQueryRepository.findGlobalFails} — unlinked participants still count, unlike
+     * the person_id-only joins above. A user with no completed runs has no {@code is_hit = 1} island
+     * and is simply absent from the result, not a zero row.
+     */
+    public List<UserStreakResponse> findLongestCompletedStreak(Integer mapId, int limit, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "WITH person_runs AS (" +
+                        "    SELECT DISTINCT COALESCE(p.alias, rp.raw_name) AS user, r.id AS run_id, r.utc_start, " +
+                        "           CASE WHEN r.completed = TRUE THEN 1 ELSE 0 END AS is_hit " +
+                        "    FROM run_participants rp " +
+                        "    JOIN runs r ON r.id = rp.run_id " +
+                        "    LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "    LEFT JOIN people p ON p.id = c.person_id " +
+                        "    WHERE r.map_id = ? " +
+                        "      AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?)" +
+                        "), numbered AS (" +
+                        "    SELECT user, run_id, utc_start, is_hit, " +
+                        "           ROW_NUMBER() OVER (PARTITION BY user ORDER BY utc_start) AS rn, " +
+                        "           ROW_NUMBER() OVER (PARTITION BY user, is_hit ORDER BY utc_start) AS rn_hit " +
+                        "    FROM person_runs" +
+                        "), islands AS (" +
+                        "    SELECT user, is_hit, (rn - rn_hit) AS island_id, " +
+                        "           COUNT(*) AS streak_len, MIN(utc_start) AS streak_start, MAX(utc_start) AS streak_end " +
+                        "    FROM numbered " +
+                        "    GROUP BY user, is_hit, island_id" +
+                        "), best_per_user AS (" +
+                        "    SELECT user, streak_len, streak_start, streak_end, " +
+                        "           ROW_NUMBER() OVER (PARTITION BY user ORDER BY streak_len DESC, streak_end DESC) AS rn_best " +
+                        "    FROM islands " +
+                        "    WHERE is_hit = 1" +
+                        ") " +
+                        "SELECT user, streak_len, streak_start, streak_end FROM best_per_user WHERE rn_best = 1 " +
+                        "ORDER BY streak_len DESC, streak_end DESC LIMIT ?",
+                (rs, rowNum) -> new UserStreakResponse(rs.getString("user"), rs.getLong("streak_len"),
+                        rs.getTimestamp("streak_start").toInstant(), rs.getTimestamp("streak_end").toInstant()),
+                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
+    }
+
+    /**
+     * One row per (tracked item, user) that has ever had that item drop for them on this map, total
+     * reserved count summed across every run, luckiest first within each item — "Luckiest Players."
+     * {@code user} is {@code COALESCE(alias, raw_name)}, same unlinked-participant fallback as
+     * {@code LoserboardQueryRepository.findRoleDeaths}. Ordered by {@code item_id} first so rows for
+     * the same item stay contiguous — the frontend derives its per-item sub-sections directly from
+     * that grouping rather than needing a separately-maintained list of tracked items.
+     */
+    public List<ItemDropLeaderResponse> findLuckiestPlayers(Integer mapId, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT ti.id AS item_id, ti.name AS item_name, COALESCE(p.alias, rp.raw_name) AS user, " +
+                        "SUM(rpid.drop_count) AS total_count " +
+                        "FROM run_participant_item_drops rpid " +
+                        "JOIN tracked_items ti ON ti.id = rpid.item_id " +
+                        "JOIN run_participants rp ON rp.id = rpid.run_participant_id " +
+                        "JOIN runs r ON r.id = rp.run_id " +
+                        "LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "LEFT JOIN people p ON p.id = c.person_id " +
+                        "WHERE r.map_id = ? " +
+                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "GROUP BY ti.id, ti.name, COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY ti.id, total_count DESC",
+                (rs, rowNum) -> new ItemDropLeaderResponse(rs.getInt("item_id"), rs.getString("item_name"),
+                        rs.getString("user"), rs.getLong("total_count")),
+                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /** {@code java.time.Instant} isn't one of JDBC 4.2's mandated {@code setObject} conversions; convert explicitly. */

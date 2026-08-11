@@ -31,6 +31,11 @@ public class Person {
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 
+    // Set by POST /api/plugin/download. NULL means "never downloaded" — the "new plugin version
+    // available" banner (see PluginDllVersion) only shows once this is non-null.
+    @Column(name = "last_plugin_download_at")
+    private Instant lastPluginDownloadAt;
+
     protected Person() {
     }
 
@@ -65,5 +70,13 @@ public class Person {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getLastPluginDownloadAt() {
+        return lastPluginDownloadAt;
+    }
+
+    public void setLastPluginDownloadAt(Instant lastPluginDownloadAt) {
+        this.lastPluginDownloadAt = lastPluginDownloadAt;
     }
 }

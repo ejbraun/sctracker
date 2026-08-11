@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { UpdateBanner } from './UpdateBanner';
 import styles from './Layout.module.css';
 
 /** Wraps every protected route — nav bar + logout, per specs/frontend/01-auth.md. */
@@ -42,6 +43,7 @@ export function Layout() {
         <button onClick={handleLogout}>Logout</button>
       </nav>
       <div className={styles.content}>
+        <UpdateBanner />
         <Outlet />
       </div>
     </div>

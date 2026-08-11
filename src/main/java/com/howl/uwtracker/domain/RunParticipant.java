@@ -68,6 +68,11 @@ public class RunParticipant {
     @Column(nullable = false, columnDefinition = "SMALLINT UNSIGNED")
     private Integer deaths;
 
+    // SMALLINT UNSIGNED — see Profession.id's comment. Found in a real payload sample, not in the
+    // original spec draft, same situation as deaths above.
+    @Column(name = "rez_scroll_uses", nullable = false, columnDefinition = "SMALLINT UNSIGNED")
+    private Integer rezScrollUses;
+
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 
@@ -77,7 +82,7 @@ public class RunParticipant {
     public RunParticipant(Run run, PlayerCharacter character, String rawName,
                            Profession primaryProfession, Profession secondaryProfession,
                            String role, Integer partyIndex, boolean isPlayer, boolean isHero, boolean isHenchman,
-                           Integer deaths) {
+                           Integer deaths, Integer rezScrollUses) {
         this.run = run;
         this.character = character;
         this.rawName = rawName;
@@ -89,6 +94,7 @@ public class RunParticipant {
         this.isHero = isHero;
         this.isHenchman = isHenchman;
         this.deaths = deaths;
+        this.rezScrollUses = rezScrollUses;
     }
 
     public Long getId() {
@@ -169,6 +175,14 @@ public class RunParticipant {
 
     public void setDeaths(Integer deaths) {
         this.deaths = deaths;
+    }
+
+    public Integer getRezScrollUses() {
+        return rezScrollUses;
+    }
+
+    public void setRezScrollUses(Integer rezScrollUses) {
+        this.rezScrollUses = rezScrollUses;
     }
 
     public Instant getCreatedAt() {

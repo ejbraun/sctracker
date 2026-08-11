@@ -40,6 +40,14 @@ export function Account() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['machine-keys'] }),
   });
 
+  // Fire-and-forget alongside the actual browser-native download below — records the timestamp the
+  // "new plugin version available" banner needs, but never blocks/interferes with the download
+  // itself (no preventDefault; the <a download> navigation happens regardless of this succeeding).
+  const recordDownloadMutation = useMutation({
+    mutationFn: () => api.post('/plugin/download'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'me'] }),
+  });
+
   function handleRevoke(id: number) {
     if (window.confirm('Revoke this machine key? Uploads using it will stop working.')) {
       revokeMutation.mutate(id);
@@ -81,7 +89,7 @@ export function Account() {
         <h2>Machine keys</h2>
         <p>
           Used by the GW1 SDK plugin to authenticate uploads. Don't have the plugin yet?{' '}
-          <a href="/SCTracker.dll" download>
+          <a href="/SCTracker.dll" download onClick={() => recordDownloadMutation.mutate()}>
             Download SCTracker.dll
           </a>
           .

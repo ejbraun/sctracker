@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- RoleDerivation.java no longer folds Dervish primaries into "spiker" or Necromancer/Ranger
+         into "sos" — they're now their own roles ("Derv"/"Necro"). Also normalizes the existing
+         lowercase role codes ("spiker"/"sos"/"emo") to the Title-Case scheme RoleDerivation now
+         emits ("Spiker"/"SoS"/"Emo") for consistency, though MySQL's default case-insensitive
+         collation meant the mismatch was never actually breaking the role_objectives join. -->
+    <changeSet id="019-normalize-role-casing" author="uwtracker">
+        <update tableName="role_objectives">
+            <column name="role" value="Spiker"/>
+            <where>role = 'spiker'</where>
+        </update>
+        <update tableName="role_objectives">
+            <column name="role" value="SoS"/>
+            <where>role = 'sos'</where>
+        </update>
+        <update tableName="role_objectives">
+            <column name="role" value="Emo"/>
+            <where>role = 'emo'</where>
+        </update>
+    </changeSet>
+
+    <!-- Derv/Necro inherit exactly the same (map, objective) gating Spiker/SoS already had — Dervish
+         and Necromancer/Ranger were previously indistinguishable from Spiker/SoS for this purpose,
+         so this preserves current gating behavior under the new split names. Adjust later if Derv's
+         or Necro's actual trial involvement turns out to differ from Spiker's/SoS's. -->
+    <changeSet id="019-seed-derv-necro-role-objectives" author="uwtracker">
+        <sql>
+            INSERT INTO role_objectives (map_id, objective_name, role)
+            SELECT map_id, objective_name, 'Derv' FROM role_objectives WHERE role = 'Spiker';
+        </sql>
+        <sql>
+            INSERT INTO role_objectives (map_id, objective_name, role)
+            SELECT map_id, objective_name, 'Necro' FROM role_objectives WHERE role = 'SoS';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

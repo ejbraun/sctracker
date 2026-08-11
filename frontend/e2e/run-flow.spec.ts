@@ -130,19 +130,20 @@ test('an uploaded run surfaces in run history (by alias/character lookup), run d
   // Leaderboard: the Dashboard's map picker is a dropdown, not a raw input — but with only one map
   // ever offered (Underworld, per specs/backend/01's curated set), a real click could never change
   // its value, so Dashboard auto-advances straight to that map's leaderboard instead of leaving the
-  // user stuck on a picker whose only option is already selected. The "Yours" subsection (under
-  // "Overall") reflects this account's personal best — which didn't exist until the character was
-  // linked — and, unlike the ranked "Global" board, isn't affected by however many other runs other
-  // e2e executions have piled onto the shared Underworld map (see FRONTEND_IMPLEMENTATION_PROGRESS.md).
+  // user stuck on a picker whose only option is already selected. The "Your Fastest Completions"
+  // panel reflects this account's personal best — which didn't exist until the character was
+  // linked — and, unlike the ranked "Fastest To Complete Instance" board, isn't affected by however
+  // many other runs other e2e executions have piled onto the shared Underworld map (see
+  // FRONTEND_IMPLEMENTATION_PROGRESS.md).
   await page.getByRole('link', { name: 'Leaderboards' }).click();
   await expect(page).toHaveURL(new RegExp(`/leaderboards/${UNDERWORLD_MAP_ID}$`));
 
-  // "Yours" is a subheading inside the "Overall" panel (Sections has its own "Yours" subheading
-  // too, so scope to the Overall panel to keep this a single match), immediately followed by
-  // either its table or a "No completed run yet." empty state — never both, so the very next
-  // element settles it.
-  const overallPanel = page.getByRole('heading', { name: 'Overall', exact: true }).locator('..');
-  const yourContent = overallPanel.getByRole('heading', { name: 'Yours', exact: true }).locator('xpath=following-sibling::*[1]');
+  // Global and "Yours" are separate panels — "Your Fastest Completions" heading text is unique on
+  // the page, so no scoping needed to disambiguate it from the objective sections' own personal
+  // panels. Immediately followed by either its table or a "No completed run yet." empty state —
+  // never both, so the very next element settles it.
+  const yourHeading = page.getByRole('heading', { name: 'Your Fastest Completions', exact: true });
+  const yourContent = yourHeading.locator('xpath=following-sibling::*[1]');
   await expect(yourContent).not.toHaveText('No completed run yet.');
   await expect(yourContent).toContainText(/\d/);
 });

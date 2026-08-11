@@ -4,6 +4,7 @@ import com.howl.uwtracker.history.dto.RunDetailResponse;
 import com.howl.uwtracker.history.dto.RunSummaryResponse;
 import com.howl.uwtracker.web.PageResponse;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,7 +41,10 @@ public class RunHistoryController {
             @RequestParam(defaultValue = "" + DEFAULT_SIZE) int size) {
 
         RunHistoryFilter filter = new RunHistoryFilter(person, character, role, map, from, to, completed, endReason);
-        var results = runHistoryService.search(filter, PageRequest.of(page, size));
+        // PageRequest.of(page, size) alone defaults to Sort.unsorted() — no ORDER BY at all, so rows
+        // came back in whatever order MySQL happened to return them. Most-recent-first is what a
+        // "history" list means.
+        var results = runHistoryService.search(filter, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "utcStart")));
         return ResponseEntity.ok(PageResponse.from(results));
     }
 

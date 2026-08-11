@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- theme.css's --gw-font-display (Cinzel) / --gw-font-body (EB Garamond) — never actually
+         loaded before, so every browser silently fell back to a generic serif instead. Garamond's
+         italic weights are pulled in too since .unlinked/.unresolved rely on font-style: italic. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap"
+      rel="stylesheet"
+    />
     <title>gwsctracker</title>
   </head>
   <body>

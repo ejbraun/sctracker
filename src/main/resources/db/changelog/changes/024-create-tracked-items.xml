@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- The plugin's item_drops[].id is a raw GW::Constants::ItemID (model id), not a display name —
+         same situation as professions (001): the backend needs its own id -> name table to render
+         anything human-readable. kTrackedItems in SCTracker.cpp is the client-side source of truth
+         for which 5 items get tracked at all; adding a new one there needs a matching row here. -->
+    <changeSet id="024-create-tracked-items" author="uwtracker">
+        <createTable tableName="tracked_items">
+            <column name="id" type="INT UNSIGNED">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_tracked_items_name"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="024-seed-tracked-items" author="uwtracker">
+        <insert tableName="tracked_items"><column name="id" valueNumeric="930"/><column name="name" value="Glob of Ectoplasm"/></insert>
+        <insert tableName="tracked_items"><column name="id" valueNumeric="2071"/><column name="name" value="Voltaic Spear"/></insert>
+        <insert tableName="tracked_items"><column name="id" valueNumeric="32823"/><column name="name" value="DSR"/></insert>
+        <insert tableName="tracked_items"><column name="id" valueNumeric="1045"/><column name="name" value="Eternal Blade"/></insert>
+        <insert tableName="tracked_items"><column name="id" valueNumeric="32822"/><column name="name" value="Mini Dhuum"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

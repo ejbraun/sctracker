@@ -103,6 +103,12 @@ export function RunTimelineChart({ runs }: { runs: RunSummary[] }) {
 
   const yTicks = Array.from({ length: Y_TICK_COUNT + 1 }, (_, i) => (yMax / Y_TICK_COUNT) * i);
   const xTicks = Array.from({ length: X_TICK_COUNT + 1 }, (_, i) => minTime + (timeSpan / X_TICK_COUNT) * i);
+  // Below a day span, "Aug 4" repeats identically across every tick — switch to time-of-day so
+  // ticks stay distinguishable instead of all reading the same date.
+  const formatXTick = (t: number) =>
+    timeSpan <= DAY_MS
+      ? new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   const legendEntries = [runStatus(true, ''), runStatus(false, 'wipe'), runStatus(false, 'resign'), runStatus(false, 'unknown')];
 
@@ -157,7 +163,7 @@ export function RunTimelineChart({ runs }: { runs: RunSummary[] }) {
                   className={styles.axisLine}
                 />
                 <text x={x} y={MARGIN.top + PLOT_HEIGHT + 20} textAnchor="middle" className={styles.tickLabel}>
-                  {new Date(tick).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {formatXTick(tick)}
                 </text>
               </g>
             );

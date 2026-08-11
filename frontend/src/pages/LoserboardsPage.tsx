@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { LeaderboardEntry, RoleUserDeaths, RoleUserFail, UserResign } from '../api/types';
+import type { LeaderboardEntry, RezScrollEntry, RoleUserDeaths, RunDetail, SectionEntry, UserResign, UserStreak } from '../api/types';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
 import { formatDate, formatDuration } from '../common/format';
@@ -31,17 +31,33 @@ export function LoserboardsPage() {
       api.get<RoleUserDeaths[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/role-deaths${from ? `?from=${encodeURIComponent(from)}` : ''}`),
   });
 
-  const roleFailsQuery = useQuery({
-    queryKey: ['loserboard', 'role-fails', timeWindow],
-    queryFn: () =>
-      api.get<RoleUserFail[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/role-fails${from ? `?from=${encodeURIComponent(from)}` : ''}`),
-  });
-
   const globalFailsQuery = useQuery({
     queryKey: ['loserboard', 'global-fails', timeWindow],
     queryFn: () =>
       api.get<UserResign[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/global-fails${from ? `?from=${encodeURIComponent(from)}` : ''}`),
   });
+
+  const badStreakQuery = useQuery({
+    queryKey: ['loserboard', 'streaks', 'bad', timeWindow],
+    queryFn: () =>
+      api.get<UserStreak[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/streaks/bad?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+  });
+
+  const rezScrollsQuery = useQuery({
+    queryKey: ['loserboard', 'rez-scrolls', timeWindow],
+    queryFn: () =>
+      api.get<RezScrollEntry[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/rez-scrolls?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+  });
+
+  // The set of objective names isn't statically known — pull them from the slowest completed
+  // run's detail, same approach LeaderboardPage uses off its own "overall" query.
+  const firstRunId = worstQuery.data?.[0]?.run_id;
+  const firstRunDetailQuery = useQuery({
+    queryKey: ['run-detail-for-sections', firstRunId],
+    queryFn: () => api.get<RunDetail>(`/runs/${firstRunId}`),
+    enabled: firstRunId != null,
+  });
+  const objectiveNames = firstRunDetailQuery.data?.objectives.map((o) => o.name) ?? [];
 
   return (
     <div>
@@ -60,155 +76,242 @@ export function LoserboardsPage() {
         </label>
       </Panel>
 
-      <Panel className={styles.section}>
-        <h2>Worst Completions</h2>
-        {worstQuery.isLoading && <p>Loading…</p>}
-        {worstQuery.data && worstQuery.data.length === 0 && (
-          <p className={styles.emptyState}>No completed runs recorded for this map yet.</p>
-        )}
-        {worstQuery.data && worstQuery.data.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Time</th>
-                <th>Date</th>
-                <th>Party</th>
-              </tr>
-            </thead>
-            <tbody>
-              {worstQuery.data.map((entry, index) => (
-                <tr key={entry.run_id}>
-                  <td className={styles.rank}>{index + 1}</td>
-                  <td>{formatDuration(entry.duration_ms)}</td>
-                  <td>{formatDate(entry.utc_start)}</td>
-                  <td>
-                    <div className={styles.participants}>
-                      {entry.participants.map((p, i) => (
-                        <span key={i} className={styles.participant}>
-                          {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
-                        </span>
-                      ))}
-                    </div>
-                  </td>
+      <div className={styles.grid}>
+        <Panel className={styles.section}>
+          <h2>Slowest Completions</h2>
+          {worstQuery.isLoading && <p>Loading…</p>}
+          {worstQuery.data && worstQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No completed runs recorded for this map yet.</p>
+          )}
+          {worstQuery.data && worstQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Time</th>
+                  <th>Date</th>
+                  <th>Party</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Panel>
+              </thead>
+              <tbody>
+                {worstQuery.data.map((entry, index) => (
+                  <tr key={entry.run_id}>
+                    <td className={styles.rank}>{index + 1}</td>
+                    <td>{formatDuration(entry.duration_ms)}</td>
+                    <td>{formatDate(entry.utc_start)}</td>
+                    <td>
+                      <div className={styles.participants}>
+                        {entry.participants.map((p, i) => (
+                          <span key={i} className={styles.participant}>
+                            {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
 
-      <Panel className={styles.section}>
-        <h2>Deaths By Role</h2>
-        {roleDeathsQuery.isLoading && <p>Loading…</p>}
-        {roleDeathsQuery.data &&
-          ROLES.map((role, index) => {
-            // Already sorted deaths-desc by the backend; filtering preserves that relative order.
-            const rows = roleDeathsQuery.data.filter((r) => r.role === role);
-            return (
-              <div key={role}>
-                <h3 className={index === 0 ? undefined : styles.subsection}>
-                  <RoleBadge role={role} />
-                </h3>
-                {rows.length === 0 ? (
-                  <p className={styles.emptyState}>No runs recorded for this role yet.</p>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Total runs</th>
-                        <th>Deaths</th>
-                        <th>Deaths/run</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r) => (
-                        <tr key={r.user}>
-                          <td>{r.user}</td>
-                          <td>{r.total_runs}</td>
-                          <td>{r.deaths}</td>
-                          <td>{r.avg_deaths.toFixed(1)}</td>
+        <Panel className={styles.section}>
+          <h2>Deaths By Role</h2>
+          {roleDeathsQuery.isLoading && <p>Loading…</p>}
+          {roleDeathsQuery.data &&
+            ROLES.map((role, index) => {
+              // Already sorted deaths/run-desc by the backend; filtering preserves that relative order.
+              const rows = roleDeathsQuery.data.filter((r) => r.role === role);
+              return (
+                <div key={role}>
+                  <h3 className={index === 0 ? undefined : styles.subsection}>
+                    <RoleBadge role={role} />
+                  </h3>
+                  {rows.length === 0 ? (
+                    <p className={styles.emptyState}>No runs recorded for this role yet.</p>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Total runs</th>
+                          <th>Deaths</th>
+                          <th>Deaths/run</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            );
-          })}
-      </Panel>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => (
+                          <tr key={r.user}>
+                            <td>{r.user}</td>
+                            <td>{r.total_runs}</td>
+                            <td>{r.deaths}</td>
+                            <td>{r.avg_deaths.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+        </Panel>
 
-      <Panel className={styles.section}>
-        <h2>Quest Fails By Role</h2>
-        {roleFailsQuery.isLoading && <p>Loading…</p>}
-        {roleFailsQuery.data &&
-          ROLES.map((role, index) => {
-            // Already sorted fails-desc by the backend; filtering preserves that relative order.
-            const rows = roleFailsQuery.data.filter((r) => r.role === role);
-            return (
-              <div key={role}>
-                <h3 className={index === 0 ? undefined : styles.subsection}>
-                  <RoleBadge role={role} />
-                </h3>
-                {rows.length === 0 ? (
-                  <p className={styles.emptyState}>No runs recorded for this role yet.</p>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Total runs</th>
-                        <th>Fails</th>
-                        <th>Fail %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r) => (
-                        <tr key={r.user}>
-                          <td>{r.user}</td>
-                          <td>{r.total_runs}</td>
-                          <td>{r.fails}</td>
-                          <td>{r.percentage.toFixed(1)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            );
-          })}
-      </Panel>
-
-      <Panel className={styles.section}>
-        <h2>Resign Fails By User</h2>
-        {globalFailsQuery.isLoading && <p>Loading…</p>}
-        {globalFailsQuery.data && globalFailsQuery.data.length === 0 && (
-          <p className={styles.emptyState}>No runs recorded for this map yet.</p>
-        )}
-        {globalFailsQuery.data && globalFailsQuery.data.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Total runs</th>
-                <th>Resigns</th>
-                <th>Resign %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {globalFailsQuery.data.map((r) => (
-                <tr key={r.user}>
-                  <td>{r.user}</td>
-                  <td>{r.total_runs}</td>
-                  <td>{r.resigns}</td>
-                  <td>{r.percentage.toFixed(1)}%</td>
+        <Panel className={styles.section}>
+          <h2>Resign Fails By User</h2>
+          {globalFailsQuery.isLoading && <p>Loading…</p>}
+          {globalFailsQuery.data && globalFailsQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No runs recorded for this map yet.</p>
+          )}
+          {globalFailsQuery.data && globalFailsQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Total runs</th>
+                  <th>Resigns</th>
+                  <th>Resign %</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Panel>
+              </thead>
+              <tbody>
+                {globalFailsQuery.data.map((r) => (
+                  <tr key={r.user}>
+                    <td>{r.user}</td>
+                    <td>{r.total_runs}</td>
+                    <td>{r.resigns}</td>
+                    <td>{r.percentage.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Longest Resign/Wipe Streak</h2>
+          {badStreakQuery.isLoading && <p>Loading…</p>}
+          {badStreakQuery.data && badStreakQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No runs recorded for this map yet.</p>
+          )}
+          {badStreakQuery.data && badStreakQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>User</th>
+                  <th>Streak</th>
+                  <th>From</th>
+                  <th>To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {badStreakQuery.data.map((entry, index) => (
+                  <tr key={entry.user}>
+                    <td className={styles.rank}>{index + 1}</td>
+                    <td>{entry.user}</td>
+                    <td>{entry.streak}</td>
+                    <td>{formatDate(entry.streak_start)}</td>
+                    <td>{formatDate(entry.streak_end)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Most Res Scroll Uses In A Run</h2>
+          {rezScrollsQuery.isLoading && <p>Loading…</p>}
+          {rezScrollsQuery.data && rezScrollsQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No runs recorded for this map yet.</p>
+          )}
+          {rezScrollsQuery.data && rezScrollsQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Rez Scrolls</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rezScrollsQuery.data.map((entry, index) => (
+                  <tr key={`${entry.run_id}-${entry.user}`}>
+                    <td className={styles.rank}>{index + 1}</td>
+                    <td>{entry.user}</td>
+                    <td>
+                      <RoleBadge role={entry.role} />
+                    </td>
+                    <td>{entry.rez_scroll_uses}</td>
+                    <td>{formatDate(entry.utc_start)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Slowest To Reach Objective</h2>
+          {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
+          {objectiveNames.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Objective</th>
+                  <th>Overall</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Party</th>
+                </tr>
+              </thead>
+              <tbody>
+                {objectiveNames.map((name) => (
+                  <SlowestSectionRow key={name} objectiveName={name} from={from} />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+      </div>
     </div>
+  );
+}
+
+/** The mirror of LeaderboardPage's GlobalSectionRow(metric="start") — slowest instead of fastest to
+ * reach each objective. Not role-gated: unlike "who owns this objective's clear time," everyone in
+ * the party experienced the slow pace, so the full participant list is shown. */
+function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; from: string | null }) {
+  const slowestQuery = useQuery({
+    queryKey: ['loserboard', 'section', 'start', DEFAULT_MAP_ID, objectiveName, from],
+    queryFn: () =>
+      api.get<SectionEntry[]>(
+        `/loserboards/maps/${DEFAULT_MAP_ID}/sections/${encodeURIComponent(objectiveName)}/start${from ? `?from=${encodeURIComponent(from)}` : ''}`,
+      ),
+  });
+
+  const slowest = slowestQuery.data?.[0];
+
+  return (
+    <tr>
+      <td>{objectiveName}</td>
+      <td>{slowest ? formatDuration(slowest.duration_ms) : '—'}</td>
+      <td>{slowest ? formatDuration(slowest.start_ms) : '—'}</td>
+      <td>{slowest ? formatDuration(slowest.done_ms) : '—'}</td>
+      <td>
+        {slowest && slowest.participants.length > 0 ? (
+          <div className={styles.participants}>
+            {slowest.participants.map((p, i) => (
+              <span key={i} className={styles.participant}>
+                {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className={styles.emptyState}>—</span>
+        )}
+      </td>
+    </tr>
   );
 }

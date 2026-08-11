@@ -1,12 +1,16 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.domain.Run;
+import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.history.RunSpecifications;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
+import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
+import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.RezScrollEntryResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
-import com.howl.uwtracker.loserboards.dto.RoleUserFailResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
+import com.howl.uwtracker.repository.RunObjectiveRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
 import org.springframework.data.domain.PageRequest;
@@ -34,12 +38,15 @@ public class LoserboardService {
     private static final int DEFAULT_LIMIT = 10;
 
     private final RunRepository runRepository;
+    private final RunObjectiveRepository runObjectiveRepository;
     private final RunParticipantRepository runParticipantRepository;
     private final LoserboardQueryRepository loserboardQueryRepository;
 
-    public LoserboardService(RunRepository runRepository, RunParticipantRepository runParticipantRepository,
+    public LoserboardService(RunRepository runRepository, RunObjectiveRepository runObjectiveRepository,
+                              RunParticipantRepository runParticipantRepository,
                               LoserboardQueryRepository loserboardQueryRepository) {
         this.runRepository = runRepository;
+        this.runObjectiveRepository = runObjectiveRepository;
         this.runParticipantRepository = runParticipantRepository;
         this.loserboardQueryRepository = loserboardQueryRepository;
     }
@@ -68,11 +75,38 @@ public class LoserboardService {
         return loserboardQueryRepository.findRoleDeaths(mapId, from, to);
     }
 
-    public List<RoleUserFailResponse> roleFails(Integer mapId, Instant from, Instant to) {
-        return loserboardQueryRepository.findRoleFails(mapId, from, to);
-    }
-
     public List<UserResignResponse> globalFails(Integer mapId, Instant from, Instant to) {
         return loserboardQueryRepository.findGlobalFails(mapId, from, to);
+    }
+
+    /** Global ranking only — no personal "Yours" counterpart for this stat. */
+    public List<UserStreakResponse> longestBadStreak(Integer mapId, Integer limit, Instant from, Instant to) {
+        return loserboardQueryRepository.findLongestBadStreak(mapId, limit == null ? DEFAULT_LIMIT : limit, from, to);
+    }
+
+    /** Per-player, worst (highest) rez_scroll_uses in a single run first — not summed across the party. */
+    public List<RezScrollEntryResponse> mostRezScrollUses(Integer mapId, Integer limit, Instant from, Instant to) {
+        return loserboardQueryRepository.findMostRezScrollUses(mapId, limit == null ? DEFAULT_LIMIT : limit, from, to);
+    }
+
+    /**
+     * Slowest to reach this objective — the mirror of {@code LeaderboardService.sectionStart}. Not
+     * role-gated, full party shown, same reasoning as the leaderboard version.
+     */
+    @Transactional(readOnly = true)
+    public List<SectionEntryResponse> sectionSlowestStart(Integer mapId, String objectiveName, Integer limit, Instant from, Instant to) {
+        List<RunObjective> objectives = runObjectiveRepository.findSlowestStartForMapObjective(
+                mapId, objectiveName, from, to, PageRequest.of(0, limit == null ? DEFAULT_LIMIT : limit));
+
+        return objectives.stream()
+                .map(ro -> {
+                    List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ro.getRun().getId())
+                            .stream()
+                            .map(ParticipantSummary::from)
+                            .toList();
+                    return new SectionEntryResponse(ro.getRun().getId(), ro.getDurationMs(), ro.getRun().getUtcStart(),
+                            ro.getStartMs(), ro.getDoneMs(), participants);
+                })
+                .toList();
     }
 }

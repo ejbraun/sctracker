@@ -5,6 +5,10 @@ export interface Person {
   id: number;
   username: string;
   alias: string | null;
+  // True only once this person has downloaded the plugin at least once AND a newer dll build has
+  // been detected since (see PluginDllVersionInitializer on the backend) — never true for someone
+  // who's never downloaded.
+  new_plugin_version_available: boolean;
 }
 
 /** Minimal, alias-only view of another person — backs the Run History "person" filter dropdown. */
@@ -74,26 +78,15 @@ export interface SectionEntry {
   participants: ParticipantSummary[];
 }
 
-// "Loserboards" — per-role, per-user death toll. Unlike RoleUserFail, not gated by
-// role_objectives — a death is a directly-recorded fact about that participant in that run, not
-// inferred from where the party wiped. Not scoped to completed runs.
+// "Loserboards" — per-role, per-user death toll. Not gated by role_objectives — a death is a
+// directly-recorded fact about that participant in that run, not inferred from where the party
+// wiped. Not scoped to completed runs.
 export interface RoleUserDeaths {
   role: string;
   user: string;
   total_runs: number;
   deaths: number;
   avg_deaths: number;
-}
-
-// "Loserboards" — per-role, per-user fail attribution. `fails` only counts wipes where the
-// objective the party was wiping on is gated to this role (role_objectives) — a wipe doesn't
-// count against a role that had nothing to do with it. Resigns never count here, see UserResign.
-export interface RoleUserFail {
-  role: string;
-  user: string;
-  total_runs: number;
-  fails: number;
-  percentage: number;
 }
 
 // "Loserboards" — per-user resign stats ("Global fails"), not attributable to a single role since
@@ -103,6 +96,38 @@ export interface UserResign {
   total_runs: number;
   resigns: number;
   percentage: number;
+}
+
+// One user's single best-ever consecutive-run streak on a map — reused by both the Leaderboards
+// "Longest Completed Streak" table and the Loserboards "Longest Resign/Wipe Streak" table.
+export interface UserStreak {
+  user: string;
+  streak: number;
+  streak_start: string;
+  streak_end: string;
+}
+
+// "Loserboards" — one participant's rez_scroll_uses in a single run, worst (highest) first.
+// Per-player, not summed across the party: each row is one (run, user) performance. Not scoped to
+// completed runs.
+export interface RezScrollEntry {
+  run_id: number;
+  utc_start: string;
+  user: string;
+  role: string | null;
+  rez_scroll_uses: number;
+}
+
+// "Leaderboards" — one (tracked item, user) row for "Luckiest Players": total reserved drops of
+// that item, summed across every run the user participated in, luckiest (highest) first within
+// each item. The set of tracked items isn't statically known on the frontend — item_name is
+// derived directly from this response's rows (already grouped contiguously by item_id server-side)
+// rather than from any hardcoded list, so a newly-tracked item just appears automatically.
+export interface ItemDropLeader {
+  item_id: number;
+  item_name: string;
+  user: string;
+  total_count: number;
 }
 
 export interface PersonalSectionBest {
@@ -165,6 +190,9 @@ export interface ParticipantEntry {
   is_henchman: boolean;
   // Found in a real payload sample, not originally specced: how many times this participant died.
   deaths: number;
+  // Found in a real payload sample, not originally specced: how many resurrection scrolls this
+  // participant used.
+  rez_scroll_uses: number;
 }
 
 export interface RunDetail {

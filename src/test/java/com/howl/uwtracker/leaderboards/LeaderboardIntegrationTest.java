@@ -10,6 +10,8 @@ import com.howl.uwtracker.domain.RoleObjectiveId;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.domain.RunParticipant;
+import com.howl.uwtracker.domain.RunParticipantItemDrop;
+import com.howl.uwtracker.domain.RunParticipantItemDropId;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
@@ -44,13 +46,13 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),
-                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths()));
+                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), blueprint.getRezScrollUses()));
         }
         return run;
     }
 
     private RunParticipant participant(PlayerCharacter character, String rawName, Profession profession, String role, int index) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0);
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, 0);
     }
 
     private PlayerCharacter character(Person person, String name) {
@@ -59,6 +61,12 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
 
     private Person personEntity(String username) {
         return personRepository.save(new Person(username, "irrelevant-hash"));
+    }
+
+    private void seedItemDrop(Run run, String rawName, int itemId, int count) {
+        RunParticipant participant = runParticipantRepository.findByRun_IdAndRawName(run.getId(), rawName).orElseThrow();
+        runParticipantItemDropRepository.save(new RunParticipantItemDrop(
+                new RunParticipantItemDropId(participant.getId(), itemId), count));
     }
 
     @Test
@@ -270,6 +278,190 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].run_id").value(recentRun.getId()));
+    }
+
+    @Test
+    void longestCompletedStreakFindsEachUsersLongestRunOfConsecutiveCompletions() throws Exception {
+        MockHttpSession session = signup("streakviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Instant now = Instant.now();
+        // Alice: complete, FAILED, complete, complete, complete -> longest streak is the trailing 3.
+        seedRun(map, now.minusSeconds(500), 10_000L, true, participant(null, "Alice", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(400), 10_000L, false, participant(null, "Alice", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(300), 10_000L, true, participant(null, "Alice", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(200), 10_000L, true, participant(null, "Alice", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(100), 10_000L, true, participant(null, "Alice", warrior, "T1", 0));
+
+        // Bob: two completions in a row -> streak of 2, shorter than Alice's (verifies ranking).
+        seedRun(map, now.minusSeconds(500), 10_000L, true, participant(null, "Bob", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(400), 10_000L, true, participant(null, "Bob", warrior, "T1", 0));
+
+        // Carol never completes a run -> has no is_hit=1 island, absent from the results entirely.
+        seedRun(map, now.minusSeconds(500), 10_000L, false, participant(null, "Carol", warrior, "T1", 0));
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/streaks/completed").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].user").value("Alice"))
+                .andExpect(jsonPath("$[0].streak").value(3))
+                .andExpect(jsonPath("$[1].user").value("Bob"))
+                .andExpect(jsonPath("$[1].streak").value(2));
+    }
+
+    @Test
+    void longestCompletedStreakRespectsFromToTimeWindow() throws Exception {
+        MockHttpSession session = signup("streakwindow", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Instant now = Instant.now();
+        // A 3-run streak entirely outside the window.
+        seedRun(map, now.minusSeconds(30 * 24 * 3600 + 200), 10_000L, true, participant(null, "OldStreaker", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(30 * 24 * 3600 + 100), 10_000L, true, participant(null, "OldStreaker", warrior, "T1", 0));
+        seedRun(map, now.minusSeconds(30 * 24 * 3600), 10_000L, true, participant(null, "OldStreaker", warrior, "T1", 0));
+
+        // A 1-run streak inside the window.
+        seedRun(map, now.minusSeconds(3600), 10_000L, true, participant(null, "RecentStreaker", warrior, "T1", 0));
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/streaks/completed").session(session)
+                        .param("from", now.minusSeconds(24 * 3600).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].user").value("RecentStreaker"))
+                .andExpect(jsonPath("$[0].streak").value(1));
+    }
+
+    @Test
+    void sectionStartRanksByFastestArrivalNotFastestClear() throws Exception {
+        MockHttpSession session = signup("startviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        // Reaches the objective quickly (start_ms=1000) but takes a long time to clear it once there.
+        Run earlyArrival = seedRun(map, 40_000L, true, participant(null, "EarlyArriver", warrior, "T1", 0));
+        runObjectiveRepository.save(new RunObjective(earlyArrival, 0, OBJECTIVE_NAME, 2, 1000L, 9000L, 8000L, 0));
+
+        // Reaches the objective later (start_ms=5000) but clears it fast once there.
+        Run lateArrival = seedRun(map, 35_000L, true, participant(null, "LateArriver", warrior, "T1", 0));
+        runObjectiveRepository.save(new RunObjective(lateArrival, 0, OBJECTIVE_NAME, 2, 5000L, 6000L, 1000L, 0));
+
+        // Duration-ranked (existing Sections): LateArriver's 1000ms clear wins.
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].run_id").value(lateArrival.getId()));
+
+        // Start-ranked (new): EarlyArriver's 1000ms arrival wins instead.
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].run_id").value(earlyArrival.getId()))
+                .andExpect(jsonPath("$[0].start_ms").value(1000));
+    }
+
+    @Test
+    void sectionStartIncludesFullPartyNotJustGatedRoles() throws Exception {
+        MockHttpSession session = signup("startparticipants", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        // Only "T1" is gated in for this objective, but sectionStart isn't role-gated (unlike
+        // sectionIncludesStartDoneOffsetsAndOnlyRoleGatedParticipants above) — both should show.
+        roleObjectiveRepository.save(new RoleObjective(new RoleObjectiveId(MAP_ID, OBJECTIVE_NAME, "T1")));
+
+        Run run = seedRun(map, 35_000L, true,
+                participant(null, "GatedTank", warrior, "T1", 0),
+                participant(null, "UngatedSpiker", warrior, "spiker", 1));
+        runObjectiveRepository.save(new RunObjective(run, 0, OBJECTIVE_NAME, 2, 1000L, 4000L, 3000L, 0));
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].participants.length()").value(2));
+    }
+
+    @Test
+    void personalSectionStartIsNotRoleGated() throws Exception {
+        MockHttpSession session = signup("startpersonal", "password123");
+        Person person = personRepository.findByUsername("startpersonal").orElseThrow();
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        PlayerCharacter character = character(person, "UngatedToon");
+
+        // "T1" is the only gated role for this objective; this person only ever played it as "spiker".
+        roleObjectiveRepository.save(new RoleObjective(new RoleObjectiveId(MAP_ID, OBJECTIVE_NAME, "T1")));
+
+        Run run = seedRun(map, 10_000L, true, participant(character, "UngatedToon", warrior, "spiker", 0));
+        runObjectiveRepository.save(new RunObjective(run, 0, OBJECTIVE_NAME, 2, 2000L, 5000L, 3000L, 0));
+
+        // Duration-ranked "Yours" excludes this run (role not gated) -> 204.
+        mockMvc.perform(get("/api/leaderboards/me/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME).session(session))
+                .andExpect(status().isNoContent());
+
+        // Start-ranked "Yours" isn't role-gated -> still finds it.
+        mockMvc.perform(get("/api/leaderboards/me/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.start_ms").value(2000));
+    }
+
+    @Test
+    void sectionStartRespectsFromToTimeWindow() throws Exception {
+        MockHttpSession session = signup("startwindow", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Instant now = Instant.now();
+        Run recentRun = seedRun(map, now.minusSeconds(3600), 40_000L, true, participant(null, "P1", warrior, "T1", 0));
+        runObjectiveRepository.save(new RunObjective(recentRun, 0, OBJECTIVE_NAME, 2, 1000L, 8000L, 7000L, 0));
+        Run oldRun = seedRun(map, now.minusSeconds(30 * 24 * 3600), 35_000L, true, participant(null, "P2", warrior, "T1", 0));
+        runObjectiveRepository.save(new RunObjective(oldRun, 0, OBJECTIVE_NAME, 2, 500L, 3000L, 2500L, 0));
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session)
+                        .param("from", now.minusSeconds(24 * 3600).toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].run_id").value(recentRun.getId()));
+    }
+
+    @Test
+    void luckiestPlayersSumsDropsPerItemPerUserAcrossRuns() throws Exception {
+        MockHttpSession session = signup("luckviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Run run1 = seedRun(map, 10_000L, true,
+                participant(null, "Lucky", warrior, "T1", 0),
+                participant(null, "Unlucky", warrior, "T2", 1));
+        seedItemDrop(run1, "Lucky", 930, 2); // Glob of Ectoplasm
+        seedItemDrop(run1, "Unlucky", 930, 1);
+
+        Run run2 = seedRun(map, 10_000L, true, participant(null, "Lucky", warrior, "T1", 0));
+        seedItemDrop(run2, "Lucky", 930, 3); // Lucky's total across both runs: 5
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/luckiest-players").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].item_id").value(930))
+                .andExpect(jsonPath("$[0].item_name").value("Glob of Ectoplasm"))
+                .andExpect(jsonPath("$[0].user").value("Lucky"))
+                .andExpect(jsonPath("$[0].total_count").value(5))
+                .andExpect(jsonPath("$[1].user").value("Unlucky"))
+                .andExpect(jsonPath("$[1].total_count").value(1));
+    }
+
+    @Test
+    void luckiestPlayersGroupsRowsContiguouslyByItemOrderedById() throws Exception {
+        MockHttpSession session = signup("luckgroupviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Run run = seedRun(map, 10_000L, true, participant(null, "Collector", warrior, "T1", 0));
+        seedItemDrop(run, "Collector", 32822, 1); // Mini Dhuum (id 32822)
+        seedItemDrop(run, "Collector", 930, 1); // Glob of Ectoplasm (id 930) — lower id, sorts first
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/luckiest-players").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].item_name").value("Glob of Ectoplasm"))
+                .andExpect(jsonPath("$[1].item_name").value("Mini Dhuum"));
     }
 
 }

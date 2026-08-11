@@ -12,9 +12,11 @@ import com.howl.uwtracker.repository.PlayerCharacterRepository;
 import com.howl.uwtracker.repository.ProfessionRepository;
 import com.howl.uwtracker.repository.RoleObjectiveRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
+import com.howl.uwtracker.repository.RunParticipantItemDropRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
 import com.howl.uwtracker.repository.SignupKeyRepository;
+import com.howl.uwtracker.repository.TrackedItemRepository;
 import com.howl.uwtracker.web.MachineKeyHasher;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,10 +77,14 @@ public abstract class AbstractIntegrationTest {
     // "maps" truncates like everything else, but — unlike everything else — cleanDatabase() below
     // reseeds it with the curated set (011-seed-supported-maps.xml) right after: maps is reference
     // data, not per-test fixture data, so every test should start from that canonical state, not an
-    // empty table. ("professions" doesn't need this: nothing ever deletes rows from it, so it's not
-    // in this list at all.)
+    // empty table. ("professions"/"tracked_items" don't need this: nothing ever deletes rows from
+    // them, so they're not in this list at all — unlike "maps," they also have no FK-order reason to
+    // be, since nothing but seed migrations ever writes to them.) "run_participant_item_drops" must
+    // truncate before "run_participants": TRUNCATE doesn't fire ON DELETE CASCADE, and run_participants'
+    // auto-increment resets after truncation — leftover drop rows would silently attach to whatever
+    // unrelated participant reuses that id in a later test otherwise.
     private static final List<String> TABLES_TO_CLEAN = List.of(
-            "run_participants", "run_objectives", "runs", "role_objectives",
+            "run_participant_item_drops", "run_participants", "run_objectives", "runs", "role_objectives",
             "characters", "machine_keys", "signup_keys", "people", "maps");
 
     @Autowired
@@ -119,6 +125,12 @@ public abstract class AbstractIntegrationTest {
 
     @Autowired
     protected SignupKeyRepository signupKeyRepository;
+
+    @Autowired
+    protected RunParticipantItemDropRepository runParticipantItemDropRepository;
+
+    @Autowired
+    protected TrackedItemRepository trackedItemRepository;
 
     @BeforeEach
     void cleanDatabase() {

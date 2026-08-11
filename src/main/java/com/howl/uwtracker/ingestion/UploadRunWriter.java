@@ -6,6 +6,9 @@ import com.howl.uwtracker.domain.Profession;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.domain.RunParticipant;
+import com.howl.uwtracker.domain.RunParticipantItemDrop;
+import com.howl.uwtracker.domain.RunParticipantItemDropId;
+import com.howl.uwtracker.ingestion.dto.ItemDropDto;
 import com.howl.uwtracker.ingestion.dto.ObjectiveDto;
 import com.howl.uwtracker.ingestion.dto.ObjectiveSectionDto;
 import com.howl.uwtracker.ingestion.dto.PartyDto;
@@ -15,9 +18,13 @@ import com.howl.uwtracker.repository.GameMapRepository;
 import com.howl.uwtracker.repository.PlayerCharacterRepository;
 import com.howl.uwtracker.repository.ProfessionRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
+import com.howl.uwtracker.repository.RunParticipantItemDropRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
+import com.howl.uwtracker.repository.TrackedItemRepository;
 import com.howl.uwtracker.web.ApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +44,7 @@ import java.util.Optional;
 @Component
 public class UploadRunWriter {
 
+    private static final Logger log = LoggerFactory.getLogger(UploadRunWriter.class);
     private static final int DEDUP_WINDOW_SECONDS = 5;
 
     private final GameMapRepository gameMapRepository;
@@ -45,19 +53,25 @@ public class UploadRunWriter {
     private final RunParticipantRepository runParticipantRepository;
     private final PlayerCharacterRepository playerCharacterRepository;
     private final ProfessionRepository professionRepository;
+    private final RunParticipantItemDropRepository runParticipantItemDropRepository;
+    private final TrackedItemRepository trackedItemRepository;
 
     public UploadRunWriter(GameMapRepository gameMapRepository,
                             RunRepository runRepository,
                             RunObjectiveRepository runObjectiveRepository,
                             RunParticipantRepository runParticipantRepository,
                             PlayerCharacterRepository playerCharacterRepository,
-                            ProfessionRepository professionRepository) {
+                            ProfessionRepository professionRepository,
+                            RunParticipantItemDropRepository runParticipantItemDropRepository,
+                            TrackedItemRepository trackedItemRepository) {
         this.gameMapRepository = gameMapRepository;
         this.runRepository = runRepository;
         this.runObjectiveRepository = runObjectiveRepository;
         this.runParticipantRepository = runParticipantRepository;
         this.playerCharacterRepository = playerCharacterRepository;
         this.professionRepository = professionRepository;
+        this.runParticipantItemDropRepository = runParticipantItemDropRepository;
+        this.trackedItemRepository = trackedItemRepository;
     }
 
     @Transactional
@@ -136,10 +150,12 @@ public class UploadRunWriter {
             boolean isHero = member.isHero() != null && member.isHero();
             boolean isHenchman = member.isHenchman() != null && member.isHenchman();
             int deaths = member.deaths() == null ? 0 : member.deaths();
+            int rezScrollUses = member.rezScrollUses() == null ? 0 : member.rezScrollUses();
 
             Optional<RunParticipant> existing = runParticipantRepository.findByRun_IdAndRawName(run.getId(), member.name());
+            RunParticipant participant;
             if (existing.isPresent()) {
-                RunParticipant participant = existing.get();
+                participant = existing.get();
                 participant.setCharacter(character);
                 participant.setPrimaryProfession(primary);
                 participant.setSecondaryProfession(secondary);
@@ -148,11 +164,37 @@ public class UploadRunWriter {
                 participant.setHero(isHero);
                 participant.setHenchman(isHenchman);
                 participant.setDeaths(deaths);
+                participant.setRezScrollUses(rezScrollUses);
                 // party_index intentionally left as originally recorded — not re-derived on resend
             } else {
-                runParticipantRepository.save(new RunParticipant(
-                        run, character, member.name(), primary, secondary, role, i, isPlayer, isHero, isHenchman, deaths));
+                participant = runParticipantRepository.save(new RunParticipant(
+                        run, character, member.name(), primary, secondary, role, i, isPlayer, isHero, isHenchman,
+                        deaths, rezScrollUses));
             }
+            attachItemDrops(participant, member.itemDrops());
+        }
+    }
+
+    /**
+     * Replaces this participant's recorded drops wholesale rather than diffing — same "a resend can
+     * correct stale data" rationale as the scalar fields above, just applied to a list. Drops for an
+     * item id not in {@code tracked_items} (e.g. an older backend that hasn't been migrated for a
+     * newly-tracked item yet) are skipped with a WARN rather than failing the whole upload — the
+     * item_id -> tracked_items FK would otherwise reject the entire transaction over one bad row.
+     */
+    private void attachItemDrops(RunParticipant participant, List<ItemDropDto> itemDrops) {
+        runParticipantItemDropRepository.deleteById_RunParticipantId(participant.getId());
+        if (itemDrops == null) {
+            return;
+        }
+        for (ItemDropDto drop : itemDrops) {
+            if (!trackedItemRepository.existsById(drop.id())) {
+                log.warn("ignoring drop for untracked item id {} (participant {})", drop.id(), participant.getRawName());
+                continue;
+            }
+            int count = drop.count() == null ? 0 : drop.count();
+            runParticipantItemDropRepository.save(new RunParticipantItemDrop(
+                    new RunParticipantItemDropId(participant.getId(), drop.id()), count));
         }
     }
 

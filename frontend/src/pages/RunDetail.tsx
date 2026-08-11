@@ -79,18 +79,25 @@ export function RunDetail() {
               <th>Name</th>
               <th>Profession</th>
               <th>Role</th>
+              <th>Deaths</th>
+              <th>Rez Scrolls</th>
             </tr>
           </thead>
           <tbody>
             {run.participants.map((participant) => (
               <tr key={participant.party_index}>
-                <td className={participant.character_id == null ? styles.unlinked : undefined}>
+                <td
+                  className={participant.character_id == null ? styles.unlinked : undefined}
+                  title={participant.character_id == null ? 'This character has not been claimed by any user' : undefined}
+                >
                   {participant.character_name ?? participant.raw_name}
                 </td>
                 <td>{participant.primary_profession}</td>
                 <td>
                   <RoleBadge role={participant.role} />
                 </td>
+                <td>{participant.deaths}</td>
+                <td>{participant.rez_scroll_uses}</td>
               </tr>
             ))}
           </tbody>

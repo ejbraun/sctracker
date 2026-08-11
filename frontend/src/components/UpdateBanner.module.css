@@ -1,0 +1,11 @@
+.banner {
+  border: 2px solid var(--gw-border-gold-bright);
+  color: var(--gw-text-on-dark);
+  background: var(--gw-panel-dark);
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.banner a {
+  color: var(--gw-border-gold-bright);
+}

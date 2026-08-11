@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Set by POST /api/plugin/download whenever the user downloads SCTracker.dll. Nullable and
+         with no default — NULL means "never downloaded," which the "new plugin version available"
+         banner (see 023) treats as "don't show the banner" rather than "always show it." -->
+    <changeSet id="022-add-people-last-plugin-download-at" author="uwtracker">
+        <addColumn tableName="people">
+            <column name="last_plugin_download_at" type="DATETIME(6)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

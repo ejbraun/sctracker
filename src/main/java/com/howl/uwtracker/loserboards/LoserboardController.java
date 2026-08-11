@@ -1,8 +1,10 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
+import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
+import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.RezScrollEntryResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
-import com.howl.uwtracker.loserboards.dto.RoleUserFailResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,17 +46,35 @@ public class LoserboardController {
         return ResponseEntity.ok(loserboardService.roleDeaths(mapId, from, to));
     }
 
-    @GetMapping("/maps/{mapId}/role-fails")
-    public ResponseEntity<List<RoleUserFailResponse>> roleFails(@PathVariable Integer mapId,
-                                                                  @RequestParam(required = false) Instant from,
-                                                                  @RequestParam(required = false) Instant to) {
-        return ResponseEntity.ok(loserboardService.roleFails(mapId, from, to));
-    }
-
     @GetMapping("/maps/{mapId}/global-fails")
     public ResponseEntity<List<UserResignResponse>> globalFails(@PathVariable Integer mapId,
                                                                   @RequestParam(required = false) Instant from,
                                                                   @RequestParam(required = false) Instant to) {
         return ResponseEntity.ok(loserboardService.globalFails(mapId, from, to));
+    }
+
+    @GetMapping("/maps/{mapId}/streaks/bad")
+    public ResponseEntity<List<UserStreakResponse>> longestBadStreak(@PathVariable Integer mapId,
+                                                                        @RequestParam(required = false) Integer limit,
+                                                                        @RequestParam(required = false) Instant from,
+                                                                        @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(loserboardService.longestBadStreak(mapId, limit, from, to));
+    }
+
+    @GetMapping("/maps/{mapId}/rez-scrolls")
+    public ResponseEntity<List<RezScrollEntryResponse>> mostRezScrollUses(@PathVariable Integer mapId,
+                                                                            @RequestParam(required = false) Integer limit,
+                                                                            @RequestParam(required = false) Instant from,
+                                                                            @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(loserboardService.mostRezScrollUses(mapId, limit, from, to));
+    }
+
+    @GetMapping("/maps/{mapId}/sections/{objectiveName}/start")
+    public ResponseEntity<List<SectionEntryResponse>> sectionSlowestStart(@PathVariable Integer mapId,
+                                                                             @PathVariable String objectiveName,
+                                                                             @RequestParam(required = false) Integer limit,
+                                                                             @RequestParam(required = false) Instant from,
+                                                                             @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(loserboardService.sectionSlowestStart(mapId, objectiveName, limit, from, to));
     }
 }

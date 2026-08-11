@@ -60,7 +60,7 @@ CREATE TABLE characters (
 );
 ```
 
-`character_name` is globally unique (GW1 character names are unique across the whole game, not just per-account). `default_role` is advisory only — one of the 8 role codes (`T1`/`T2`/`T3`/`T4`/`LT`/`spiker`/`sos`/`emo`), validated at the application layer rather than a DB enum/check constraint, so adding a role later doesn't require a migration.
+`character_name` is globally unique (GW1 character names are unique across the whole game, not just per-account). `default_role` is advisory only — one of the 11 role codes (`T1`/`T2`/`T3`/`T4`/`LT`/`Spiker`/`Derv`/`SoS`/`Necro`/`RangerNecro`/`Emo`), validated at the application layer rather than a DB enum/check constraint, so adding a role later doesn't require a migration.
 
 ## 004 — `machine_keys`
 
