@@ -80,14 +80,15 @@ public class AuthController {
     }
 
     /**
-     * Only true once this person has downloaded the plugin at least once (a person who's never
-     * downloaded has nothing to "update," so the banner stays off for them) AND a newer dll build
-     * has been detected since. See PluginDllVersionInitializer for how/when that detection happens.
+     * True if this person has never recorded a plugin download at all (nothing to compare a
+     * timestamp against, so treat it as needing the current build), or if their last download
+     * predates the currently-detected dll build. See PluginDllVersionInitializer for how/when that
+     * detection happens.
      */
     private boolean newPluginVersionAvailable(Person person) {
         Instant lastDownload = person.getLastPluginDownloadAt();
         if (lastDownload == null) {
-            return false;
+            return true;
         }
         return pluginDllVersionRepository.findById(PluginDllVersion.SINGLETON_ID)
                 .map(version -> lastDownload.isBefore(version.getDetectedAt()))

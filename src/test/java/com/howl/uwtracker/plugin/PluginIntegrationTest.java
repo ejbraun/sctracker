@@ -21,20 +21,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PluginIntegrationTest extends AbstractIntegrationTest {
 
     @Test
-    void neverDownloadedNeverShowsTheBannerRegardlessOfDllVersion() throws Exception {
+    void neverDownloadedShowsTheBannerSinceThereIsNoTimestampToCompare() throws Exception {
         MockHttpSession session = signup("neverdownloaded", "password123");
 
         mockMvc.perform(get("/api/account/me").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.new_plugin_version_available").value(false));
+                .andExpect(jsonPath("$.new_plugin_version_available").value(true));
     }
 
     @Test
     void downloadingRecordsTimestampSoMeNoLongerFlagsAnUpdate() throws Exception {
         MockHttpSession session = signup("freshdownloader", "password123");
-        // Backdate to before app startup — without this the flag would already be false (any
-        // download naturally lands after the boot-time detected_at), which wouldn't prove the
-        // download endpoint itself is what flipped it.
+        // Backdate to before app startup, to exercise the "stale download" path specifically
+        // (distinct from the "never downloaded" path, which also starts true but for a different
+        // reason — see neverDownloadedShowsTheBannerSinceThereIsNoTimestampToCompare).
         backdateLastDownload("freshdownloader", Instant.EPOCH);
         mockMvc.perform(get("/api/account/me").session(session))
                 .andExpect(status().isOk())

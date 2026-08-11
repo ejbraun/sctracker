@@ -32,7 +32,8 @@ public class Person {
     private Instant createdAt;
 
     // Set by POST /api/plugin/download. NULL means "never downloaded" — the "new plugin version
-    // available" banner (see PluginDllVersion) only shows once this is non-null.
+    // available" banner (see PluginDllVersion) shows for this case too, same as a stale non-null
+    // timestamp, since there's nothing here yet to compare against the current build.
     @Column(name = "last_plugin_download_at")
     private Instant lastPluginDownloadAt;
 

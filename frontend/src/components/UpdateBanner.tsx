@@ -3,9 +3,10 @@ import { useAuth } from '../auth/AuthContext';
 import styles from './UpdateBanner.module.css';
 
 /**
- * Shown on every page once a person who has downloaded the plugin before has an outdated copy —
- * see Person.new_plugin_version_available (backend: AuthController.newPluginVersionAvailable).
- * Never shown to someone who's never downloaded at all; that's not "outdated," just "hasn't started."
+ * Shown on every page whenever this person's plugin copy is stale relative to the currently
+ * detected dll build — see Person.new_plugin_version_available (backend:
+ * AuthController.newPluginVersionAvailable). Also shown to someone who has never downloaded at
+ * all (no timestamp recorded means nothing to compare, so it defaults to "go get it").
  */
 export function UpdateBanner() {
   const { person } = useAuth();

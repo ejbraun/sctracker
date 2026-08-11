@@ -25,9 +25,9 @@ public class PluginController {
     /**
      * Called by the frontend's download link's onClick — fire-and-forget alongside the actual
      * browser-native file download (this endpoint doesn't serve the dll itself, just records that
-     * the click happened). Powers the "new plugin version available" banner: only shown to people
-     * who've downloaded at least once before, so this timestamp is what flips it off again after
-     * they grab the latest build.
+     * the click happened). Powers the "new plugin version available" banner (shown both to people
+     * with no recorded download at all and to people whose recorded download predates the current
+     * build) — this timestamp is what flips it off again after they grab the latest build.
      */
     @PostMapping("/download")
     public ResponseEntity<Void> recordDownload(@CurrentPersonId Long personId) {

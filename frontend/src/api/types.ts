@@ -5,9 +5,8 @@ export interface Person {
   id: number;
   username: string;
   alias: string | null;
-  // True only once this person has downloaded the plugin at least once AND a newer dll build has
-  // been detected since (see PluginDllVersionInitializer on the backend) — never true for someone
-  // who's never downloaded.
+  // True if this person's last plugin download predates the currently detected dll build (see
+  // PluginDllVersionInitializer on the backend), or if they've never recorded a download at all.
   new_plugin_version_available: boolean;
 }
 
