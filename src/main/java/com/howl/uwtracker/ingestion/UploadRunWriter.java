@@ -1,6 +1,7 @@
 package com.howl.uwtracker.ingestion;
 
 import com.howl.uwtracker.domain.GameMap;
+import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.PlayerCharacter;
 import com.howl.uwtracker.domain.Profession;
 import com.howl.uwtracker.domain.Run;
@@ -15,6 +16,7 @@ import com.howl.uwtracker.ingestion.dto.PartyDto;
 import com.howl.uwtracker.ingestion.dto.PartyMemberDto;
 import com.howl.uwtracker.ingestion.dto.UploadRunResponse;
 import com.howl.uwtracker.repository.GameMapRepository;
+import com.howl.uwtracker.repository.PersonRepository;
 import com.howl.uwtracker.repository.PlayerCharacterRepository;
 import com.howl.uwtracker.repository.ProfessionRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
@@ -55,6 +57,7 @@ public class UploadRunWriter {
     private final ProfessionRepository professionRepository;
     private final RunParticipantItemDropRepository runParticipantItemDropRepository;
     private final TrackedItemRepository trackedItemRepository;
+    private final PersonRepository personRepository;
 
     public UploadRunWriter(GameMapRepository gameMapRepository,
                             RunRepository runRepository,
@@ -63,7 +66,8 @@ public class UploadRunWriter {
                             PlayerCharacterRepository playerCharacterRepository,
                             ProfessionRepository professionRepository,
                             RunParticipantItemDropRepository runParticipantItemDropRepository,
-                            TrackedItemRepository trackedItemRepository) {
+                            TrackedItemRepository trackedItemRepository,
+                            PersonRepository personRepository) {
         this.gameMapRepository = gameMapRepository;
         this.runRepository = runRepository;
         this.runObjectiveRepository = runObjectiveRepository;
@@ -72,13 +76,19 @@ public class UploadRunWriter {
         this.professionRepository = professionRepository;
         this.runParticipantItemDropRepository = runParticipantItemDropRepository;
         this.trackedItemRepository = trackedItemRepository;
+        this.personRepository = personRepository;
     }
 
     @Transactional
     public UploadRunResponse ingest(PartyDto party, List<PartyMemberDto> members, List<String> roles,
-                                     ObjectiveSectionDto objective) {
+                                     ObjectiveSectionDto objective, Long uploaderPersonId) {
         // Already validated to exist (UploadRunService — maps is a curated, migration-seeded set).
         GameMap map = gameMapRepository.getReferenceById(party.mapId());
+        // A reference proxy, not a fetch — same pattern as `map` above. Resolved here (inside this
+        // method's own transaction) rather than passed in as an entity, since the MachineKey/Person
+        // lookup in UploadRunService happens outside this transaction (open-in-view is disabled) and
+        // a detached lazy-loaded entity from there isn't safe to use in a fresh persistence context.
+        Person uploader = personRepository.getReferenceById(uploaderPersonId);
 
         // utc_start is time(nullptr) — real wall-clock epoch SECONDS — confirmed against a real
         // GWToolboxdll payload sample. (An earlier draft of this assumed epoch milliseconds.)
@@ -95,7 +105,7 @@ public class UploadRunWriter {
             created = true;
         }
 
-        attachParticipants(run, members, roles);
+        attachParticipants(run, members, roles, uploader);
 
         return new UploadRunResponse(run.getId(), created);
     }
@@ -136,7 +146,7 @@ public class UploadRunWriter {
         return run;
     }
 
-    private void attachParticipants(Run run, List<PartyMemberDto> members, List<String> roles) {
+    private void attachParticipants(Run run, List<PartyMemberDto> members, List<String> roles, Person uploader) {
         for (int i = 0; i < members.size(); i++) {
             PartyMemberDto member = members.get(i);
             String role = roles.get(i);
@@ -165,11 +175,12 @@ public class UploadRunWriter {
                 participant.setHenchman(isHenchman);
                 participant.setDeaths(deaths);
                 participant.setRezScrollUses(rezScrollUses);
+                participant.setUploadedByPerson(uploader);
                 // party_index intentionally left as originally recorded — not re-derived on resend
             } else {
                 participant = runParticipantRepository.save(new RunParticipant(
                         run, character, member.name(), primary, secondary, role, i, isPlayer, isHero, isHenchman,
-                        deaths, rezScrollUses));
+                        deaths, rezScrollUses, uploader));
             }
             attachItemDrops(participant, member.itemDrops());
         }

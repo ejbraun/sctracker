@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Tracks whose machine key most recently wrote this participant row: a run can receive
+         several independent /upload-run POSTs (one per party member's own GWToolbox client), and
+         run_participants is upserted last-writer-wins per row (spec 02). Without this, there was no
+         way to tell whose upload set a given participant's current role/character_id/etc. -->
+    <changeSet id="026-add-run-participants-uploaded-by" author="uwtracker">
+        <addColumn tableName="run_participants">
+            <column name="uploaded_by_person_id" type="BIGINT UNSIGNED"/>
+        </addColumn>
+        <createIndex indexName="idx_run_participants_uploaded_by" tableName="run_participants">
+            <column name="uploaded_by_person_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="run_participants" baseColumnNames="uploaded_by_person_id"
+                                  constraintName="fk_run_participants_uploaded_by"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -28,6 +28,13 @@ public class RunParticipant {
     @JoinColumn(name = "character_id")
     private PlayerCharacter character;
 
+    // Whose machine key most recently wrote this row -- a run can receive several independent
+    // /upload-run POSTs (one per party member's own client), and this row is upserted
+    // last-writer-wins per participant (see attachParticipants in UploadRunWriter).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by_person_id")
+    private Person uploadedByPerson;
+
     @Column(name = "raw_name", nullable = false, length = 64)
     private String rawName;
 
@@ -82,7 +89,7 @@ public class RunParticipant {
     public RunParticipant(Run run, PlayerCharacter character, String rawName,
                            Profession primaryProfession, Profession secondaryProfession,
                            String role, Integer partyIndex, boolean isPlayer, boolean isHero, boolean isHenchman,
-                           Integer deaths, Integer rezScrollUses) {
+                           Integer deaths, Integer rezScrollUses, Person uploadedByPerson) {
         this.run = run;
         this.character = character;
         this.rawName = rawName;
@@ -95,6 +102,7 @@ public class RunParticipant {
         this.isHenchman = isHenchman;
         this.deaths = deaths;
         this.rezScrollUses = rezScrollUses;
+        this.uploadedByPerson = uploadedByPerson;
     }
 
     public Long getId() {
@@ -111,6 +119,14 @@ public class RunParticipant {
 
     public void setCharacter(PlayerCharacter character) {
         this.character = character;
+    }
+
+    public Person getUploadedByPerson() {
+        return uploadedByPerson;
+    }
+
+    public void setUploadedByPerson(Person uploadedByPerson) {
+        this.uploadedByPerson = uploadedByPerson;
     }
 
     public String getRawName() {

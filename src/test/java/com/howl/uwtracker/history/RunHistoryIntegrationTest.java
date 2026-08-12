@@ -103,10 +103,10 @@ class RunHistoryIntegrationTest extends AbstractIntegrationTest {
         PlayerCharacter myChar = playerCharacterRepository.save(new PlayerCharacter(person, "MyToon"));
 
         Run myRun = seedRun(map, Instant.now(), true);
-        runParticipantRepository.save(new RunParticipant(myRun, myChar, "MyToon", warrior, null, "T1", 0, true, false, false, 0, 0));
+        runParticipantRepository.save(new RunParticipant(myRun, myChar, "MyToon", warrior, null, "T1", 0, true, false, false, 0, 0, null));
 
         Run otherRun = seedRun(map, Instant.now(), true);
-        runParticipantRepository.save(new RunParticipant(otherRun, null, "SomeoneElse", warrior, null, "spiker", 0, true, false, false, 0, 0));
+        runParticipantRepository.save(new RunParticipant(otherRun, null, "SomeoneElse", warrior, null, "spiker", 0, true, false, false, 0, 0, null));
 
         mockMvc.perform(get("/api/runs").session(session).param("person", String.valueOf(person.getId())))
                 .andExpect(status().isOk())
@@ -156,8 +156,8 @@ class RunHistoryIntegrationTest extends AbstractIntegrationTest {
         runObjectiveRepository.save(new RunObjective(run, 1, "Second", 2, 1000L, 2000L, 1000L, 0));
         runObjectiveRepository.save(new RunObjective(run, 0, "First", 2, 0L, 1000L, 1000L, 0));
 
-        runParticipantRepository.save(new RunParticipant(run, null, "SlotTwo", ranger, null, "T2", 1, true, false, false, 0, 0));
-        runParticipantRepository.save(new RunParticipant(run, null, "SlotOne", warrior, null, "T1", 0, true, false, false, 0, 0));
+        runParticipantRepository.save(new RunParticipant(run, null, "SlotTwo", ranger, null, "T2", 1, true, false, false, 0, 0, null));
+        runParticipantRepository.save(new RunParticipant(run, null, "SlotOne", warrior, null, "T1", 0, true, false, false, 0, 0, null));
 
         mockMvc.perform(get("/api/runs/" + run.getId()).session(session))
                 .andExpect(status().isOk())

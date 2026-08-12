@@ -50,6 +50,10 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
     private String issueMachineKey() throws Exception {
         MockHttpSession session = signup("uploader-" + System.nanoTime(), "password123");
+        // Marks this person as running the current plugin build, same as a real GWToolboxdll client
+        // would have by the time it's actually uploading — otherwise every upload here would hit the
+        // outdated-plugin silent-drop path (UploadRunService) instead of exercising ingestion itself.
+        mockMvc.perform(post("/api/plugin/download").session(session)).andExpect(status().isOk());
         return generateMachineKey(session, "GWToolboxdll");
     }
 

@@ -154,7 +154,7 @@ class CharacterIntegrationTest extends AbstractIntegrationTest {
         Run run = runRepository.save(new Run(map, Instant.now(), 1000L, Instant.now(), "victory", true, 5000L));
         Profession warrior = professionRepository.findById(1).orElseThrow();
         RunParticipant participant = runParticipantRepository.save(
-                new RunParticipant(run, null, "PreExisting Toon", warrior, null, "T1", 0, true, false, false, 0, 0));
+                new RunParticipant(run, null, "PreExisting Toon", warrior, null, "T1", 0, true, false, false, 0, 0, null));
         assertThat(participant.getCharacter()).isNull();
 
         MockHttpSession session = signup("backfiller", "password123");

@@ -39,7 +39,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),
-                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), blueprint.getRezScrollUses()));
+                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), blueprint.getRezScrollUses(), null));
         }
         return run;
     }
@@ -49,11 +49,11 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     private RunParticipant participant(PlayerCharacter character, String rawName, Profession profession, String role, int index, int deaths) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, deaths, 0);
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, deaths, 0, null);
     }
 
     private RunParticipant participantWithRezScrollUses(PlayerCharacter character, String rawName, Profession profession, String role, int index, int rezScrollUses) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, rezScrollUses);
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, rezScrollUses, null);
     }
 
     private PlayerCharacter character(Person person, String name) {
