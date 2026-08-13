@@ -3,7 +3,6 @@ package com.howl.uwtracker.loserboards;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
-import com.howl.uwtracker.loserboards.dto.RezScrollEntryResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import org.springframework.http.ResponseEntity;
@@ -59,14 +58,6 @@ public class LoserboardController {
                                                                         @RequestParam(required = false) Instant from,
                                                                         @RequestParam(required = false) Instant to) {
         return ResponseEntity.ok(loserboardService.longestBadStreak(mapId, limit, from, to));
-    }
-
-    @GetMapping("/maps/{mapId}/rez-scrolls")
-    public ResponseEntity<List<RezScrollEntryResponse>> mostRezScrollUses(@PathVariable Integer mapId,
-                                                                            @RequestParam(required = false) Integer limit,
-                                                                            @RequestParam(required = false) Instant from,
-                                                                            @RequestParam(required = false) Instant to) {
-        return ResponseEntity.ok(loserboardService.mostRezScrollUses(mapId, limit, from, to));
     }
 
     @GetMapping("/maps/{mapId}/sections/{objectiveName}/start")

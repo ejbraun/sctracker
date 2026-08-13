@@ -106,17 +106,6 @@ export interface UserStreak {
   streak_end: string;
 }
 
-// "Loserboards" — one participant's rez_scroll_uses in a single run, worst (highest) first.
-// Per-player, not summed across the party: each row is one (run, user) performance. Not scoped to
-// completed runs.
-export interface RezScrollEntry {
-  run_id: number;
-  utc_start: string;
-  user: string;
-  role: string | null;
-  rez_scroll_uses: number;
-}
-
 // "Leaderboards" — one (tracked item, user) row for "Luckiest Players": total reserved drops of
 // that item, summed across every run the user participated in, luckiest (highest) first within
 // each item. The set of tracked items isn't statically known on the frontend — item_name is
@@ -189,9 +178,6 @@ export interface ParticipantEntry {
   is_henchman: boolean;
   // Found in a real payload sample, not originally specced: how many times this participant died.
   deaths: number;
-  // Found in a real payload sample, not originally specced: how many resurrection scrolls this
-  // participant used.
-  rez_scroll_uses: number;
 }
 
 export interface RunDetail {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { LeaderboardEntry, RezScrollEntry, RoleUserDeaths, RunDetail, SectionEntry, UserResign, UserStreak } from '../api/types';
+import type { LeaderboardEntry, RoleUserDeaths, RunDetail, SectionEntry, UserResign, UserStreak } from '../api/types';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
 import { formatDate, formatDuration } from '../common/format';
@@ -41,12 +41,6 @@ export function LoserboardsPage() {
     queryKey: ['loserboard', 'streaks', 'bad', timeWindow],
     queryFn: () =>
       api.get<UserStreak[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/streaks/bad?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
-  });
-
-  const rezScrollsQuery = useQuery({
-    queryKey: ['loserboard', 'rez-scrolls', timeWindow],
-    queryFn: () =>
-      api.get<RezScrollEntry[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/rez-scrolls?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
   });
 
   // The set of objective names isn't statically known — pull them from the slowest completed
@@ -211,40 +205,6 @@ export function LoserboardsPage() {
                     <td>{entry.streak}</td>
                     <td>{formatDate(entry.streak_start)}</td>
                     <td>{formatDate(entry.streak_end)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Panel>
-
-        <Panel className={styles.section}>
-          <h2>Most Res Scroll Uses In A Run</h2>
-          {rezScrollsQuery.isLoading && <p>Loading…</p>}
-          {rezScrollsQuery.data && rezScrollsQuery.data.length === 0 && (
-            <p className={styles.emptyState}>No runs recorded for this map yet.</p>
-          )}
-          {rezScrollsQuery.data && rezScrollsQuery.data.length > 0 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>User</th>
-                  <th>Role</th>
-                  <th>Rez Scrolls</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rezScrollsQuery.data.map((entry, index) => (
-                  <tr key={`${entry.run_id}-${entry.user}`}>
-                    <td className={styles.rank}>{index + 1}</td>
-                    <td>{entry.user}</td>
-                    <td>
-                      <RoleBadge role={entry.role} />
-                    </td>
-                    <td>{entry.rez_scroll_uses}</td>
-                    <td>{formatDate(entry.utc_start)}</td>
                   </tr>
                 ))}
               </tbody>

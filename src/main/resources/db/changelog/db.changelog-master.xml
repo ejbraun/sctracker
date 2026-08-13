@@ -31,5 +31,6 @@
     <include file="db/changelog/changes/024-create-tracked-items.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/025-create-run-participant-item-drops.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/026-add-run-participants-uploaded-by.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/027-drop-run-participants-rez-scroll-uses.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

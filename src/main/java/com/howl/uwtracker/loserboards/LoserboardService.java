@@ -7,7 +7,6 @@ import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
-import com.howl.uwtracker.loserboards.dto.RezScrollEntryResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
@@ -82,11 +81,6 @@ public class LoserboardService {
     /** Global ranking only — no personal "Yours" counterpart for this stat. */
     public List<UserStreakResponse> longestBadStreak(Integer mapId, Integer limit, Instant from, Instant to) {
         return loserboardQueryRepository.findLongestBadStreak(mapId, limit == null ? DEFAULT_LIMIT : limit, from, to);
-    }
-
-    /** Per-player, worst (highest) rez_scroll_uses in a single run first — not summed across the party. */
-    public List<RezScrollEntryResponse> mostRezScrollUses(Integer mapId, Integer limit, Instant from, Instant to) {
-        return loserboardQueryRepository.findMostRezScrollUses(mapId, limit == null ? DEFAULT_LIMIT : limit, from, to);
     }
 
     /**

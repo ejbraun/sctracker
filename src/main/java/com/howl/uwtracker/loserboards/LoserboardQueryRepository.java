@@ -1,7 +1,6 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
-import com.howl.uwtracker.loserboards.dto.RezScrollEntryResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -120,30 +119,6 @@ public class LoserboardQueryRepository {
                         "ORDER BY streak_len DESC, streak_end DESC LIMIT ?",
                 (rs, rowNum) -> new UserStreakResponse(rs.getString("user"), rs.getLong("streak_len"),
                         rs.getTimestamp("streak_start").toInstant(), rs.getTimestamp("streak_end").toInstant()),
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
-    }
-
-    /**
-     * One row per (run, participant), ranked by that individual's own rez_scroll_uses in that run —
-     * "Most res scroll uses in a run." Per-player, not summed across the party: a player who single-
-     * handedly rez-scrolled a run belongs at the top, not diluted by teammates who used none. Not
-     * scoped to completed runs, same reasoning as {@link #findRoleDeaths}: heavy scroll usage often
-     * happens trying to save a run that still wipes.
-     */
-    public List<RezScrollEntryResponse> findMostRezScrollUses(Integer mapId, int limit, Instant from, Instant to) {
-        return jdbcTemplate.query(
-                "SELECT r.id AS run_id, r.utc_start AS utc_start, COALESCE(p.alias, rp.raw_name) AS user, " +
-                        "rp.role AS role, rp.rez_scroll_uses AS rez_scroll_uses " +
-                        "FROM run_participants rp " +
-                        "JOIN runs r ON r.id = rp.run_id " +
-                        "LEFT JOIN characters c ON c.id = rp.character_id " +
-                        "LEFT JOIN people p ON p.id = c.person_id " +
-                        "WHERE r.map_id = ? " +
-                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
-                        "ORDER BY rez_scroll_uses DESC " +
-                        "LIMIT ?",
-                (rs, rowNum) -> new RezScrollEntryResponse(rs.getLong("run_id"), rs.getTimestamp("utc_start").toInstant(),
-                        rs.getString("user"), rs.getString("role"), rs.getInt("rez_scroll_uses")),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
     }
 

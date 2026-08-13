@@ -186,7 +186,6 @@ public class UploadRunWriter {
             boolean isHero = member.isHero() != null && member.isHero();
             boolean isHenchman = member.isHenchman() != null && member.isHenchman();
             int deaths = member.deaths() == null ? 0 : member.deaths();
-            int rezScrollUses = member.rezScrollUses() == null ? 0 : member.rezScrollUses();
 
             Optional<RunParticipant> existing = runParticipantRepository.findByRun_IdAndRawName(run.getId(), member.name());
             RunParticipant participant;
@@ -200,13 +199,12 @@ public class UploadRunWriter {
                 participant.setHero(isHero);
                 participant.setHenchman(isHenchman);
                 participant.setDeaths(deaths);
-                participant.setRezScrollUses(rezScrollUses);
                 participant.setUploadedByPerson(uploader);
                 // party_index intentionally left as originally recorded — not re-derived on resend
             } else {
                 participant = runParticipantRepository.save(new RunParticipant(
                         run, character, member.name(), primary, secondary, role, i, isPlayer, isHero, isHenchman,
-                        deaths, rezScrollUses, uploader));
+                        deaths, uploader));
             }
             attachItemDrops(participant, member.itemDrops());
         }

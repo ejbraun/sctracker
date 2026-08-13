@@ -46,13 +46,13 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),
-                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), blueprint.getRezScrollUses(), null));
+                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), null));
         }
         return run;
     }
 
     private RunParticipant participant(PlayerCharacter character, String rawName, Profession profession, String role, int index) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, 0, null);
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, null);
     }
 
     private PlayerCharacter character(Person person, String name) {

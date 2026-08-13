@@ -80,7 +80,6 @@ export function RunDetail() {
               <th>Profession</th>
               <th>Role</th>
               <th>Deaths</th>
-              <th>Rez Scrolls</th>
             </tr>
           </thead>
           <tbody>
@@ -97,7 +96,6 @@ export function RunDetail() {
                   <RoleBadge role={participant.role} />
                 </td>
                 <td>{participant.deaths}</td>
-                <td>{participant.rez_scroll_uses}</td>
               </tr>
             ))}
           </tbody>

@@ -39,7 +39,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),
-                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), blueprint.getRezScrollUses(), null));
+                    blueprint.getPartyIndex(), true, false, false, blueprint.getDeaths(), null));
         }
         return run;
     }
@@ -49,11 +49,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     private RunParticipant participant(PlayerCharacter character, String rawName, Profession profession, String role, int index, int deaths) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, deaths, 0, null);
-    }
-
-    private RunParticipant participantWithRezScrollUses(PlayerCharacter character, String rawName, Profession profession, String role, int index, int rezScrollUses) {
-        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, 0, rezScrollUses, null);
+        return new RunParticipant(null, character, rawName, profession, null, role, index, true, false, false, deaths, null);
     }
 
     private PlayerCharacter character(Person person, String name) {
@@ -255,29 +251,6 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].user").value("RecentLoser"))
                 .andExpect(jsonPath("$[0].streak").value(1));
-    }
-
-    @Test
-    void mostRezScrollUsesRanksPerPlayerNotPerRunTotal() throws Exception {
-        MockHttpSession session = signup("rezscrollviewer", "password123");
-        GameMap map = map();
-        Profession warrior = professionRepository.findById(1).orElseThrow();
-
-        // One run where two players each used scrolls — ranked individually, not summed to 7.
-        seedRun(map, 10_000L, true, "unknown",
-                participantWithRezScrollUses(null, "BigUser", warrior, "T1", 0, 5),
-                participantWithRezScrollUses(null, "SmallUser", warrior, "T2", 1, 2));
-        // A lone big single-run performance in a separate (wiped) run — still counts.
-        seedRun(map, 10_000L, false, "wipe", participantWithRezScrollUses(null, "SoloHero", warrior, "T1", 0, 9));
-
-        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/rez-scrolls").session(session))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].user").value("SoloHero"))
-                .andExpect(jsonPath("$[0].rez_scroll_uses").value(9))
-                .andExpect(jsonPath("$[1].user").value("BigUser"))
-                .andExpect(jsonPath("$[1].rez_scroll_uses").value(5))
-                .andExpect(jsonPath("$[2].user").value("SmallUser"))
-                .andExpect(jsonPath("$[2].rez_scroll_uses").value(2));
     }
 
     @Test

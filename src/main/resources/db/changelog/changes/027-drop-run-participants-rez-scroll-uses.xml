@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Removed: no accurate client-side way to track resurrection scroll uses, so the plugin
+         always sent 0, not a real stat, just dead weight (021 added it, this reverses that). -->
+    <changeSet id="027-drop-run-participants-rez-scroll-uses" author="uwtracker">
+        <dropColumn tableName="run_participants" columnName="rez_scroll_uses"/>
+    </changeSet>
+
+</databaseChangeLog>
