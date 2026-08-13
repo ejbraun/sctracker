@@ -304,7 +304,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
                 firstResult.getResponse().getContentAsString(), UploadRunResponse.class);
         assertThat(firstResponse.created()).isTrue();
 
-        // Resend 2 seconds later — within the 5s dedup window — and expect an upsert, not a duplicate.
+        // Resend 2 seconds later — within the 60s dedup window — and expect an upsert, not a duplicate.
         MvcResult secondResult = upload(key, validRequest(UTC_START_SECONDS + 2, validParty()));
         UploadRunResponse secondResponse = objectMapper.readValue(
                 secondResult.getResponse().getContentAsString(), UploadRunResponse.class);
@@ -322,7 +322,28 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         UploadRunResponse firstResponse = objectMapper.readValue(
                 firstResult.getResponse().getContentAsString(), UploadRunResponse.class);
 
-        MvcResult secondResult = upload(key, validRequest(UTC_START_SECONDS + 30, validParty()));
+        MvcResult secondResult = upload(key, validRequest(UTC_START_SECONDS + 90, validParty()));
+        UploadRunResponse secondResponse = objectMapper.readValue(
+                secondResult.getResponse().getContentAsString(), UploadRunResponse.class);
+
+        assertThat(secondResponse.created()).isTrue();
+        assertThat(secondResponse.runId()).isNotEqualTo(firstResponse.runId());
+        assertThat(runRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void resendWithinWindowButDifferentRosterCreatesASecondRunInstead() throws Exception {
+        String key = issueMachineKey();
+        MvcResult firstResult = upload(key, validRequest(UTC_START_SECONDS, validParty()));
+        UploadRunResponse firstResponse = objectMapper.readValue(
+                firstResult.getResponse().getContentAsString(), UploadRunResponse.class);
+
+        List<PartyMemberDto> differentParty = validParty();
+        differentParty.set(0, new PartyMemberDto("Someone Else", RANGER, ASSASSIN, true, false, false, 0, "t1", 0, List.of()));
+        // Within the dedup time window, but a different party entirely (map_id is a global zone id,
+        // not tied to any specific server/instance, so two unrelated parties could plausibly start
+        // close together) — the roster mismatch should still create a second run, not merge into it.
+        MvcResult secondResult = upload(key, validRequest(UTC_START_SECONDS + 10, differentParty));
         UploadRunResponse secondResponse = objectMapper.readValue(
                 secondResult.getResponse().getContentAsString(), UploadRunResponse.class);
 

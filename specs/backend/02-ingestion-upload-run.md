@@ -92,12 +92,17 @@ resign). Resolution order:
    log — it's the plugin's normal not-yet-resolved state, not an error. Any other invalid value, or
    a duplicate claim of a label another member already took, is logged as a WARN and also treated as
    absent for that member.
-2. **No positional fallback**: unlike earlier plugin builds, a member with no valid hint stays
-   `null` rather than being guessed from its position (`0`/`1`/`2`) — Ranger/Assassin members are
-   otherwise indistinguishable, so guessing was a source of silently-wrong labels once hints existed
-   at all. `T1`/`T2`/`T3` can now only come from an explicit hint.
-3. **Profession combo**: everything still unassigned (normally indices 3–7, plus any T1/T2/T3 slot
-   left unresolved by step 1) resolves as below.
+2. **No positional fallback for T2/T3**: unlike earlier plugin builds, a member with no valid hint
+   stays `null` rather than being guessed from its position (`0`/`1`/`2`) — Ranger/Assassin members
+   are otherwise indistinguishable, so guessing was a source of silently-wrong labels once hints
+   existed at all. `T2`/`T3` can only come from an explicit hint.
+3. **T1 by elimination**: T1 is deliberately *not* derived from any skill cast — once both `T2` and
+   `T3` have been assigned by hint and exactly one Ranger/Assassin member is still unassigned, that
+   member is labeled `T1`. If more than one Ranger/Assassin member remains unassigned at that point
+   (or `T2`/`T3` aren't both resolved yet), nothing is inferred and it's left `null` — same as any
+   other ambiguous case.
+4. **Profession combo**: everything still unassigned (normally indices 3–7, plus any T1/T2/T3 slot
+   left unresolved by steps 1–3) resolves as below.
 
 For indices 3–7, match the (primary, secondary) pair — **ordered**, primary first, matching the "X/Y" GW1 community shorthand used in the requirements (primary `X`, secondary `Y`):
 

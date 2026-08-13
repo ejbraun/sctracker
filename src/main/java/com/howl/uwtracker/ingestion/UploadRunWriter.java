@@ -35,6 +35,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The actual find-or-create-run + attach-participants work, run inside a single transaction under
@@ -47,7 +49,13 @@ import java.util.Optional;
 public class UploadRunWriter {
 
     private static final Logger log = LoggerFactory.getLogger(UploadRunWriter.class);
-    private static final int DEDUP_WINDOW_SECONDS = 5;
+    // Wide enough to absorb realistic clock skew between different party members' own machines
+    // (utc_start is stamped client-side, time(nullptr) — not server receive time) without risking
+    // merging two genuinely different attempts, which are minutes apart in practice for this map.
+    // A wide window alone would also risk merging two unrelated parties that happen to start close
+    // together, since map_id is a global zone id, not tied to any specific server/instance — the
+    // exact-roster check in findDedupMatch guards against that independently of window size.
+    private static final int DEDUP_WINDOW_SECONDS = 60;
 
     private final GameMapRepository gameMapRepository;
     private final RunRepository runRepository;
@@ -93,7 +101,7 @@ public class UploadRunWriter {
         // utc_start is time(nullptr) — real wall-clock epoch SECONDS — confirmed against a real
         // GWToolboxdll payload sample. (An earlier draft of this assumed epoch milliseconds.)
         Instant targetUtcStart = Instant.ofEpochSecond(party.utcStart());
-        Optional<Run> existing = runRepository.findDedupMatch(party.mapId(), targetUtcStart, DEDUP_WINDOW_SECONDS);
+        Optional<Run> existing = findDedupMatch(party.mapId(), targetUtcStart, members);
 
         Run run;
         boolean created;
@@ -108,6 +116,24 @@ public class UploadRunWriter {
         attachParticipants(run, members, roles, uploader);
 
         return new UploadRunResponse(run.getId(), created);
+    }
+
+    /**
+     * Among the runs on this map within the dedup time window, picks the one whose existing
+     * participant roster exactly matches this upload's party — not just the closest in time. A wide
+     * time window alone can catch more than one candidate (e.g. two unrelated parties starting close
+     * together on the same globally-shared map_id); requiring an exact roster match is what actually
+     * guards against merging them, independently of how wide the window is.
+     */
+    private Optional<Run> findDedupMatch(Integer mapId, Instant targetUtcStart, List<PartyMemberDto> members) {
+        Set<String> incomingNames = members.stream().map(PartyMemberDto::name).collect(Collectors.toSet());
+        for (Run candidate : runRepository.findDedupCandidates(mapId, targetUtcStart, DEDUP_WINDOW_SECONDS)) {
+            Set<String> existingNames = Set.copyOf(runParticipantRepository.findRawNamesByRunId(candidate.getId()));
+            if (existingNames.equals(incomingNames)) {
+                return Optional.of(candidate);
+            }
+        }
+        return Optional.empty();
     }
 
     private Run createRun(GameMap map, Instant targetUtcStart, PartyDto party, ObjectiveSectionDto objective) {

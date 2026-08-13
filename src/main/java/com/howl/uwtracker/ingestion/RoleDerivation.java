@@ -18,9 +18,11 @@ import java.util.Set;
  * The plugin's optional per-member role_hint ("t1"/"t2"/"t3", set once that player casts one of a
  * fixed set of trapping skills) is the only way to resolve this — a member stays unresolved
  * (null role) if it has no role_hint, or if role_hint is "unknown" (the plugin's explicit
- * not-yet-resolved sentinel). There is no positional fallback. Indices 3-7 (or any T1-T3 index
- * left unresolved) fall through to an ORDERED (primary, secondary) combo match — flagged in
- * specs/backend/00-overview.md as an assumption unverified against real plugin data.
+ * not-yet-resolved sentinel). There is no positional fallback for T2/T3 (or the general case).
+ * T1 is the exception: it's inferred by elimination once T2 and T3 are both hinted, rather than
+ * waiting on its own hint — deliberately not derived from any skill cast. Indices 3-7 (or any
+ * T1-T3 slot left unresolved) fall through to an ORDERED (primary, secondary) combo match —
+ * flagged in specs/backend/00-overview.md as an assumption unverified against real plugin data.
  */
 public final class RoleDerivation {
 
@@ -46,6 +48,8 @@ public final class RoleDerivation {
      * @param partyMembers must have exactly 8 entries — caller validates size before calling
      *                     (party size != 8 is a 400 at the controller level, not this method's concern).
      * @return roles in the same order as partyMembers; entries are null where no combo matched.
+     *         T1 is assigned by elimination (not its own hint) once T2 and T3 are both hinted and
+     *         exactly one Ranger/Assassin member remains unassigned.
      */
     public static List<String> resolveRoles(List<PartyMemberDto> partyMembers) {
         if (partyMembers.size() != 8) {
@@ -66,6 +70,27 @@ public final class RoleDerivation {
                 continue;
             }
             roles[i] = normalized;
+        }
+
+        // Pass 1.5: T1 never gets its own hint from skills — infer it by elimination once T2 and T3
+        // are both hinted, from whichever Ranger/Assassin member is still unassigned. Only fires
+        // when exactly one such member remains; otherwise there's nothing safe to conclude.
+        if (claimedLabels.contains("T2") && claimedLabels.contains("T3") && !claimedLabels.contains("T1")) {
+            Integer onlyCandidate = null;
+            boolean singleCandidate = true;
+            for (int i = 0; i < 8; i++) {
+                PartyMemberDto member = partyMembers.get(i);
+                if (roles[i] == null && member.primary() == RANGER && member.secondary() == ASSASSIN) {
+                    if (onlyCandidate != null) {
+                        singleCandidate = false;
+                        break;
+                    }
+                    onlyCandidate = i;
+                }
+            }
+            if (singleCandidate && onlyCandidate != null) {
+                roles[onlyCandidate] = "T1";
+            }
         }
 
         // Pass 2: everything still unassigned (normally indices 3-7; T1-T3 slots with no valid hint

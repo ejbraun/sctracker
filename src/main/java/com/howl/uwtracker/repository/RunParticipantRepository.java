@@ -18,6 +18,9 @@ public interface RunParticipantRepository extends JpaRepository<RunParticipant, 
 
     long countByRun_Id(Long runId);
 
+    @Query("select rp.rawName from RunParticipant rp where rp.run.id = :runId")
+    List<String> findRawNamesByRunId(@Param("runId") Long runId);
+
     @Modifying
     @Query("update RunParticipant rp set rp.character = :character " +
             "where rp.character is null and rp.rawName = :rawName")

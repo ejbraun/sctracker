@@ -217,4 +217,86 @@ class RoleDerivationTest {
         List<String> roles = RoleDerivation.resolveRoles(party);
         assertNull(roles.get(0));
     }
+
+    @Test
+    void t2AndT3HintedInferTheRemainingTrapperAsT1() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3"));
+        // index 0 gets no role_hint at all — inferred as T1 purely by elimination.
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T1", roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
+
+    @Test
+    void t2AndT3HintedInferT1RegardlessOfWhichSlotIsUnhinted() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("T3", RANGER, ASSASSIN, "t3"));
+        party.set(2, member("T2", RANGER, ASSASSIN, "t2"));
+        // index 1, out of position, is the unhinted one and still resolves to T1.
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T3", roles.get(0));
+        assertEquals("T1", roles.get(1));
+        assertEquals("T2", roles.get(2));
+    }
+
+    @Test
+    void t1EliminationWorksWhenTrapperTrioIsNotAtIndicesZeroToTwo() {
+        // The Ranger/Assassin trio can land anywhere in the array — build a party where they sit
+        // at indices 2, 5, and 7 instead of the conventional 0-2, interleaved with other combos.
+        List<PartyMemberDto> party = List.of(
+                member("T4", MESMER, ELEMENTALIST),
+                member("LT", MESMER, ASSASSIN),
+                member("T2", RANGER, ASSASSIN, "t2"),
+                member("SoS", RITUALIST, RANGER),
+                member("Emo", ELEMENTALIST, MONK),
+                member("T3", RANGER, ASSASSIN, "t3"),
+                member("Spiker", DERVISH, WARRIOR),
+                member("T1", RANGER, ASSASSIN)
+        );
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(2));
+        assertEquals("T3", roles.get(5));
+        assertEquals("T1", roles.get(7));
+    }
+
+    @Test
+    void t1EliminationDoesNotFireWithOnlyOneOfT2OrT3Hinted() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        // index 2 (T3) left unhinted, so elimination must not guess index 0 or 2.
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertNull(roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertNull(roles.get(2));
+    }
+
+    @Test
+    void t1EliminationDoesNotOverrideAnExplicitT1Hint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("T1", RANGER, ASSASSIN, "t1"));
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T1", roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
+
+    @Test
+    void t1EliminationSkipsWhenMoreThanOneCandidateRemains() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3"));
+        // A fourth, unhinted Ranger/Assassin member (e.g. a henchman filling a trapper slot)
+        // makes elimination ambiguous, so nobody gets guessed as T1.
+        party.set(3, member("ExtraRA", RANGER, ASSASSIN));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertNull(roles.get(0));
+        assertEquals("T2", roles.get(1));
+        assertEquals("T3", roles.get(2));
+        assertNull(roles.get(3));
+    }
 }
