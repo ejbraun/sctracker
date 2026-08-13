@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Membership table, not a boolean flag: a row's mere existence for a person_id makes them an
+         admin. No signup-flow or API writes this table -- admins are added by hand (direct INSERT)
+         for now; gates /api/admin/** (see AdminAuthInterceptor), which currently only lets an admin
+         grant/revoke people.can_report_failures via AdminUserController. -->
+    <changeSet id="030-create-admins" author="uwtracker">
+        <createTable tableName="admins">
+            <column name="person_id" type="BIGINT UNSIGNED">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="granted_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="admins" baseColumnNames="person_id"
+                                  constraintName="fk_admins_person"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -8,6 +8,19 @@ export interface Person {
   // True if this person's last plugin download predates the currently detected dll build (see
   // PluginDllVersionInitializer on the backend), or if they've never recorded a download at all.
   new_plugin_version_available: boolean;
+  // Membership in the admins table (see AdminAuthInterceptor) — gates the "User Management" nav
+  // link/route and every /api/admin/** call. Granted by hand (direct DB insert), not via any API.
+  is_admin: boolean;
+}
+
+/** Row shape for the admin-only "User Management" page — GET/PATCH /api/admin/users. */
+export interface AdminUser {
+  id: number;
+  username: string;
+  alias: string | null;
+  can_report_failures: boolean;
+  // Read-only here — admin status itself isn't grantable through this UI, only by hand in the DB.
+  is_admin: boolean;
 }
 
 /** Minimal, alias-only view of another person — backs the Run History "person" filter dropdown. */
@@ -95,6 +108,15 @@ export interface UserResign {
   total_runs: number;
   resigns: number;
   percentage: number;
+}
+
+// "Loserboards" — per-role, per-user count of how many times that role was flagged (via the
+// plugin's post-run failure popup) as at fault for a run's failure. `user` is whichever character
+// held that role in the flagged run.
+export interface FailureReasonEntry {
+  role: string;
+  user: string;
+  count: number;
 }
 
 // One user's single best-ever consecutive-run streak on a map — reused by both the Leaderboards

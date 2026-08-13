@@ -37,6 +37,11 @@ public class Person {
     @Column(name = "last_plugin_download_at")
     private Instant lastPluginDownloadAt;
 
+    // Gates POST /report-run-failure. Granted/revoked by an admin via PATCH
+    // /api/admin/users/{id}/can-report-failures (AdminUserController).
+    @Column(name = "can_report_failures", nullable = false)
+    private boolean canReportFailures;
+
     protected Person() {
     }
 
@@ -79,5 +84,13 @@ public class Person {
 
     public void setLastPluginDownloadAt(Instant lastPluginDownloadAt) {
         this.lastPluginDownloadAt = lastPluginDownloadAt;
+    }
+
+    public boolean isCanReportFailures() {
+        return canReportFailures;
+    }
+
+    public void setCanReportFailures(boolean canReportFailures) {
+        this.canReportFailures = canReportFailures;
     }
 }

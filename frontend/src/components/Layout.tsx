@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { UpdateBanner } from './UpdateBanner';
 import styles from './Layout.module.css';
 
@@ -8,6 +9,7 @@ import styles from './Layout.module.css';
 export function Layout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { person } = useAuth();
 
   async function handleLogout() {
     await api.post('/logout');
@@ -39,6 +41,11 @@ export function Layout() {
         <Link className={styles.navLink} to="/how-to-use">
           How to Use
         </Link>
+        {person?.is_admin && (
+          <Link className={styles.navLink} to="/admin/users">
+            User Management
+          </Link>
+        )}
         <span className={styles.spacer} />
         <button onClick={handleLogout}>Logout</button>
       </nav>

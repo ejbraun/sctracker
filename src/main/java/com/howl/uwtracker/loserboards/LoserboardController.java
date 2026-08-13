@@ -3,6 +3,7 @@ package com.howl.uwtracker.loserboards;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +51,13 @@ public class LoserboardController {
                                                                   @RequestParam(required = false) Instant from,
                                                                   @RequestParam(required = false) Instant to) {
         return ResponseEntity.ok(loserboardService.globalFails(mapId, from, to));
+    }
+
+    @GetMapping("/maps/{mapId}/role-failure-reasons")
+    public ResponseEntity<List<RoleFailureReasonResponse>> roleFailureReasons(@PathVariable Integer mapId,
+                                                                                @RequestParam(required = false) Instant from,
+                                                                                @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(loserboardService.roleFailureReasons(mapId, from, to));
     }
 
     @GetMapping("/maps/{mapId}/streaks/bad")

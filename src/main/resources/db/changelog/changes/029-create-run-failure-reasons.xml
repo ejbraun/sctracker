@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- One row per (run, role) a permitted reporter flagged as at fault for that run's failure via
+         POST /report-run-failure. "role" is a freeform code like run_participants.role /
+         role_objectives.role -- there's no roles lookup table in this schema to FK against;
+         validity (the role must actually appear among that run's participants) is enforced in
+         FailureReportService, not the database. A resubmission wholesale-replaces this run's rows
+         (same idiom as run_participant_item_drops), so this is always the latest report, not a log. -->
+    <changeSet id="029-create-run-failure-reasons" author="uwtracker">
+        <createTable tableName="run_failure_reasons">
+            <column name="run_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reported_by_person_id" type="BIGINT UNSIGNED"/>
+            <column name="reported_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="run_failure_reasons" columnNames="run_id, role"
+                        constraintName="pk_run_failure_reasons"/>
+        <addForeignKeyConstraint baseTableName="run_failure_reasons" baseColumnNames="run_id"
+                                  constraintName="fk_run_failure_reasons_run"
+                                  referencedTableName="runs" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="run_failure_reasons" baseColumnNames="reported_by_person_id"
+                                  constraintName="fk_run_failure_reasons_reported_by"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <createIndex indexName="idx_run_failure_reasons_reported_by" tableName="run_failure_reasons">
+            <column name="reported_by_person_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

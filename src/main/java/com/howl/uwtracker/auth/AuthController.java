@@ -8,6 +8,7 @@ import com.howl.uwtracker.auth.dto.SignupRequest;
 import com.howl.uwtracker.auth.dto.UpdateAliasRequest;
 import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.plugin.PluginVersionService;
+import com.howl.uwtracker.repository.AdminRepository;
 import com.howl.uwtracker.repository.PersonRepository;
 import com.howl.uwtracker.web.ApiException;
 import org.springframework.http.HttpStatus;
@@ -26,12 +27,14 @@ public class AuthController {
 
     private final AuthService authService;
     private final PersonRepository personRepository;
+    private final AdminRepository adminRepository;
     private final PluginVersionService pluginVersionService;
 
-    public AuthController(AuthService authService, PersonRepository personRepository,
+    public AuthController(AuthService authService, PersonRepository personRepository, AdminRepository adminRepository,
                            PluginVersionService pluginVersionService) {
         this.authService = authService;
         this.personRepository = personRepository;
+        this.adminRepository = adminRepository;
         this.pluginVersionService = pluginVersionService;
     }
 
@@ -39,14 +42,15 @@ public class AuthController {
     public ResponseEntity<PersonResponse> signup(@RequestBody SignupRequest request, HttpServletRequest httpRequest) {
         Person person = authService.signup(request.username(), request.password(), request.signupKey());
         startSession(httpRequest, person);
-        return ResponseEntity.status(HttpStatus.CREATED).body(PersonResponse.from(person, pluginVersionService.isOutdated(person)));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(PersonResponse.from(person, pluginVersionService.isOutdated(person), adminRepository.existsById(person.getId())));
     }
 
     @PostMapping("/login")
     public ResponseEntity<PersonResponse> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         Person person = authService.login(request.username(), request.password());
         startSession(httpRequest, person);
-        return ResponseEntity.ok(PersonResponse.from(person, pluginVersionService.isOutdated(person)));
+        return ResponseEntity.ok(PersonResponse.from(person, pluginVersionService.isOutdated(person), adminRepository.existsById(person.getId())));
     }
 
     @PostMapping("/logout")
@@ -62,13 +66,13 @@ public class AuthController {
     public ResponseEntity<PersonResponse> me(@CurrentPersonId Long personId) {
         Person person = personRepository.findById(personId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "not authenticated"));
-        return ResponseEntity.ok(PersonResponse.from(person, pluginVersionService.isOutdated(person)));
+        return ResponseEntity.ok(PersonResponse.from(person, pluginVersionService.isOutdated(person), adminRepository.existsById(personId)));
     }
 
     @PatchMapping("/account/alias")
     public ResponseEntity<PersonResponse> updateAlias(@CurrentPersonId Long personId, @RequestBody UpdateAliasRequest request) {
         Person person = authService.updateAlias(personId, request.alias());
-        return ResponseEntity.ok(PersonResponse.from(person, pluginVersionService.isOutdated(person)));
+        return ResponseEntity.ok(PersonResponse.from(person, pluginVersionService.isOutdated(person), adminRepository.existsById(personId)));
     }
 
     private void startSession(HttpServletRequest request, Person person) {

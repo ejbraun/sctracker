@@ -1,6 +1,7 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -120,6 +121,29 @@ public class LoserboardQueryRepository {
                 (rs, rowNum) -> new UserStreakResponse(rs.getString("user"), rs.getLong("streak_len"),
                         rs.getTimestamp("streak_start").toInstant(), rs.getTimestamp("streak_end").toInstant()),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
+    }
+
+    /**
+     * One row per (role, user) that has ever been flagged, via POST /report-run-failure, as at
+     * fault for a run's failure on this map. {@code user} is whichever character held that role in
+     * the flagged run (joined through {@code run_participants} on both {@code run_id} and
+     * {@code role}, same as {@code run_failure_reasons.role} is validated against at submission
+     * time). Ordered by count within each role, most-blamed first.
+     */
+    public List<RoleFailureReasonResponse> findRoleFailureReasons(Integer mapId, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT rfr.role AS role, COALESCE(p.alias, rp.raw_name) AS user, COUNT(*) AS total_count " +
+                        "FROM run_failure_reasons rfr " +
+                        "JOIN runs r ON r.id = rfr.run_id " +
+                        "JOIN run_participants rp ON rp.run_id = rfr.run_id AND rp.role = rfr.role " +
+                        "LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "LEFT JOIN people p ON p.id = c.person_id " +
+                        "WHERE r.map_id = ? " +
+                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "GROUP BY rfr.role, COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY rfr.role, total_count DESC",
+                (rs, rowNum) -> new RoleFailureReasonResponse(rs.getString("role"), rs.getString("user"), rs.getLong("total_count")),
+                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /** {@code java.time.Instant} isn't one of JDBC 4.2's mandated {@code setObject} conversions; convert explicitly. */

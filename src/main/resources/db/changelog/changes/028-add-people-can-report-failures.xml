@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- No admin UI yet -- flipped directly in the DB for trusted reporters. Gates
+         POST /report-run-failure; there's no general roles/permissions table in this schema, this
+         is the first person-level permission flag. -->
+    <changeSet id="028-add-people-can-report-failures" author="uwtracker">
+        <addColumn tableName="people">
+            <column name="can_report_failures" type="TINYINT(1)" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

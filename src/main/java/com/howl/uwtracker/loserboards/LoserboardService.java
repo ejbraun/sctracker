@@ -7,6 +7,7 @@ import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
@@ -76,6 +77,10 @@ public class LoserboardService {
 
     public List<UserResignResponse> globalFails(Integer mapId, Instant from, Instant to) {
         return loserboardQueryRepository.findGlobalFails(mapId, from, to);
+    }
+
+    public List<RoleFailureReasonResponse> roleFailureReasons(Integer mapId, Instant from, Instant to) {
+        return loserboardQueryRepository.findRoleFailureReasons(mapId, from, to);
     }
 
     /** Global ranking only — no personal "Yours" counterpart for this stat. */

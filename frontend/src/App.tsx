@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { AdminRoute } from './auth/AdminRoute';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
@@ -13,6 +14,7 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LoserboardsPage } from './pages/LoserboardsPage';
 import { RunHistory } from './pages/RunHistory';
 import { RunDetail } from './pages/RunDetail';
+import { AdminUsers } from './pages/AdminUsers';
 
 const queryClient = new QueryClient();
 
@@ -35,6 +37,9 @@ export default function App() {
                 <Route path="/loserboards" element={<LoserboardsPage />} />
                 <Route path="/runs" element={<RunHistory />} />
                 <Route path="/runs/:id" element={<RunDetail />} />
+                <Route element={<AdminRoute />}>
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                </Route>
               </Route>
             </Route>
           </Routes>

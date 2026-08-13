@@ -32,5 +32,8 @@
     <include file="db/changelog/changes/025-create-run-participant-item-drops.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/026-add-run-participants-uploaded-by.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/027-drop-run-participants-rez-scroll-uses.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/028-add-people-can-report-failures.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/029-create-run-failure-reasons.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/030-create-admins.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

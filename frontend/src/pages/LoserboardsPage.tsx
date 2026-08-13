@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { LeaderboardEntry, RoleUserDeaths, RunDetail, SectionEntry, UserResign, UserStreak } from '../api/types';
+import type { FailureReasonEntry, LeaderboardEntry, RoleUserDeaths, RunDetail, SectionEntry, UserResign, UserStreak } from '../api/types';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
 import { formatDate, formatDuration } from '../common/format';
@@ -35,6 +35,14 @@ export function LoserboardsPage() {
     queryKey: ['loserboard', 'global-fails', timeWindow],
     queryFn: () =>
       api.get<UserResign[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/global-fails${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+  });
+
+  const failureReasonsQuery = useQuery({
+    queryKey: ['loserboard', 'role-failure-reasons', timeWindow],
+    queryFn: () =>
+      api.get<FailureReasonEntry[]>(
+        `/loserboards/maps/${DEFAULT_MAP_ID}/role-failure-reasons${from ? `?from=${encodeURIComponent(from)}` : ''}`,
+      ),
   });
 
   const badStreakQuery = useQuery({
@@ -140,6 +148,43 @@ export function LoserboardsPage() {
                             <td>{r.total_runs}</td>
                             <td>{r.deaths}</td>
                             <td>{r.avg_deaths.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Blamed By Role</h2>
+          {failureReasonsQuery.isLoading && <p>Loading…</p>}
+          {failureReasonsQuery.data &&
+            ROLES.map((role, index) => {
+              // Already sorted count-desc by the backend; filtering preserves that relative order.
+              const rows = failureReasonsQuery.data.filter((r) => r.role === role);
+              return (
+                <div key={role}>
+                  <h3 className={index === 0 ? undefined : styles.subsection}>
+                    <RoleBadge role={role} />
+                  </h3>
+                  {rows.length === 0 ? (
+                    <p className={styles.emptyState}>No failures reported for this role yet.</p>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Times Blamed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => (
+                          <tr key={r.user}>
+                            <td>{r.user}</td>
+                            <td>{r.count}</td>
                           </tr>
                         ))}
                       </tbody>

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface RunParticipantRepository extends JpaRepository<RunParticipant, Long> {
 
@@ -20,6 +21,10 @@ public interface RunParticipantRepository extends JpaRepository<RunParticipant, 
 
     @Query("select rp.rawName from RunParticipant rp where rp.run.id = :runId")
     List<String> findRawNamesByRunId(@Param("runId") Long runId);
+
+    /** Validates a failure-report submission against the run's actual roster — see FailureReportService. */
+    @Query("select distinct rp.role from RunParticipant rp where rp.run.id = :runId and rp.role is not null")
+    Set<String> findDistinctRolesByRunId(@Param("runId") Long runId);
 
     @Modifying
     @Query("update RunParticipant rp set rp.character = :character " +
