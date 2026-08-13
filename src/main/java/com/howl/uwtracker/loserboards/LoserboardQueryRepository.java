@@ -124,25 +124,32 @@ public class LoserboardQueryRepository {
     }
 
     /**
-     * One row per (role, user) that has ever been flagged, via POST /report-run-failure, as at
-     * fault for a run's failure on this map. {@code user} is whichever character held that role in
-     * the flagged run (joined through {@code run_participants} on both {@code run_id} and
-     * {@code role}, same as {@code run_failure_reasons.role} is validated against at submission
-     * time). Ordered by count within each role, most-blamed first.
+     * One row per (role, user) that has ever played that role on this map, fails summed — same
+     * shape/rationale as {@link #findRoleDeaths}. Starts from {@code run_participants} (every run
+     * played in that role), left-joining {@code run_failure_reasons} on both {@code run_id} and
+     * {@code role} to count how many of those runs were actually flagged, so someone blamed once in
+     * one run doesn't outrank someone blamed less often but far more frequently relative to their
+     * total runs in that role. Ordered by fails-per-run within each role, most-blamed first.
      */
     public List<RoleFailureReasonResponse> findRoleFailureReasons(Integer mapId, Instant from, Instant to) {
         return jdbcTemplate.query(
-                "SELECT rfr.role AS role, COALESCE(p.alias, rp.raw_name) AS user, COUNT(*) AS total_count " +
-                        "FROM run_failure_reasons rfr " +
-                        "JOIN runs r ON r.id = rfr.run_id " +
-                        "JOIN run_participants rp ON rp.run_id = rfr.run_id AND rp.role = rfr.role " +
+                "SELECT rp.role AS role, COALESCE(p.alias, rp.raw_name) AS user, " +
+                        "COUNT(*) AS total_runs, SUM(CASE WHEN rfr.run_id IS NOT NULL THEN 1 ELSE 0 END) AS total_fails " +
+                        "FROM run_participants rp " +
+                        "JOIN runs r ON r.id = rp.run_id " +
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
-                        "WHERE r.map_id = ? " +
+                        "LEFT JOIN run_failure_reasons rfr ON rfr.run_id = rp.run_id AND rfr.role = rp.role " +
+                        "WHERE r.map_id = ? AND rp.role IS NOT NULL " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
-                        "GROUP BY rfr.role, COALESCE(p.alias, rp.raw_name) " +
-                        "ORDER BY rfr.role, total_count DESC",
-                (rs, rowNum) -> new RoleFailureReasonResponse(rs.getString("role"), rs.getString("user"), rs.getLong("total_count")),
+                        "GROUP BY rp.role, COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY rp.role, (total_fails / total_runs) DESC",
+                (rs, rowNum) -> {
+                    long totalRuns = rs.getLong("total_runs");
+                    long fails = rs.getLong("total_fails");
+                    double avgFails = totalRuns == 0 ? 0.0 : ((double) fails) / totalRuns;
+                    return new RoleFailureReasonResponse(rs.getString("role"), rs.getString("user"), totalRuns, fails, avgFails);
+                },
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 

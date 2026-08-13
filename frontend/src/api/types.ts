@@ -116,7 +116,9 @@ export interface UserResign {
 export interface FailureReasonEntry {
   role: string;
   user: string;
-  count: number;
+  total_runs: number;
+  fails: number;
+  avg_fails: number;
 }
 
 // One user's single best-ever consecutive-run streak on a map — reused by both the Leaderboards

@@ -1,9 +1,11 @@
 package com.howl.uwtracker.loserboards.dto;
 
 /**
- * Per-role, per-user count of how many times that role was flagged (via POST /report-run-failure)
- * as at fault for a run's failure on this map. {@code user} is the character who held that role in
- * the flagged run, {@code COALESCE(alias, raw_name)} same as every other loserboard/leaderboard row.
+ * Per-role, per-user fail count out of every run that user has played that role in on this map
+ * (not just the flagged ones) — same shape as {@code RoleUserDeathsResponse}, so a single blame in
+ * a single run doesn't outrank someone blamed less often but far more frequently relative to their
+ * total runs in that role. {@code user} is the character who held that role in each run,
+ * {@code COALESCE(alias, raw_name)} same as every other loserboard/leaderboard row.
  */
-public record RoleFailureReasonResponse(String role, String user, Long count) {
+public record RoleFailureReasonResponse(String role, String user, Long totalRuns, Long fails, Double avgFails) {
 }

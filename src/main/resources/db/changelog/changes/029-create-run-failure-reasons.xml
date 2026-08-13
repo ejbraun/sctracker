@@ -7,7 +7,7 @@
 
     <!-- One row per (run, role) a permitted reporter flagged as at fault for that run's failure via
          POST /report-run-failure. "role" is a freeform code like run_participants.role /
-         role_objectives.role -- there's no roles lookup table in this schema to FK against;
+         role_objectives.role — there's no roles lookup table in this schema to FK against;
          validity (the role must actually appear among that run's participants) is enforced in
          FailureReportService, not the database. A resubmission wholesale-replaces this run's rows
          (same idiom as run_participant_item_drops), so this is always the latest report, not a log. -->

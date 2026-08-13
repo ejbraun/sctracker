@@ -163,7 +163,7 @@ export function LoserboardsPage() {
           {failureReasonsQuery.isLoading && <p>Loading…</p>}
           {failureReasonsQuery.data &&
             ROLES.map((role, index) => {
-              // Already sorted count-desc by the backend; filtering preserves that relative order.
+              // Already sorted fails/run-desc by the backend; filtering preserves that relative order.
               const rows = failureReasonsQuery.data.filter((r) => r.role === role);
               return (
                 <div key={role}>
@@ -171,20 +171,24 @@ export function LoserboardsPage() {
                     <RoleBadge role={role} />
                   </h3>
                   {rows.length === 0 ? (
-                    <p className={styles.emptyState}>No failures reported for this role yet.</p>
+                    <p className={styles.emptyState}>No runs recorded for this role yet.</p>
                   ) : (
                     <table>
                       <thead>
                         <tr>
                           <th>User</th>
+                          <th>Total runs</th>
                           <th>Times Blamed</th>
+                          <th>Blamed/run</th>
                         </tr>
                       </thead>
                       <tbody>
                         {rows.map((r) => (
                           <tr key={r.user}>
                             <td>{r.user}</td>
-                            <td>{r.count}</td>
+                            <td>{r.total_runs}</td>
+                            <td>{r.fails}</td>
+                            <td>{r.avg_fails.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>

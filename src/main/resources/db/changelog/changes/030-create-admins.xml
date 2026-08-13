@@ -6,7 +6,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
     <!-- Membership table, not a boolean flag: a row's mere existence for a person_id makes them an
-         admin. No signup-flow or API writes this table -- admins are added by hand (direct INSERT)
+         admin. No signup-flow or API writes this table — admins are added by hand (direct INSERT)
          for now; gates /api/admin/** (see AdminAuthInterceptor), which currently only lets an admin
          grant/revoke people.can_report_failures via AdminUserController. -->
     <changeSet id="030-create-admins" author="uwtracker">
