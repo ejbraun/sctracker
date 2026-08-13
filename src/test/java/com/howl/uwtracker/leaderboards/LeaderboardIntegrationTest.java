@@ -443,9 +443,11 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$[0].item_name").value("Glob of Ectoplasm"))
                 .andExpect(jsonPath("$[0].user").value("Lucky"))
                 .andExpect(jsonPath("$[0].total_count").value(5))
+                .andExpect(jsonPath("$[0].run_count").value(2))
                 .andExpect(jsonPath("$[0].avg_per_run").value(2.5)) // 5 across 2 runs
                 .andExpect(jsonPath("$[1].user").value("Unlucky"))
                 .andExpect(jsonPath("$[1].total_count").value(1))
+                .andExpect(jsonPath("$[1].run_count").value(1))
                 .andExpect(jsonPath("$[1].avg_per_run").value(1.0)); // 1 across 1 run
     }
 
@@ -471,9 +473,11 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].user").value("Sniper"))
                 .andExpect(jsonPath("$[0].total_count").value(3))
+                .andExpect(jsonPath("$[0].run_count").value(1))
                 .andExpect(jsonPath("$[0].avg_per_run").value(3.0))
                 .andExpect(jsonPath("$[1].user").value("Grinder"))
                 .andExpect(jsonPath("$[1].total_count").value(6))
+                .andExpect(jsonPath("$[1].run_count").value(3))
                 .andExpect(jsonPath("$[1].avg_per_run").value(2.0));
     }
 

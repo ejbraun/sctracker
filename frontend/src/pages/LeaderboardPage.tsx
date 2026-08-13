@@ -302,6 +302,7 @@ export function LeaderboardPage() {
                     <tr>
                       <th>User</th>
                       <th>Count</th>
+                      <th>Runs</th>
                       <th>Avg/Run</th>
                     </tr>
                   </thead>
@@ -310,6 +311,7 @@ export function LeaderboardPage() {
                       <tr key={r.user}>
                         <td>{r.user}</td>
                         <td>{r.total_count}</td>
+                        <td>{r.run_count}</td>
                         <td>{r.avg_per_run.toFixed(2)}</td>
                       </tr>
                     ))}

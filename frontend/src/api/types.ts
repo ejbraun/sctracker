@@ -118,6 +118,7 @@ export interface ItemDropLeader {
   item_name: string;
   user: string;
   total_count: number;
+  run_count: number;
   avg_per_run: number;
 }
 

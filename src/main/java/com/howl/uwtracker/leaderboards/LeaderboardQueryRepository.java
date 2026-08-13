@@ -185,13 +185,13 @@ public class LeaderboardQueryRepository {
                         "    AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "    GROUP BY ti.id, ti.name, COALESCE(p.alias, rp.raw_name)" +
                         ") " +
-                        "SELECT d.item_id, d.item_name, d.user, d.total_count, " +
+                        "SELECT d.item_id, d.item_name, d.user, d.total_count, rc.run_count, " +
                         "       d.total_count / rc.run_count AS avg_per_run " +
                         "FROM drops d " +
                         "JOIN run_counts rc ON rc.user = d.user " +
                         "ORDER BY d.item_id, avg_per_run DESC",
                 (rs, rowNum) -> new ItemDropLeaderResponse(rs.getInt("item_id"), rs.getString("item_name"),
-                        rs.getString("user"), rs.getLong("total_count"), rs.getDouble("avg_per_run")),
+                        rs.getString("user"), rs.getLong("total_count"), rs.getLong("run_count"), rs.getDouble("avg_per_run")),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
