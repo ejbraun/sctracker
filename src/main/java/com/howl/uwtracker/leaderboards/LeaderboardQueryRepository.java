@@ -150,28 +150,49 @@ public class LeaderboardQueryRepository {
 
     /**
      * One row per (tracked item, user) that has ever had that item drop for them on this map, total
-     * reserved count summed across every run, luckiest first within each item — "Luckiest Players."
-     * {@code user} is {@code COALESCE(alias, raw_name)}, same unlinked-participant fallback as
-     * {@code LoserboardQueryRepository.findRoleDeaths}. Ordered by {@code item_id} first so rows for
-     * the same item stay contiguous — the frontend derives its per-item sub-sections directly from
-     * that grouping rather than needing a separately-maintained list of tracked items.
+     * reserved count summed across every run plus that user's average per run (total_count divided
+     * by how many runs on this map they participated in at all, not just runs where this item
+     * dropped — so a user who's only ever gotten the item once, in their one run, ranks above
+     * someone who's gotten it five times but over fifty runs), luckiest (by average) first within
+     * each item — "Luckiest Players." {@code user} is {@code COALESCE(alias, raw_name)}, same
+     * unlinked-participant fallback as {@code LoserboardQueryRepository.findRoleDeaths}. Ordered by
+     * {@code item_id} first so rows for the same item stay contiguous — the frontend derives its
+     * per-item sub-sections directly from that grouping rather than needing a separately-maintained
+     * list of tracked items.
      */
     public List<ItemDropLeaderResponse> findLuckiestPlayers(Integer mapId, Instant from, Instant to) {
         return jdbcTemplate.query(
-                "SELECT ti.id AS item_id, ti.name AS item_name, COALESCE(p.alias, rp.raw_name) AS user, " +
-                        "SUM(rpid.drop_count) AS total_count " +
-                        "FROM run_participant_item_drops rpid " +
-                        "JOIN tracked_items ti ON ti.id = rpid.item_id " +
-                        "JOIN run_participants rp ON rp.id = rpid.run_participant_id " +
-                        "JOIN runs r ON r.id = rp.run_id " +
-                        "LEFT JOIN characters c ON c.id = rp.character_id " +
-                        "LEFT JOIN people p ON p.id = c.person_id " +
-                        "WHERE r.map_id = ? " +
-                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
-                        "GROUP BY ti.id, ti.name, COALESCE(p.alias, rp.raw_name) " +
-                        "ORDER BY ti.id, total_count DESC",
+                "WITH user_runs AS (" +
+                        "    SELECT DISTINCT COALESCE(p.alias, rp.raw_name) AS user, rp.run_id " +
+                        "    FROM run_participants rp " +
+                        "    JOIN runs r ON r.id = rp.run_id " +
+                        "    LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "    LEFT JOIN people p ON p.id = c.person_id " +
+                        "    WHERE r.map_id = ? " +
+                        "    AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?)" +
+                        "), run_counts AS (" +
+                        "    SELECT user, COUNT(*) AS run_count FROM user_runs GROUP BY user" +
+                        "), drops AS (" +
+                        "    SELECT ti.id AS item_id, ti.name AS item_name, COALESCE(p.alias, rp.raw_name) AS user, " +
+                        "           SUM(rpid.drop_count) AS total_count " +
+                        "    FROM run_participant_item_drops rpid " +
+                        "    JOIN tracked_items ti ON ti.id = rpid.item_id " +
+                        "    JOIN run_participants rp ON rp.id = rpid.run_participant_id " +
+                        "    JOIN runs r ON r.id = rp.run_id " +
+                        "    LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "    LEFT JOIN people p ON p.id = c.person_id " +
+                        "    WHERE r.map_id = ? " +
+                        "    AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "    GROUP BY ti.id, ti.name, COALESCE(p.alias, rp.raw_name)" +
+                        ") " +
+                        "SELECT d.item_id, d.item_name, d.user, d.total_count, " +
+                        "       d.total_count / rc.run_count AS avg_per_run " +
+                        "FROM drops d " +
+                        "JOIN run_counts rc ON rc.user = d.user " +
+                        "ORDER BY d.item_id, avg_per_run DESC",
                 (rs, rowNum) -> new ItemDropLeaderResponse(rs.getInt("item_id"), rs.getString("item_name"),
-                        rs.getString("user"), rs.getLong("total_count")),
+                        rs.getString("user"), rs.getLong("total_count"), rs.getDouble("avg_per_run")),
+                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 

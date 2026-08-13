@@ -443,8 +443,38 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$[0].item_name").value("Glob of Ectoplasm"))
                 .andExpect(jsonPath("$[0].user").value("Lucky"))
                 .andExpect(jsonPath("$[0].total_count").value(5))
+                .andExpect(jsonPath("$[0].avg_per_run").value(2.5)) // 5 across 2 runs
                 .andExpect(jsonPath("$[1].user").value("Unlucky"))
-                .andExpect(jsonPath("$[1].total_count").value(1));
+                .andExpect(jsonPath("$[1].total_count").value(1))
+                .andExpect(jsonPath("$[1].avg_per_run").value(1.0)); // 1 across 1 run
+    }
+
+    @Test
+    void luckiestPlayersRanksByAveragePerRunNotRawTotal() throws Exception {
+        MockHttpSession session = signup("luckavgviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        // Grinder: bigger raw total (6) but spread across 3 runs -> lower average (2.0).
+        Run grinderRun1 = seedRun(map, 10_000L, true, participant(null, "Grinder", warrior, "T1", 0));
+        seedItemDrop(grinderRun1, "Grinder", 930, 2);
+        Run grinderRun2 = seedRun(map, 10_000L, true, participant(null, "Grinder", warrior, "T1", 0));
+        seedItemDrop(grinderRun2, "Grinder", 930, 2);
+        Run grinderRun3 = seedRun(map, 10_000L, true, participant(null, "Grinder", warrior, "T1", 0));
+        seedItemDrop(grinderRun3, "Grinder", 930, 2);
+
+        // Sniper: smaller raw total (3) but in a single run -> higher average (3.0), should rank first.
+        Run sniperRun = seedRun(map, 10_000L, true, participant(null, "Sniper", warrior, "T1", 0));
+        seedItemDrop(sniperRun, "Sniper", 930, 3);
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/luckiest-players").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user").value("Sniper"))
+                .andExpect(jsonPath("$[0].total_count").value(3))
+                .andExpect(jsonPath("$[0].avg_per_run").value(3.0))
+                .andExpect(jsonPath("$[1].user").value("Grinder"))
+                .andExpect(jsonPath("$[1].total_count").value(6))
+                .andExpect(jsonPath("$[1].avg_per_run").value(2.0));
     }
 
     @Test

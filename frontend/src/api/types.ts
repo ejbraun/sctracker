@@ -107,15 +107,18 @@ export interface UserStreak {
 }
 
 // "Leaderboards" — one (tracked item, user) row for "Luckiest Players": total reserved drops of
-// that item, summed across every run the user participated in, luckiest (highest) first within
-// each item. The set of tracked items isn't statically known on the frontend — item_name is
-// derived directly from this response's rows (already grouped contiguously by item_id server-side)
-// rather than from any hardcoded list, so a newly-tracked item just appears automatically.
+// that item, summed across every run the user participated in, plus their average per run (total
+// divided by every run they've participated in on the map, not just runs the item dropped in) —
+// luckiest by that average first within each item. The set of tracked items isn't statically known
+// on the frontend — item_name is derived directly from this response's rows (already grouped
+// contiguously by item_id server-side) rather than from any hardcoded list, so a newly-tracked item
+// just appears automatically.
 export interface ItemDropLeader {
   item_id: number;
   item_name: string;
   user: string;
   total_count: number;
+  avg_per_run: number;
 }
 
 export interface PersonalSectionBest {
