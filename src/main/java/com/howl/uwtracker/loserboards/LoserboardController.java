@@ -3,6 +3,7 @@ package com.howl.uwtracker.loserboards;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.OutdatedUploadAttemptResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
@@ -75,5 +76,12 @@ public class LoserboardController {
                                                                              @RequestParam(required = false) Instant from,
                                                                              @RequestParam(required = false) Instant to) {
         return ResponseEntity.ok(loserboardService.sectionSlowestStart(mapId, objectiveName, limit, from, to));
+    }
+
+    // Not map-scoped, unlike every endpoint above — see LoserboardQueryRepository.findOutdatedUploadAttempts.
+    @GetMapping("/outdated-upload-attempts")
+    public ResponseEntity<List<OutdatedUploadAttemptResponse>> outdatedUploadAttempts(@RequestParam(required = false) Instant from,
+                                                                                          @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(loserboardService.outdatedUploadAttempts(from, to));
     }
 }

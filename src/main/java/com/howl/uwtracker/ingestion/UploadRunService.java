@@ -38,7 +38,7 @@ public class UploadRunService {
     // old silent-drop-and-pretend-success behavior; the plugin now has a real, distinct signal to
     // react to instead of the upload just vanishing.
     public UploadRunResponse processUpload(String rawMachineKey, Integer pluginVersion, UploadRunRequest request) {
-        Person uploader = machineKeyAuthenticationService.authenticate(rawMachineKey, pluginVersion);
+        Person uploader = machineKeyAuthenticationService.authenticateForUpload(rawMachineKey, pluginVersion);
 
         PartyDto party = request.party();
         List<PartyMemberDto> members = party.partyMembers();

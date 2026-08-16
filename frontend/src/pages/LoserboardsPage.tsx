@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { FailureReasonEntry, LeaderboardEntry, RoleUserDeaths, RunDetail, SectionEntry, UserResign, UserStreak } from '../api/types';
+import type {
+  FailureReasonEntry,
+  LeaderboardEntry,
+  OutdatedUploadAttempt,
+  RoleUserDeaths,
+  RunDetail,
+  SectionEntry,
+  UserResign,
+  UserStreak,
+} from '../api/types';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
 import { formatDate, formatDuration } from '../common/format';
@@ -49,6 +58,14 @@ export function LoserboardsPage() {
     queryKey: ['loserboard', 'streaks', 'bad', timeWindow],
     queryFn: () =>
       api.get<UserStreak[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/streaks/bad?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+  });
+
+  // Not map-scoped, unlike every other query here — the version check happens before the request
+  // body (and its map_id) is ever read, so an outdated-plugin attempt can't be attributed to a map.
+  const outdatedUploadAttemptsQuery = useQuery({
+    queryKey: ['loserboard', 'outdated-upload-attempts', timeWindow],
+    queryFn: () =>
+      api.get<OutdatedUploadAttempt[]>(`/loserboards/outdated-upload-attempts${from ? `?from=${encodeURIComponent(from)}` : ''}`),
   });
 
   // The set of objective names isn't statically known — pull them from the slowest completed
@@ -254,6 +271,34 @@ export function LoserboardsPage() {
                     <td>{entry.streak}</td>
                     <td>{formatDate(entry.streak_start)}</td>
                     <td>{formatDate(entry.streak_end)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Most Outdated-Plugin Upload Attempts</h2>
+          {outdatedUploadAttemptsQuery.isLoading && <p>Loading…</p>}
+          {outdatedUploadAttemptsQuery.data && outdatedUploadAttemptsQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No rejected upload attempts recorded yet.</p>
+          )}
+          {outdatedUploadAttemptsQuery.data && outdatedUploadAttemptsQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>User</th>
+                  <th>Attempts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outdatedUploadAttemptsQuery.data.map((entry, index) => (
+                  <tr key={entry.user}>
+                    <td className={styles.rank}>{index + 1}</td>
+                    <td>{entry.user}</td>
+                    <td>{entry.attempts}</td>
                   </tr>
                 ))}
               </tbody>

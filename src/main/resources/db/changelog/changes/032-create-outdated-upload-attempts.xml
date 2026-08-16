@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- One row per /upload-run attempt rejected with 426 Upgrade Required (see
+         PluginVersionMetadataLoader.requireCurrentVersion) - backs the "most outdated-plugin upload
+         attempts by user" loserboard. attempted_plugin_version is nullable: a very old client sends
+         no X-Plugin-Version header at all. Not map-scoped - the version check happens before the
+         request body (and its map_id) is ever read. -->
+    <changeSet id="032-create-outdated-upload-attempts" author="uwtracker">
+        <createTable tableName="outdated_upload_attempts">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="person_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attempted_plugin_version" type="INT"/>
+            <column name="attempted_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="outdated_upload_attempts" baseColumnNames="person_id"
+                                  constraintName="fk_outdated_upload_attempts_person"
+                                  referencedTableName="people" referencedColumnNames="id" onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

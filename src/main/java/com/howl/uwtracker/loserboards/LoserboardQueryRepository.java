@@ -1,6 +1,7 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.OutdatedUploadAttemptResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
@@ -151,6 +152,25 @@ public class LoserboardQueryRepository {
                     return new RoleFailureReasonResponse(rs.getString("role"), rs.getString("user"), totalRuns, fails, avgFails);
                 },
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+    }
+
+    /**
+     * One row per user with at least one /upload-run attempt rejected with 426 Upgrade Required —
+     * not map-scoped, unlike every other query here, since the version check (and thus the
+     * rejection) happens before the request body's map_id is ever read. {@code user} falls back to
+     * {@code username} rather than a character's {@code raw_name} — this happens before any
+     * character/party data is parsed, so a run participant's raw name isn't available here.
+     */
+    public List<OutdatedUploadAttemptResponse> findOutdatedUploadAttempts(Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT COALESCE(p.alias, p.username) AS user, COUNT(*) AS attempts " +
+                        "FROM outdated_upload_attempts oa " +
+                        "JOIN people p ON p.id = oa.person_id " +
+                        "WHERE (? IS NULL OR oa.attempted_at >= ?) AND (? IS NULL OR oa.attempted_at <= ?) " +
+                        "GROUP BY COALESCE(p.alias, p.username) " +
+                        "ORDER BY attempts DESC",
+                (rs, rowNum) -> new OutdatedUploadAttemptResponse(rs.getString("user"), rs.getLong("attempts")),
+                toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /** {@code java.time.Instant} isn't one of JDBC 4.2's mandated {@code setObject} conversions; convert explicitly. */

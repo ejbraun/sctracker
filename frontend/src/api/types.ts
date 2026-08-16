@@ -131,6 +131,14 @@ export interface FailureReasonEntry {
   avg_fails: number;
 }
 
+// "Loserboards" — per-user count of /upload-run attempts rejected with 426 Upgrade Required (an
+// outdated plugin build). Not map-scoped — the version check happens before the request body (and
+// its map_id) is ever read.
+export interface OutdatedUploadAttempt {
+  user: string;
+  attempts: number;
+}
+
 // One user's single best-ever consecutive-run streak on a map — reused by both the Leaderboards
 // "Longest Completed Streak" table and the Loserboards "Longest Resign/Wipe Streak" table.
 export interface UserStreak {
