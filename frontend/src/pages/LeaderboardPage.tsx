@@ -182,7 +182,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Your Quest Duration</h2>
+          <h2>Your Fastest Quest Duration</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -198,38 +198,6 @@ export function LeaderboardPage() {
               <tbody>
                 {objectiveNames.map((name) => (
                   <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} />
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Panel>
-
-        <Panel className={styles.section}>
-          <h2>Longest Completed Streak</h2>
-          {streakQuery.isLoading && <p>Loading…</p>}
-          {streakQuery.data && streakQuery.data.length === 0 && (
-            <p className={styles.emptyState}>No completed runs recorded for this map yet.</p>
-          )}
-          {streakQuery.data && streakQuery.data.length > 0 && (
-            <table>
-              <thead>
-                <tr>
-                  <th>Rank</th>
-                  <th>User</th>
-                  <th>Streak</th>
-                  <th>From</th>
-                  <th>To</th>
-                </tr>
-              </thead>
-              <tbody>
-                {streakQuery.data.map((entry, index) => (
-                  <tr key={entry.user}>
-                    <td className={styles.rank}>{index + 1}</td>
-                    <td>{entry.user}</td>
-                    <td>{entry.streak}</td>
-                    <td>{formatDate(entry.streak_start)}</td>
-                    <td>{formatDate(entry.streak_end)}</td>
-                  </tr>
                 ))}
               </tbody>
             </table>
@@ -260,7 +228,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Your Quest Take</h2>
+          <h2>Your Fastest Quest Take</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -306,7 +274,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Your Quest Finish</h2>
+          <h2>Your Fastest Quest Finish</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -322,6 +290,38 @@ export function LeaderboardPage() {
               <tbody>
                 {objectiveNames.map((name) => (
                   <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="finish" />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Longest Completed Streak</h2>
+          {streakQuery.isLoading && <p>Loading…</p>}
+          {streakQuery.data && streakQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No completed runs recorded for this map yet.</p>
+          )}
+          {streakQuery.data && streakQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>User</th>
+                  <th>Streak</th>
+                  <th>From</th>
+                  <th>To</th>
+                </tr>
+              </thead>
+              <tbody>
+                {streakQuery.data.map((entry, index) => (
+                  <tr key={entry.user}>
+                    <td className={styles.rank}>{index + 1}</td>
+                    <td>{entry.user}</td>
+                    <td>{entry.streak}</td>
+                    <td>{formatDate(entry.streak_start)}</td>
+                    <td>{formatDate(entry.streak_end)}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>
