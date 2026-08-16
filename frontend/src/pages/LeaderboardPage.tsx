@@ -12,8 +12,8 @@ import styles from './LeaderboardPage.module.css';
 /**
  * specs/frontend/04-leaderboards.md, plus a time-window filter applied across every panel. Global
  * and "Yours" are separate panels rather than stacked sub-sections within one panel, per section —
- * so each pair (instance completion, fastest-to-complete-objective, fastest-to-reach-objective)
- * renders as two independent panels side by side in the grid.
+ * so each pair (instance completion, Quest Duration, Quest Take, Quest Finish) renders as two
+ * independent panels side by side in the grid.
  */
 export function LeaderboardPage() {
   const { mapId } = useParams<{ mapId: string }>();
@@ -159,7 +159,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Fastest To Complete Objective</h2>
+          <h2>Fastest Quest Duration</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -182,7 +182,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Your Fastest Objective Completions</h2>
+          <h2>Your Quest Duration</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -237,7 +237,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Fastest To Reach Objective</h2>
+          <h2>Fastest Quest Take</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -260,7 +260,7 @@ export function LeaderboardPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Your Fastest Objective Arrivals</h2>
+          <h2>Your Quest Take</h2>
           {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
           {objectiveNames.length > 0 && (
             <table>
@@ -276,6 +276,52 @@ export function LeaderboardPage() {
               <tbody>
                 {objectiveNames.map((name) => (
                   <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="start" />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Fastest Quest Finish</h2>
+          {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
+          {objectiveNames.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Objective</th>
+                  <th>Overall</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>User(s)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {objectiveNames.map((name) => (
+                  <GlobalSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="finish" />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Your Quest Finish</h2>
+          {objectiveNames.length === 0 && <p className={styles.emptyState}>No section data available yet.</p>}
+          {objectiveNames.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Objective</th>
+                  <th>Overall</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>User(s)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {objectiveNames.map((name) => (
+                  <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="finish" />
                 ))}
               </tbody>
             </table>
@@ -326,10 +372,11 @@ export function LeaderboardPage() {
   );
 }
 
-/** metric="duration" (default) ranks by fastest completion, per specs/backend/02; metric="start"
- * ranks the same objective by fastest time-since-run-start to *reach* it instead — a distinct
- * question about party pacing, not that objective's own clear speed. Same response shape either
- * way (SectionEntryResponse), just a different ORDER BY server-side. */
+/** metric="duration" (default) ranks by fastest completion (Quest Duration), per specs/backend/02;
+ * metric="start" ranks the same objective by fastest time-since-run-start to *reach* it instead
+ * (Quest Take) — party pacing, not clear speed; metric="finish" ranks by elapsed time-since-run-
+ * start at *completion* (Quest Finish) — role-gated like duration, just a different reference
+ * point. Same response shape either way (SectionEntryResponse), just a different ORDER BY server-side. */
 function GlobalSectionRow({
   mapId,
   objectiveName,
@@ -339,9 +386,9 @@ function GlobalSectionRow({
   mapId: string;
   objectiveName: string;
   from: string | null;
-  metric?: 'duration' | 'start';
+  metric?: 'duration' | 'start' | 'finish';
 }) {
-  const suffix = metric === 'start' ? '/start' : '';
+  const suffix = metric === 'duration' ? '' : `/${metric}`;
   const overallQuery = useQuery({
     queryKey: ['leaderboard', 'section', metric, mapId, objectiveName, from],
     queryFn: () =>
@@ -384,9 +431,9 @@ function YourSectionRow({
   mapId: string;
   objectiveName: string;
   from: string | null;
-  metric?: 'duration' | 'start';
+  metric?: 'duration' | 'start' | 'finish';
 }) {
-  const suffix = metric === 'start' ? '/start' : '';
+  const suffix = metric === 'duration' ? '' : `/${metric}`;
   const personalQuery = useQuery({
     queryKey: ['leaderboard', 'me', 'section', metric, mapId, objectiveName, from],
     queryFn: () =>

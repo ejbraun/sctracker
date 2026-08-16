@@ -97,6 +97,31 @@ public class LeaderboardService {
     }
 
     /**
+     * "Fastest to finish this objective" — elapsed run time at completion (doneMs), role-gated the
+     * same way as {@link #section} (that objective's own clear speed): both are about who earns
+     * credit for the objective, just measured from two different reference points.
+     */
+    @Transactional(readOnly = true)
+    public List<SectionEntryResponse> sectionFinish(Integer mapId, String objectiveName, Integer limit, Instant from, Instant to) {
+        List<RunObjective> objectives = runObjectiveRepository.findFastestDoneForMapObjective(
+                mapId, objectiveName, from, to, PageRequest.of(0, limit == null ? DEFAULT_LIMIT : limit));
+
+        Set<String> gatedRoles = gatedRolesFor(mapId, objectiveName);
+
+        return objectives.stream()
+                .map(ro -> {
+                    List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ro.getRun().getId())
+                            .stream()
+                            .filter(rp -> gatedRoles.contains(rp.getRole()))
+                            .map(ParticipantSummary::from)
+                            .toList();
+                    return new SectionEntryResponse(ro.getRun().getId(), ro.getDurationMs(), ro.getRun().getUtcStart(),
+                            ro.getStartMs(), ro.getDoneMs(), participants);
+                })
+                .toList();
+    }
+
+    /**
      * "Fastest to reach this objective" — pacing, not clear speed (see {@link #section}). Not
      * role-gated: the full party is shown, since everyone in the run shared that pace, not just
      * whichever role "earns credit" for the objective itself.
@@ -147,6 +172,27 @@ public class LeaderboardService {
     @Transactional(readOnly = true)
     public PersonalSectionBestResponse personalSectionBestMs(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
         PersonalSectionBestRunRef ref = leaderboardQueryRepository.findPersonalSectionBestRun(personId, mapId, objectiveName, from, to);
+        if (ref == null) {
+            return null;
+        }
+
+        Set<String> gatedRoles = gatedRolesFor(mapId, objectiveName);
+        List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ref.runId())
+                .stream()
+                .filter(rp -> gatedRoles.contains(rp.getRole()))
+                .map(ParticipantSummary::from)
+                .toList();
+
+        return new PersonalSectionBestResponse(ref.durationMs(), ref.startMs(), ref.doneMs(), participants);
+    }
+
+    /**
+     * The person's own fastest finish of this objective (across every linked character), role-gated
+     * the same way as {@link #personalSectionBestMs} — see {@link #sectionFinish}.
+     */
+    @Transactional(readOnly = true)
+    public PersonalSectionBestResponse personalSectionFinishMs(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+        PersonalSectionBestRunRef ref = leaderboardQueryRepository.findPersonalSectionFinishRun(personId, mapId, objectiveName, from, to);
         if (ref == null) {
             return null;
         }

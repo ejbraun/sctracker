@@ -83,6 +83,28 @@ public class LeaderboardQueryRepository {
     }
 
     /**
+     * Personal fastest-to-finish-objective, across every character the person has linked, role-gated
+     * the same way as {@link #findPersonalSectionBestRun} — both are about who earns credit for the
+     * objective, just ordered by a different column ({@code done_ms} instead of {@code duration_ms}).
+     * Same {@code status = 2} filter and reasoning as that method.
+     */
+    public PersonalSectionBestRunRef findPersonalSectionFinishRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+        List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
+                "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
+                        "JOIN run_participants rp ON rp.run_id = ro.run_id " +
+                        "JOIN characters c ON c.id = rp.character_id " +
+                        "JOIN role_objectives rol ON rol.map_id = ? AND rol.objective_name = ro.name AND rol.role = rp.role " +
+                        "WHERE c.person_id = ? AND ro.name = ? AND ro.status = 2 AND ro.done_ms IS NOT NULL " +
+                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
+                        "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
+                        "ORDER BY ro.done_ms ASC LIMIT 1",
+                (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
+                        readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
+                mapId, personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
      * Personal fastest-to-reach-objective, across every character the person has linked — not
      * role-gated like {@link #findPersonalSectionBestRun}: arrival time is about the person's own
      * pace getting there, not "who earned credit" for that trial, so any run they were in counts

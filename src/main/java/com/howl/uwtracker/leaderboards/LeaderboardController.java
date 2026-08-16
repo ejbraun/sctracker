@@ -59,6 +59,15 @@ public class LeaderboardController {
         return ResponseEntity.ok(leaderboardService.sectionStart(mapId, objectiveName, limit, from, to));
     }
 
+    @GetMapping("/maps/{mapId}/sections/{objectiveName}/finish")
+    public ResponseEntity<List<SectionEntryResponse>> sectionFinish(@PathVariable Integer mapId,
+                                                                       @PathVariable String objectiveName,
+                                                                       @RequestParam(required = false) Integer limit,
+                                                                       @RequestParam(required = false) Instant from,
+                                                                       @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(leaderboardService.sectionFinish(mapId, objectiveName, limit, from, to));
+    }
+
     @GetMapping("/maps/{mapId}/streaks/completed")
     public ResponseEntity<List<UserStreakResponse>> longestCompletedStreak(@PathVariable Integer mapId,
                                                                               @RequestParam(required = false) Integer limit,
@@ -103,6 +112,15 @@ public class LeaderboardController {
                                                                                @RequestParam(required = false) Instant from,
                                                                                @RequestParam(required = false) Instant to) {
         PersonalSectionBestResponse fastest = leaderboardService.personalSectionFastestStart(personId, mapId, objectiveName, from, to);
+        return fastest == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(fastest);
+    }
+
+    @GetMapping("/me/maps/{mapId}/sections/{objectiveName}/finish")
+    public ResponseEntity<PersonalSectionBestResponse> personalSectionFinish(@CurrentPersonId Long personId, @PathVariable Integer mapId,
+                                                                                @PathVariable String objectiveName,
+                                                                                @RequestParam(required = false) Instant from,
+                                                                                @RequestParam(required = false) Instant to) {
+        PersonalSectionBestResponse fastest = leaderboardService.personalSectionFinishMs(personId, mapId, objectiveName, from, to);
         return fastest == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(fastest);
     }
 }
