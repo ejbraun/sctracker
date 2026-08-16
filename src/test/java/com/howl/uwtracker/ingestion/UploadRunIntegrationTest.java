@@ -47,6 +47,10 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     private static final int MAP_ID = 72;
     private static final long UTC_START_SECONDS = 1_700_000_000L;
     private static final long SENTINEL = SentinelMapper.SENTINEL;
+    // Matches src/main/resources/static/SCTracker.version.json's "version" — must satisfy
+    // PluginVersionMetadataLoader.requireCurrentVersion or every authenticated request here gets a
+    // 426 before it even reaches the logic under test. Bump alongside that file if it ever changes.
+    private static final String CURRENT_PLUGIN_VERSION = "1";
 
     private String issueMachineKey() throws Exception {
         MockHttpSession session = signup("uploader-" + System.nanoTime(), "password123");
@@ -71,7 +75,17 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     }
 
     private static UploadRunRequest validRequest(long utcStartSeconds, List<PartyMemberDto> members) {
-        PartyDto party = new PartyDto(utcStartSeconds, MAP_ID, "T1", "victory", members);
+        return validRequest(utcStartSeconds, "T1", members);
+    }
+
+    /**
+     * {@code characterName} becomes {@code party.character_name} — the uploader's own character,
+     * per real payloads (specs/backend/02). Since RoleDerivation.restrictHintsToSelf now only trusts
+     * whichever member's name matches this, tests exercising self-vs-non-self role_hint behavior
+     * need to set it explicitly rather than relying on the "T1" default.
+     */
+    private static UploadRunRequest validRequest(long utcStartSeconds, String characterName, List<PartyMemberDto> members) {
+        PartyDto party = new PartyDto(utcStartSeconds, MAP_ID, characterName, "victory", members);
         List<ObjectiveDto> objectives = List.of(
                 new ObjectiveDto("Vale", 2, 1000L, 5000L, 4000L, 0),
                 new ObjectiveDto("Second Trial", 2, 5000L, SENTINEL, SENTINEL, 0),
@@ -85,6 +99,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     private MvcResult upload(String key, UploadRunRequest request) throws Exception {
         return mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andReturn();
@@ -97,6 +112,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -165,6 +181,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -197,22 +214,97 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void roleHintOverridesPartyPositionForTrappers() throws Exception {
+    void selfsRoleHintOverridesPartyPositionButNonSelfHintsAreIgnored() throws Exception {
         String key = issueMachineKey();
         List<PartyMemberDto> members = validParty();
-        // Swap which array position claims which trapper role via role_hint - contradicts the
-        // plain party order (index 0/1/2 => T1/T2/T3) that would otherwise apply.
+        // "T2" (by name) is self here (see validRequest's characterName below) and claims "t1" via
+        // hint - contradicts both its own name and the plain party-order assumption (index 0/1/2 =>
+        // T1/T2/T3), and must still be honored since it's a genuine self-report. "T1" (by name) is
+        // NOT self and claims "t2" via hint - a stray, untrustworthy value (e.g. an old/misbehaving
+        // client still guessing at someone else) that must be ignored even though it's well-formed.
         members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
         members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of()));
-        UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, "T2", members);
 
         upload(key, request);
 
         Run run = runRepository.findAll().get(0);
         List<RunParticipant> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
-        assertThat(participants.get(0).getRole()).isEqualTo("T2");
-        assertThat(participants.get(1).getRole()).isEqualTo("T1");
-        assertThat(participants.get(2).getRole()).isEqualTo("T3");
+        assertThat(participants.get(1).getRole()).isEqualTo("T1"); // self's hint, honored regardless of position/name
+        assertThat(participants.get(0).getRole()).isNull(); // non-self hint, ignored
+        assertThat(participants.get(2).getRole()).isNull(); // never hinted at all
+    }
+
+    @Test
+    void secondUploadersSelfReportDoesNotClobberFirstUploadersRoleAndCompletesElimination() throws Exception {
+        String key1 = issueMachineKey();
+        String key2 = issueMachineKey();
+
+        // Upload 1, from "T2"'s own client: only T2 (self) carries a real hint - exactly what the
+        // new client sends, nobody else even attempts to guess anymore.
+        List<PartyMemberDto> firstMembers = validParty();
+        firstMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        firstMembers.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
+        firstMembers.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        upload(key1, validRequest(UTC_START_SECONDS, "T2", firstMembers));
+
+        Run run = runRepository.findAll().get(0);
+        List<RunParticipant> afterFirst = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
+        assertThat(afterFirst.get(1).getRole()).isEqualTo("T2");
+        assertThat(afterFirst.get(0).getRole()).isNull();
+        assertThat(afterFirst.get(2).getRole()).isNull();
+
+        // Upload 2, a few seconds later (within the dedup window) from a *different* real player's
+        // own client: "T3" is self this time, and this upload has no data at all about T2 - its role
+        // must not be reset to null just because this particular upload can't see it.
+        List<PartyMemberDto> secondMembers = validParty();
+        secondMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        secondMembers.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        secondMembers.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, "t3", List.of()));
+        upload(key2, validRequest(UTC_START_SECONDS + 2, "T3", secondMembers));
+
+        assertThat(runRepository.findAll()).hasSize(1); // merged into the same run via dedup, not a second one
+        List<RunParticipant> afterSecond = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
+        assertThat(afterSecond.get(1).getRole()).isEqualTo("T2"); // preserved from upload 1, not clobbered
+        assertThat(afterSecond.get(2).getRole()).isEqualTo("T3"); // this upload's own self-report
+        assertThat(afterSecond.get(0).getRole()).isEqualTo("T1"); // inferred by elimination: 2 of 3 now known
+    }
+
+    @Test
+    void strayNonSelfHintIsIgnored() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> members = validParty();
+        // "T2" is self and genuinely reports "t2". "T1" is NOT self but still carries a well-formed
+        // hint value - simulating an old/misbehaving client that still guesses at another player's
+        // role from observed skill casts. It must be ignored rather than trusted.
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of()));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
+        members.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        upload(key, validRequest(UTC_START_SECONDS, "T2", members));
+
+        Run run = runRepository.findAll().get(0);
+        List<RunParticipant> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
+        assertThat(participants.get(1).getRole()).isEqualTo("T2");
+        assertThat(participants.get(0).getRole()).isNull();
+        assertThat(participants.get(2).getRole()).isNull();
+    }
+
+    @Test
+    void onlyOneSelfReportLeavesTheOtherTrappersUnknown() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> members = validParty();
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
+        members.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        upload(key, validRequest(UTC_START_SECONDS, "T2", members));
+
+        // Nobody else's own client has uploaded yet - with only one of three known, elimination must
+        // not guess; the other two stay unresolved.
+        Run run = runRepository.findAll().get(0);
+        List<RunParticipant> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
+        assertThat(participants.get(1).getRole()).isEqualTo("T2");
+        assertThat(participants.get(0).getRole()).isNull();
+        assertThat(participants.get(2).getRole()).isNull();
     }
 
     @Test
@@ -270,6 +362,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -343,6 +436,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -357,6 +451,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -415,6 +510,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/upload-run")
                         .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());

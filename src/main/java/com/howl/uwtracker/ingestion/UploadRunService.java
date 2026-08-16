@@ -5,7 +5,6 @@ import com.howl.uwtracker.ingestion.dto.PartyDto;
 import com.howl.uwtracker.ingestion.dto.PartyMemberDto;
 import com.howl.uwtracker.ingestion.dto.UploadRunRequest;
 import com.howl.uwtracker.ingestion.dto.UploadRunResponse;
-import com.howl.uwtracker.plugin.PluginVersionService;
 import com.howl.uwtracker.repository.GameMapRepository;
 import com.howl.uwtracker.web.ApiException;
 import com.howl.uwtracker.web.MachineKeyAuthenticationService;
@@ -25,29 +24,21 @@ public class UploadRunService {
     private final GameMapRepository gameMapRepository;
     private final MapDedupLock mapDedupLock;
     private final UploadRunWriter writer;
-    private final PluginVersionService pluginVersionService;
 
     public UploadRunService(MachineKeyAuthenticationService machineKeyAuthenticationService, GameMapRepository gameMapRepository,
-                             MapDedupLock mapDedupLock, UploadRunWriter writer,
-                             PluginVersionService pluginVersionService) {
+                             MapDedupLock mapDedupLock, UploadRunWriter writer) {
         this.machineKeyAuthenticationService = machineKeyAuthenticationService;
         this.gameMapRepository = gameMapRepository;
         this.mapDedupLock = mapDedupLock;
         this.writer = writer;
-        this.pluginVersionService = pluginVersionService;
     }
 
-    public UploadRunResponse processUpload(String rawMachineKey, UploadRunRequest request) {
-        Person uploader = machineKeyAuthenticationService.authenticate(rawMachineKey);
-
-        // Silently drop uploads from an outdated plugin build rather than rejecting them: an old
-        // client wouldn't know how to react to an error response anyway, and this keeps it out of
-        // the data (e.g. a build missing a field that later breaks role derivation) without needing
-        // the plugin itself to change. Same response shape/status as a real success — just no run_id.
-        if (pluginVersionService.isOutdated(uploader)) {
-            log.warn("silently dropping upload from outdated plugin build (personId={})", uploader.getId());
-            return new UploadRunResponse(null, false);
-        }
+    // pluginVersion (X-Plugin-Version) is enforced inside authenticate() itself — an outdated
+    // client gets a 426 Upgrade Required there (see PluginVersionMetadataLoader) rather than the
+    // old silent-drop-and-pretend-success behavior; the plugin now has a real, distinct signal to
+    // react to instead of the upload just vanishing.
+    public UploadRunResponse processUpload(String rawMachineKey, Integer pluginVersion, UploadRunRequest request) {
+        Person uploader = machineKeyAuthenticationService.authenticate(rawMachineKey, pluginVersion);
 
         PartyDto party = request.party();
         List<PartyMemberDto> members = party.partyMembers();
@@ -70,7 +61,9 @@ public class UploadRunService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "unsupported map id " + party.mapId());
         }
 
-        List<String> roles = RoleDerivation.resolveRoles(members);
+        // Only the uploader's own character can have a trustworthy role_hint (see RoleDerivation's
+        // class doc) — strip any hint value on every other entry before deriving roles from it.
+        List<String> roles = RoleDerivation.resolveRoles(RoleDerivation.restrictHintsToSelf(party.characterName(), members));
 
         return mapDedupLock.withLock(party.mapId(),
                 () -> writer.ingest(party, members, roles, request.objective(), uploader.getId()));

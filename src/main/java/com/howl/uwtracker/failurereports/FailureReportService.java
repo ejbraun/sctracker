@@ -37,14 +37,14 @@ public class FailureReportService {
     }
 
     /** Called by the plugin on load, before it decides whether to run any failure-report UI/logic at all. */
-    public CanReportFailureResponse checkPermission(String rawMachineKey) {
-        Person person = machineKeyAuthenticationService.authenticate(rawMachineKey);
+    public CanReportFailureResponse checkPermission(String rawMachineKey, Integer pluginVersion) {
+        Person person = machineKeyAuthenticationService.authenticate(rawMachineKey, pluginVersion);
         return new CanReportFailureResponse(person.isCanReportFailures());
     }
 
     @Transactional
-    public void submit(String rawMachineKey, ReportRunFailureRequest request) {
-        Person reporter = machineKeyAuthenticationService.authenticate(rawMachineKey);
+    public void submit(String rawMachineKey, Integer pluginVersion, ReportRunFailureRequest request) {
+        Person reporter = machineKeyAuthenticationService.authenticate(rawMachineKey, pluginVersion);
         if (!reporter.isCanReportFailures()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "not permitted to report run failures");
         }

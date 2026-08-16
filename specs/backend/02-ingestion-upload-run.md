@@ -65,7 +65,7 @@ Executed in a single transaction per request.
 5. **Derive completion**: `completed = objectives.length > 0 && objectives[last].status == 2`. `end_reason` is stored as metadata only and never consulted for this.
 6. **Resolve the map row**: `INSERT IGNORE INTO maps (id) VALUES (?)` — no-ops if already present, otherwise creates it with `name = NULL`; then `UPDATE maps SET name = ? WHERE id = ? AND name IS NULL` using `objective.name`, so the zone name populates automatically the first time a map is seen instead of needing manual backfill.
 7. **Dedup / find-or-create the run**, guarded by a MySQL named lock scoped to the map (`GET_LOCK(CONCAT('run-dedup:map:', map_id), 10)` … `RELEASE_LOCK(...)`) so concurrent uploads from different party members' clients for the same run can't race into two `runs` rows. The lock is per-map rather than per-time-bucket: a time-bucketed key would need consistent bucket boundaries and two clients whose `utc_start` straddle a boundary could still land in different buckets and race. Per-map is coarser but fully correct, and fine at this traffic volume (a small guild, a handful of concurrent uploads at most).
-   - Query: `SELECT id FROM runs WHERE map_id = ? AND utc_start BETWEEN ? - INTERVAL 5 SECOND AND ? + INTERVAL 5 SECOND ORDER BY ABS(TIMESTAMPDIFF(MICROSECOND, utc_start, ?)) LIMIT 1`
+   - Query: `SELECT id FROM runs WHERE map_id = ? AND utc_start BETWEEN ? - INTERVAL 60 SECOND AND ? + INTERVAL 60 SECOND ORDER BY ABS(TIMESTAMPDIFF(MICROSECOND, utc_start, ?)) LIMIT 5`, filtered down to whichever candidate's existing `run_participants` roster (raw names) exactly matches the incoming upload's roster — a wide window alone can catch more than one candidate (e.g. two unrelated parties starting close together on the same globally-shared `map_id`); the exact-roster check is what actually guards against merging them, independently of window size (`UploadRunWriter.findDedupMatch`).
    - **Found** → reuse that `run_id`. Do **not** overwrite `end_reason`/`completed`/`duration_ms`/objectives on the existing row — first upload for a run wins on run-level fields; later uploads only attach participants (step 8). This is a first-writer-wins policy; flagged as a default, not something the spec text mandated explicitly.
    - **Not found** → `INSERT INTO runs (map_id, utc_start, instance_start_ms, objective_start, end_reason, completed, duration_ms) VALUES (...)`, then insert all rows into `run_objectives` (one per array element, `sequence` = array index, plus `indent`).
 8. **Attach participants**: for each of the `party_members[]` entries (regardless of whether the run was found or newly created):
@@ -77,30 +77,37 @@ Executed in a single transaction per request.
 
 ## Role derivation
 
-Pure function, `resolveRoles(partyMembers[8]) -> String[8]` (or an equivalent array-in/array-out shape) — keep it isolated from the DB layer so it's directly unit-testable against fixture party arrays.
+Pure function, `resolveRoles(partyMembers[8]) -> String[8]` (or an equivalent array-in/array-out shape) — keep it isolated from the DB layer so it's directly unit-testable against fixture party arrays. (`com.howl.uwtracker.ingestion.RoleDerivation.resolveRoles`.)
 
 **`role_hint`** (optional, per party member): the plugin sets this once a Ranger/Assassin-primary
 member casts one of a fixed set of trapping skills — first-match-wins, value is `"t1"`/`"t2"`/`"t3"`
 (lowercase on the wire; case-normalized to `T1`/`T2`/`T3` here), or `"unknown"` if that hasn't
-happened yet. It's per-member, not guaranteed for the whole party — a real T1/T2/T3 player simply
-won't have a resolved hint yet if they haven't cast the mapped skill this run (e.g. an early
-resign). Resolution order:
+happened yet.
+
+**As of the multi-upload role_hint reconciliation change, a single upload's `role_hint` is only
+ever trustworthy for the uploader's own character** — observing another real player's skill casts
+only works within the local client's compass/network range, which isn't guaranteed once a party
+spreads out (e.g. during pulls), so the plugin no longer even attempts to guess at anyone else's.
+Before `resolveRoles` runs, `UploadRunService` calls `RoleDerivation.restrictHintsToSelf(party.character_name, party_members)`, which clears `role_hint` on every entry except the one whose `name` matches `party.character_name` — enforced server-side so an old or misbehaving client's leftover guess for someone else is never trusted, not just relied on as a client-side convention. A missing/unmatched `party.character_name` degrades safely to "trust nobody's hint this upload," same as any other unresolvable case below.
+
+Within a single upload, resolution order is then:
 
 1. **Hints first**: for any member with a valid, non-duplicate `role_hint` of `"t1"`/`"t2"`/`"t3"`,
    assign that label directly, wherever they actually sit in the party array. A missing `role_hint`
    or a literal `"unknown"` (case-insensitive) leaves that member's role unresolved (`null`) with no
    log — it's the plugin's normal not-yet-resolved state, not an error. Any other invalid value, or
    a duplicate claim of a label another member already took, is logged as a WARN and also treated as
-   absent for that member.
-2. **No positional fallback for T2/T3**: unlike earlier plugin builds, a member with no valid hint
-   stays `null` rather than being guessed from its position (`0`/`1`/`2`) — Ranger/Assassin members
-   are otherwise indistinguishable, so guessing was a source of silently-wrong labels once hints
-   existed at all. `T2`/`T3` can only come from an explicit hint.
-3. **T1 by elimination**: T1 is deliberately *not* derived from any skill cast — once both `T2` and
-   `T3` have been assigned by hint and exactly one Ranger/Assassin member is still unassigned, that
-   member is labeled `T1`. If more than one Ranger/Assassin member remains unassigned at that point
-   (or `T2`/`T3` aren't both resolved yet), nothing is inferred and it's left `null` — same as any
-   other ambiguous case.
+   absent for that member. Given the self-only restriction above, in practice at most one member per
+   upload can ever resolve this way.
+2. **No positional fallback for T2/T3**: a member with no valid hint stays `null` rather than being
+   guessed from its position (`0`/`1`/`2`) — Ranger/Assassin members are otherwise indistinguishable.
+   `T2`/`T3` can only come from an explicit hint.
+3. **T1 by elimination, within this upload only**: once both `T2` and `T3` have been assigned by
+   hint *within this same upload* and exactly one Ranger/Assassin member is still unassigned, that
+   member is labeled `T1` here. Since a single upload can supply at most one real hint now, this
+   essentially never fires in practice — it's retained for the (now largely theoretical) case of a
+   payload carrying more than one real hint. The meaningful elimination now happens across uploads,
+   server-side — see "Cross-upload merging" below.
 4. **Profession combo**: everything still unassigned (normally indices 3–7, plus any T1/T2/T3 slot
    left unresolved by steps 1–3) resolves as below.
 
@@ -124,6 +131,15 @@ No match → `role = null`, log a WARN with the run context and the raw `(primar
 **History**: Derv and Necro used to be folded into Spiker and SoS respectively (Dervish primaries counted as Spiker; Necromancer/Ranger counted as SoS) — split into their own roles in changelog 019, which also normalized the role codes from lowercase (`spiker`/`sos`/`emo`) to this Title-Case scheme.
 
 **`RangerNecro`** (Ranger/Necromancer — the reverse combo of `Necro`) fills the same party niche as `Necro`, so it shares `Necro`'s `role_objectives` gating (spec 05) verbatim — seeded by changelog 020. Adjust independently later if RangerNecro's actual trial involvement turns out to differ.
+
+### Cross-upload merging
+
+If multiple members of the same party each run the plugin under their own machine key, the backend receives multiple independent uploads for what is logically the same run (correlated via the dedup match in step 7 above — already handles this, no separate correlation logic needed). Each upload only ever carries one member's self-reported hint (or none), so merging their roles correctly requires two behaviors in `UploadRunWriter`, beyond what a single call to `resolveRoles` can do:
+
+1. **Never let "no data" erase a known role.** When attaching participants (step 8), a `null` role computed for *this* upload — meaning this upload had no reliable info about that member, not that their role is genuinely unknown — never overwrites an already-recorded role from an earlier upload. Only a non-null role overwrites: for a self-report that's the authoritative update; for a profession-combo role it's the same deterministic value every upload would compute anyway.
+2. **Elimination across the accumulated roster.** After attaching this upload's participants, `UploadRunWriter.inferRemainingTrapperRoleByElimination` re-reads all of the run's Ranger/Assassin-combo participants from the DB (not just this upload's own data). If exactly two of `T1`/`T2`/`T3` are now known among them and exactly one such participant is still unassigned, that participant is labeled with whichever role is missing — the same "don't guess when ambiguous" guard as the in-upload elimination above, just operating on the run's current persisted state instead of one upload's in-memory array, and generalized to whichever of the three roles is missing (not just `T1`) since self-reporting means any of them could end up being the one nobody's uploaded for yet.
+
+A run where only one of the three ever runs the plugin themselves keeps the other two `null` indefinitely — this degrades gracefully with adoption, from "only the uploader resolved" up to "all three resolved," never regressing.
 
 ## Response
 

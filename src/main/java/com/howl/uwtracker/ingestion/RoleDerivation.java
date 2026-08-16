@@ -23,6 +23,17 @@ import java.util.Set;
  * waiting on its own hint — deliberately not derived from any skill cast. Indices 3-7 (or any
  * T1-T3 slot left unresolved) fall through to an ORDERED (primary, secondary) combo match —
  * flagged in specs/backend/00-overview.md as an assumption unverified against real plugin data.
+ *
+ * As of the multi-upload role_hint reconciliation change, the plugin only ever populates
+ * role_hint/role_skills for the uploader's own character — observing another real player's skill
+ * casts only works within the local client's compass/network range, which isn't guaranteed for a
+ * spread-out party. {@link #restrictHintsToSelf} enforces server-side that only that self-reported
+ * hint is trusted from any single upload; see {@link com.howl.uwtracker.ingestion.UploadRunWriter}
+ * for how the writer merges self-reports across multiple uploads of the same run (never letting an
+ * upload with no data for a member erase an earlier upload's self-report) and infers the last of
+ * T1/T2/T3 by elimination once two of the three are known from accumulated DB state — that part no
+ * longer happens within a single call to {@link #resolveRoles} here, since at most one member per
+ * upload can have a real hint now.
  */
 public final class RoleDerivation {
 
@@ -42,6 +53,25 @@ public final class RoleDerivation {
     private static final List<String> TRAPPER_LABELS = List.of("T1", "T2", "T3");
 
     private RoleDerivation() {
+    }
+
+    /**
+     * Clears {@code role_hint} on every member except {@code selfName} (the uploader's own
+     * character, from {@code PartyDto.characterName}) before {@link #resolveRoles} sees the list —
+     * the only server-side enforcement that a hint is actually self-reported, not an old/buggy
+     * client's unreliable guess at someone else's role. {@code String.equals} against a null/
+     * unmatched {@code selfName} (missing or stale payload) returns false for every member, so that
+     * degrades safely to "trust nobody's hint" rather than needing a separate null case.
+     */
+    public static List<PartyMemberDto> restrictHintsToSelf(String selfName, List<PartyMemberDto> members) {
+        return members.stream()
+                .map(m -> m.name().equals(selfName) ? m : clearHint(m))
+                .toList();
+    }
+
+    private static PartyMemberDto clearHint(PartyMemberDto m) {
+        return new PartyMemberDto(m.name(), m.primary(), m.secondary(), m.isPlayer(), m.isHero(), m.isHenchman(),
+                m.deaths(), null, m.itemDrops());
     }
 
     /**

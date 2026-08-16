@@ -22,7 +22,8 @@ public class UploadRunController {
     @PostMapping(value = "/upload-run", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UploadRunResponse> uploadRun(
             @RequestHeader(value = "X-Machine-Key", required = false) String machineKey,
+            @RequestHeader(value = "X-Plugin-Version", required = false) Integer pluginVersion,
             @RequestBody UploadRunRequest request) {
-        return ResponseEntity.ok(uploadRunService.processUpload(machineKey, request));
+        return ResponseEntity.ok(uploadRunService.processUpload(machineKey, pluginVersion, request));
     }
 }

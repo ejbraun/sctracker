@@ -299,4 +299,55 @@ class RoleDerivationTest {
         assertEquals("T3", roles.get(2));
         assertNull(roles.get(3));
     }
+
+    @Test
+    void restrictHintsToSelfPreservesTheSelfEntrysHint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        List<PartyMemberDto> restricted = RoleDerivation.restrictHintsToSelf("T2", party);
+        assertEquals("t2", restricted.get(1).roleHint());
+    }
+
+    @Test
+    void restrictHintsToSelfClearsEveryoneElsesHint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("T1", RANGER, ASSASSIN, "t1"));
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3"));
+        // Only "T2" is self — T1's and T3's hints are stray/unreliable (e.g. an old client's
+        // range-limited guess at another player) and must be dropped before role resolution.
+        List<PartyMemberDto> restricted = RoleDerivation.restrictHintsToSelf("T2", party);
+        assertNull(restricted.get(0).roleHint());
+        assertEquals("t2", restricted.get(1).roleHint());
+        assertNull(restricted.get(2).roleHint());
+    }
+
+    @Test
+    void restrictHintsToSelfClearsEveryoneWhenSelfNameMatchesNoMember() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        List<PartyMemberDto> restricted = RoleDerivation.restrictHintsToSelf("NobodyByThisName", party);
+        assertNull(restricted.get(1).roleHint());
+    }
+
+    @Test
+    void restrictHintsToSelfClearsEveryoneWhenSelfNameIsNull() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2"));
+        List<PartyMemberDto> restricted = RoleDerivation.restrictHintsToSelf(null, party);
+        assertNull(restricted.get(1).roleHint());
+    }
+
+    @Test
+    void restrictHintsToSelfThenResolveRolesIgnoresAStrayNonSelfHint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(1, member("T2", RANGER, ASSASSIN, "t2")); // self, trustworthy
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3")); // stray hint from someone else's upload
+        List<String> roles = RoleDerivation.resolveRoles(RoleDerivation.restrictHintsToSelf("T2", party));
+        assertNull(roles.get(0));
+        assertEquals("T2", roles.get(1));
+        // T3's hint was cleared (not self), so it stays unresolved rather than being trusted —
+        // and with only one real hint present, elimination can't fire either.
+        assertNull(roles.get(2));
+    }
 }

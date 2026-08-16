@@ -32,6 +32,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -56,6 +57,13 @@ public class UploadRunWriter {
     // together, since map_id is a global zone id, not tied to any specific server/instance — the
     // exact-roster check in findDedupMatch guards against that independently of window size.
     private static final int DEDUP_WINDOW_SECONDS = 60;
+
+    // Duplicated from RoleDerivation's private profession-id constants (also duplicated in
+    // RoleDerivationTest and UploadRunIntegrationTest already) — no shared constants class exists
+    // in this codebase yet, and introducing one is out of scope here.
+    private static final int RANGER_PROFESSION_ID = 2;
+    private static final int ASSASSIN_PROFESSION_ID = 7;
+    private static final Set<String> TRAPPER_LABELS = Set.of("T1", "T2", "T3");
 
     private final GameMapRepository gameMapRepository;
     private final RunRepository runRepository;
@@ -114,6 +122,7 @@ public class UploadRunWriter {
         }
 
         attachParticipants(run, members, roles, uploader);
+        inferRemainingTrapperRoleByElimination(run);
 
         return new UploadRunResponse(run.getId(), created);
     }
@@ -194,7 +203,14 @@ public class UploadRunWriter {
                 participant.setCharacter(character);
                 participant.setPrimaryProfession(primary);
                 participant.setSecondaryProfession(secondary);
-                participant.setRole(role);
+                // A null role here means THIS upload had no reliable data for this member (not their
+                // own self-report and no profession-combo match) — never erase an earlier upload's
+                // known role with that absence. A non-null role always overwrites: for a self-report
+                // that's the authoritative update; for a profession-combo role it's the same
+                // deterministic value every time anyway (see RoleDerivation).
+                if (role != null) {
+                    participant.setRole(role);
+                }
                 participant.setPlayer(isPlayer);
                 participant.setHero(isHero);
                 participant.setHenchman(isHenchman);
@@ -207,6 +223,39 @@ public class UploadRunWriter {
                         deaths, uploader));
             }
             attachItemDrops(participant, member.itemDrops());
+        }
+    }
+
+    /**
+     * The server-side counterpart to the plugin's old (now-removed) MaybeAssignT1ByElimination —
+     * generalized to whichever of T1/T2/T3 is missing, not just T1, since self-reporting means any
+     * of the three could end up being the one nobody's uploaded for yet. Operates on the run's
+     * accumulated participant rows (across however many uploads have arrived so far), not just this
+     * upload's own data — a single upload can supply at most one self-reported hint now, so this can
+     * never resolve from one call to RoleDerivation.resolveRoles alone. Only infers when exactly one
+     * Ranger/Assassin-combo participant remains unassigned with the other two roles both known —
+     * same "don't guess when ambiguous" guard as the original client-side logic. Idempotent: a no-op
+     * once all three are already resolved, or if there isn't a unique remaining candidate.
+     */
+    private void inferRemainingTrapperRoleByElimination(Run run) {
+        List<RunParticipant> trapperCandidates = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId())
+                .stream()
+                .filter(p -> p.getPrimaryProfession().getId() == RANGER_PROFESSION_ID
+                        && p.getSecondaryProfession() != null && p.getSecondaryProfession().getId() == ASSASSIN_PROFESSION_ID)
+                .toList();
+
+        Set<String> assigned = trapperCandidates.stream()
+                .map(RunParticipant::getRole)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<RunParticipant> unassigned = trapperCandidates.stream().filter(p -> p.getRole() == null).toList();
+
+        if (assigned.size() == 2 && unassigned.size() == 1) {
+            Set<String> missing = new HashSet<>(TRAPPER_LABELS);
+            missing.removeAll(assigned);
+            RunParticipant last = unassigned.get(0);
+            last.setRole(missing.iterator().next());
+            runParticipantRepository.save(last);
         }
     }
 

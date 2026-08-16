@@ -23,15 +23,17 @@ public class FailureReportController {
     /** Called by the plugin on load so it can skip its failure-report UI/logic entirely when not permitted. */
     @GetMapping("/can-report-run-failure")
     public ResponseEntity<CanReportFailureResponse> canReportFailure(
-            @RequestHeader(value = "X-Machine-Key", required = false) String machineKey) {
-        return ResponseEntity.ok(failureReportService.checkPermission(machineKey));
+            @RequestHeader(value = "X-Machine-Key", required = false) String machineKey,
+            @RequestHeader(value = "X-Plugin-Version", required = false) Integer pluginVersion) {
+        return ResponseEntity.ok(failureReportService.checkPermission(machineKey, pluginVersion));
     }
 
     @PostMapping(value = "/report-run-failure", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> reportFailure(
             @RequestHeader(value = "X-Machine-Key", required = false) String machineKey,
+            @RequestHeader(value = "X-Plugin-Version", required = false) Integer pluginVersion,
             @RequestBody ReportRunFailureRequest request) {
-        failureReportService.submit(machineKey, request);
+        failureReportService.submit(machineKey, pluginVersion, request);
         return ResponseEntity.noContent().build();
     }
 }
