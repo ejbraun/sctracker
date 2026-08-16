@@ -4,7 +4,9 @@ import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.history.dto.ObjectiveEntry;
 import com.howl.uwtracker.history.dto.ParticipantEntry;
 import com.howl.uwtracker.history.dto.RunDetailResponse;
+import com.howl.uwtracker.history.dto.RunFailureReasonEntry;
 import com.howl.uwtracker.history.dto.RunSummaryResponse;
+import com.howl.uwtracker.repository.RunFailureReasonRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
@@ -30,12 +32,15 @@ public class RunHistoryService {
     private final RunRepository runRepository;
     private final RunObjectiveRepository runObjectiveRepository;
     private final RunParticipantRepository runParticipantRepository;
+    private final RunFailureReasonRepository runFailureReasonRepository;
 
     public RunHistoryService(RunRepository runRepository, RunObjectiveRepository runObjectiveRepository,
-                              RunParticipantRepository runParticipantRepository) {
+                              RunParticipantRepository runParticipantRepository,
+                              RunFailureReasonRepository runFailureReasonRepository) {
         this.runRepository = runRepository;
         this.runObjectiveRepository = runObjectiveRepository;
         this.runParticipantRepository = runParticipantRepository;
+        this.runFailureReasonRepository = runFailureReasonRepository;
     }
 
     @Transactional(readOnly = true)
@@ -61,7 +66,10 @@ public class RunHistoryService {
         var participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(runId).stream()
                 .map(ParticipantEntry::from)
                 .toList();
+        var failureReasons = runFailureReasonRepository.findByRun_Id(runId).stream()
+                .map(RunFailureReasonEntry::from)
+                .toList();
 
-        return RunDetailResponse.from(run, objectives, participants);
+        return RunDetailResponse.from(run, objectives, participants, failureReasons);
     }
 }

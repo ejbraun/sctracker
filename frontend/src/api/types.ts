@@ -208,6 +208,16 @@ export interface ParticipantEntry {
   deaths: number;
 }
 
+// One run_participant flagged as at fault for a run's failure via the plugin's post-run popup, or a
+// deliberate "nobody was at fault" assertion. `nobody` is structural, not a "Nobody" sentinel string
+// in display_name — a real character could plausibly be named "Nobody". role/display_name are null
+// when nobody is true.
+export interface RunFailureReasonEntry {
+  nobody: boolean;
+  role: string | null;
+  display_name: string | null;
+}
+
 export interface RunDetail {
   run_id: number;
   map_id: number;
@@ -222,6 +232,7 @@ export interface RunDetail {
   duration_ms: number | null;
   objectives: ObjectiveEntry[];
   participants: ParticipantEntry[];
+  failure_reasons: RunFailureReasonEntry[];
 }
 
 export interface PageResponse<T> {

@@ -3,7 +3,7 @@ package com.howl.uwtracker.failurereports;
 import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunFailureReason;
-import com.howl.uwtracker.domain.RunFailureReasonId;
+import com.howl.uwtracker.domain.RunParticipant;
 import com.howl.uwtracker.failurereports.dto.CanReportFailureResponse;
 import com.howl.uwtracker.failurereports.dto.ReportRunFailureRequest;
 import com.howl.uwtracker.repository.RunFailureReasonRepository;
@@ -21,6 +21,11 @@ import java.util.Set;
 
 @Service
 public class FailureReportService {
+
+    // Sent as a plain entry in the plugin's roles[] payload, not a separate field — see
+    // kFailureReasonRoles/kNobodyReasonIndex in SCTracker.cpp. Mutually exclusive with every real
+    // role: it asserts nobody was at fault, distinct from no report being filed at all.
+    private static final String NOBODY_ROLE = "Nobody";
 
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final RunRepository runRepository;
@@ -58,6 +63,11 @@ public class FailureReportService {
         List<String> requestedRoles = request.roles() == null ? List.of() : request.roles();
         Set<String> roles = new LinkedHashSet<>(requestedRoles);
 
+        boolean wantsNobody = roles.remove(NOBODY_ROLE);
+        if (wantsNobody && !roles.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Nobody is exclusive of specific roles");
+        }
+
         Set<String> rolesInRun = runParticipantRepository.findDistinctRolesByRunId(run.getId());
         for (String role : roles) {
             if (!rolesInRun.contains(role)) {
@@ -67,9 +77,14 @@ public class FailureReportService {
 
         // Wholesale replace, same idiom as UploadRunWriter#attachItemDrops — a resubmission (e.g.
         // via "Unselect All" then Submit to retract a report) always reflects the latest intent.
-        runFailureReasonRepository.deleteById_RunId(run.getId());
+        runFailureReasonRepository.deleteByRun_Id(run.getId());
         for (String role : roles) {
-            runFailureReasonRepository.save(new RunFailureReason(new RunFailureReasonId(run.getId(), role), reporter.getId()));
+            RunParticipant participant = runParticipantRepository.findFirstByRun_IdAndRoleOrderByPartyIndexAsc(run.getId(), role)
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "role " + role + " not present in run " + run.getId()));
+            runFailureReasonRepository.save(new RunFailureReason(run, participant, reporter.getId()));
+        }
+        if (wantsNobody) {
+            runFailureReasonRepository.save(new RunFailureReason(run, null, reporter.getId()));
         }
     }
 }

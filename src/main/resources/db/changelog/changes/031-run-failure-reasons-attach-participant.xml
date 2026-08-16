@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Replaces the (run_id, role) composite key with a surrogate id + a direct FK to the exact
+         run_participant at fault. run_participant_id is nullable: NULL means "Nobody" was at fault,
+         a deliberate assertion distinct from no report having been filed at all. Table is empty in
+         every environment, so this drops and recreates rather than migrating data. -->
+    <changeSet id="031-run-failure-reasons-attach-participant" author="uwtracker">
+        <dropTable tableName="run_failure_reasons"/>
+        <createTable tableName="run_failure_reasons">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="run_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="run_participant_id" type="BIGINT UNSIGNED"/>
+            <column name="reported_by_person_id" type="BIGINT UNSIGNED"/>
+            <column name="reported_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="run_failure_reasons" columnNames="run_id, run_participant_id"
+                              constraintName="uq_run_failure_reasons_run_participant"/>
+        <addForeignKeyConstraint baseTableName="run_failure_reasons" baseColumnNames="run_id"
+                                  constraintName="fk_run_failure_reasons_run"
+                                  referencedTableName="runs" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="run_failure_reasons" baseColumnNames="run_participant_id"
+                                  constraintName="fk_run_failure_reasons_participant"
+                                  referencedTableName="run_participants" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="run_failure_reasons" baseColumnNames="reported_by_person_id"
+                                  constraintName="fk_run_failure_reasons_reported_by"
+                                  referencedTableName="people" referencedColumnNames="id" onDelete="SET NULL"/>
+        <createIndex indexName="idx_run_failure_reasons_reported_by" tableName="run_failure_reasons">
+            <column name="reported_by_person_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

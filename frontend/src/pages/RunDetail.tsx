@@ -71,6 +71,25 @@ export function RunDetail() {
         </table>
       </Panel>
 
+      {run.failure_reasons.length > 0 && (
+        <Panel className={styles.section}>
+          <h2>Failure Reasons</h2>
+          <ul>
+            {run.failure_reasons.map((reason, index) => (
+              <li key={index}>
+                {reason.nobody ? (
+                  'Nobody'
+                ) : (
+                  <>
+                    {reason.display_name} <RoleBadge role={reason.role} />
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       <Panel className={styles.section}>
         <h2>Participants</h2>
         <table>

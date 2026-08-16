@@ -134,12 +134,12 @@ public class LoserboardQueryRepository {
     public List<RoleFailureReasonResponse> findRoleFailureReasons(Integer mapId, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT rp.role AS role, COALESCE(p.alias, rp.raw_name) AS user, " +
-                        "COUNT(*) AS total_runs, SUM(CASE WHEN rfr.run_id IS NOT NULL THEN 1 ELSE 0 END) AS total_fails " +
+                        "COUNT(*) AS total_runs, SUM(CASE WHEN rfr.run_participant_id IS NOT NULL THEN 1 ELSE 0 END) AS total_fails " +
                         "FROM run_participants rp " +
                         "JOIN runs r ON r.id = rp.run_id " +
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
-                        "LEFT JOIN run_failure_reasons rfr ON rfr.run_id = rp.run_id AND rfr.role = rp.role " +
+                        "LEFT JOIN run_failure_reasons rfr ON rfr.run_participant_id = rp.id " +
                         "WHERE r.map_id = ? AND rp.role IS NOT NULL " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "GROUP BY rp.role, COALESCE(p.alias, rp.raw_name) " +
