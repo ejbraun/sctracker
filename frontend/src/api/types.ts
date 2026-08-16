@@ -23,6 +23,16 @@ export interface AdminUser {
   is_admin: boolean;
 }
 
+/**
+ * GET /plugin-version — top-level, not under /api (see PluginVersionController), so it's fetched
+ * directly rather than through the /api-prefixed api client. Same shape the plugin itself checks
+ * against on load.
+ */
+export interface PluginVersion {
+  version: number;
+  compiled_at: string;
+}
+
 /** Minimal, alias-only view of another person — backs the Run History "person" filter dropdown. */
 export interface PersonSummary {
   id: number;

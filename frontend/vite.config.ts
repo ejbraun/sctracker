@@ -9,6 +9,9 @@ import react from '@vitejs/plugin-react';
 // directly from src/main/resources/static (the Account page's plugin download), not by anything
 // under /api — without this, the Vite dev server would 404 on it itself instead of forwarding to
 // the backend, even though the exact same link works fine against the built jar.
+// /plugin-version is a third rule for the same reason again — the plugin calls it machine-key-free
+// and top-level (see PluginVersionController), not under /api, and the Account page fetches it
+// directly (not via the /api-prefixed api client) to show the current version next to the download link.
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -18,6 +21,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/SCTracker.dll': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/plugin-version': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

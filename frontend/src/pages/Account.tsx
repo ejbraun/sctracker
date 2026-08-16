@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { GeneratedMachineKey, MachineKey, Person } from '../api/types';
+import type { GeneratedMachineKey, MachineKey, Person, PluginVersion } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -48,6 +48,21 @@ export function Account() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'me'] }),
   });
 
+  // Top-level, not /api-prefixed (see PluginVersionController) — fetched directly rather than
+  // through the api client, same as the /SCTracker.dll link itself. Purely cosmetic (shows which
+  // build the download link points at); a failure here just leaves the version number off the link.
+  const pluginVersionQuery = useQuery({
+    queryKey: ['plugin-version'],
+    queryFn: async () => {
+      const response = await fetch('/plugin-version');
+      if (!response.ok) {
+        throw new Error('failed to fetch plugin version');
+      }
+      return (await response.json()) as PluginVersion;
+    },
+    retry: false,
+  });
+
   function handleRevoke(id: number) {
     if (window.confirm('Revoke this machine key? Uploads using it will stop working.')) {
       revokeMutation.mutate(id);
@@ -90,7 +105,7 @@ export function Account() {
         <p>
           Used by the GW1 SDK plugin to authenticate uploads. Don't have the plugin yet?{' '}
           <a href="/SCTracker.dll" download onClick={() => recordDownloadMutation.mutate()}>
-            Download SCTracker.dll
+            Download SCTracker.dll{pluginVersionQuery.data && ` (v${pluginVersionQuery.data.version})`}
           </a>
           .
         </p>
