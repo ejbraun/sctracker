@@ -10,8 +10,16 @@ BACKEND_LOG_FILE := .backend.log
 CHANGELOG := src/main/resources/db/changelog/db.changelog-master.xml
 DRIVER_JAR := lib/mysql-connector-j.jar
 
+GCP_PROJECT ?= sc-tracker-504501
+GCP_REGION ?= us-central1
+ARTIFACT_REPO ?= uwtracker-repo
+IMAGE_NAME ?= uwtracker
+CLOUD_RUN_SERVICE ?= uwtracker
+IMAGE := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/$(ARTIFACT_REPO)/$(IMAGE_NAME):latest
+
 .PHONY: mysql-up mysql-down mysql-logs mysql-wait driver migrate db-up \
-	test-backend backend-up backend-down test-frontend
+	test-backend backend-up backend-down test-frontend \
+	gcloud-build gcloud-deploy deploy
 
 mysql-up:
 	docker compose up -d mysql
@@ -77,3 +85,17 @@ test-frontend: backend-up
 	status=$$?; \
 	$(MAKE) backend-down; \
 	exit $$status
+
+# Builds the multi-stage Dockerfile (frontend + backend) via Cloud Build and pushes it to Artifact
+# Registry, tagged :latest. Requires gcloud auth login / an active gcloud config pointed at
+# $(GCP_PROJECT) — see specs/backend/07-deployment.md.
+gcloud-build:
+	gcloud builds submit --tag $(IMAGE) .
+
+# Points the Cloud Run service at whatever image :latest currently resolves to and rolls out a new
+# revision. Env vars/secrets/Cloud SQL connection etc. aren't specified here — gcloud carries over
+# the existing service's config for anything not explicitly overridden.
+gcloud-deploy:
+	gcloud run deploy $(CLOUD_RUN_SERVICE) --image=$(IMAGE) --region=$(GCP_REGION)
+
+deploy: gcloud-build gcloud-deploy
