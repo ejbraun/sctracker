@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Miniature Smite Crawler added to kTrackedItems in SCTracker.cpp — see 024-create-tracked-items. -->
+    <changeSet id="033-add-tracked-item-mini-smite-crawler" author="uwtracker">
+        <insert tableName="tracked_items"><column name="id" valueNumeric="32556"/><column name="name" value="Mini Smite Crawler"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

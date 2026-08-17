@@ -37,5 +37,6 @@
     <include file="db/changelog/changes/030-create-admins.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/031-run-failure-reasons-attach-participant.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/032-create-outdated-upload-attempts.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/033-add-tracked-item-mini-smite-crawler.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
