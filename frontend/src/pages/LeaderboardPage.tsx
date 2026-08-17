@@ -103,6 +103,7 @@ export function LeaderboardPage() {
                   <th>Time</th>
                   <th>Date</th>
                   <th>Party</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -146,6 +147,7 @@ export function LeaderboardPage() {
                   <th>Time</th>
                   <th>Date</th>
                   <th>Party</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -182,11 +184,13 @@ export function LeaderboardPage() {
             <table>
               <thead>
                 <tr>
+                  <th>Rank</th>
                   <th>Objective</th>
                   <th>Overall</th>
                   <th>Start</th>
                   <th>End</th>
                   <th>User(s)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -210,6 +214,7 @@ export function LeaderboardPage() {
                   <th>Start</th>
                   <th>End</th>
                   <th>User(s)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -228,11 +233,13 @@ export function LeaderboardPage() {
             <table>
               <thead>
                 <tr>
+                  <th>Rank</th>
                   <th>Objective</th>
                   <th>Overall</th>
                   <th>Start</th>
                   <th>End</th>
                   <th>User(s)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -256,6 +263,7 @@ export function LeaderboardPage() {
                   <th>Start</th>
                   <th>End</th>
                   <th>User(s)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -274,11 +282,13 @@ export function LeaderboardPage() {
             <table>
               <thead>
                 <tr>
+                  <th>Rank</th>
                   <th>Objective</th>
                   <th>Overall</th>
                   <th>Start</th>
                   <th>End</th>
                   <th>User(s)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -302,6 +312,7 @@ export function LeaderboardPage() {
                   <th>Start</th>
                   <th>End</th>
                   <th>User(s)</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -421,6 +432,7 @@ function GlobalSectionRow({
   if (visible.length === 0) {
     return (
       <tr>
+        <td className={styles.rank}>—</td>
         <td>{objectiveName}</td>
         <td>—</td>
         <td>—</td>
@@ -428,6 +440,7 @@ function GlobalSectionRow({
         <td>
           <span className={styles.emptyState}>—</span>
         </td>
+        <td></td>
       </tr>
     );
   }
@@ -436,10 +449,11 @@ function GlobalSectionRow({
     <>
       {visible.map((entry, index) => (
         <RunLinkRow key={entry.run_id} runId={entry.run_id}>
-          <td>
+          <td className={styles.rank}>
             {index === 0 && entries.length > 1 && <ExpandToggle expanded={expanded} onToggle={() => setExpanded((v) => !v)} />}
-            {objectiveName}
+            {index + 1}
           </td>
+          <td>{objectiveName}</td>
           <td>{formatDuration(entry.duration_ms)}</td>
           <td>{formatDuration(entry.start_ms)}</td>
           <td>{formatDuration(entry.done_ms)}</td>
@@ -512,5 +526,12 @@ function YourSectionRow({
     </>
   );
 
-  return personalQuery.data ? <RunLinkRow runId={personalQuery.data.run_id}>{cells}</RunLinkRow> : <tr>{cells}</tr>;
+  return personalQuery.data ? (
+    <RunLinkRow runId={personalQuery.data.run_id}>{cells}</RunLinkRow>
+  ) : (
+    <tr>
+      {cells}
+      <td></td>
+    </tr>
+  );
 }

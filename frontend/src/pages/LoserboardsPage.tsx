@@ -114,6 +114,7 @@ export function LoserboardsPage() {
                   <th>Time</th>
                   <th>Date</th>
                   <th>Party</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -322,11 +323,13 @@ export function LoserboardsPage() {
             <table>
               <thead>
                 <tr>
+                  <th>Rank</th>
                   <th>Objective</th>
                   <th>Overall</th>
                   <th>Start</th>
                   <th>End</th>
                   <th>Party</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -361,6 +364,7 @@ function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; fro
   if (visible.length === 0) {
     return (
       <tr>
+        <td className={styles.rank}>—</td>
         <td>{objectiveName}</td>
         <td>—</td>
         <td>—</td>
@@ -368,6 +372,7 @@ function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; fro
         <td>
           <span className={styles.emptyState}>—</span>
         </td>
+        <td></td>
       </tr>
     );
   }
@@ -376,10 +381,11 @@ function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; fro
     <>
       {visible.map((entry, index) => (
         <RunLinkRow key={entry.run_id} runId={entry.run_id}>
-          <td>
+          <td className={styles.rank}>
             {index === 0 && entries.length > 1 && <ExpandToggle expanded={expanded} onToggle={() => setExpanded((v) => !v)} />}
-            {objectiveName}
+            {index + 1}
           </td>
+          <td>{objectiveName}</td>
           <td>{formatDuration(entry.duration_ms)}</td>
           <td>{formatDuration(entry.start_ms)}</td>
           <td>{formatDuration(entry.done_ms)}</td>
