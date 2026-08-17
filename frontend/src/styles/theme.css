@@ -74,6 +74,37 @@ td:last-child {
   padding-right: 0.75rem;
 }
 
+/* The collapse/expand arrow inside a ranked row — see ExpandToggle. Reset to plain inline text so
+   it sits in the flow of the cell rather than looking like a form control. */
+.gw-expand-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-right: 0.4rem;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gw-expand-toggle:hover {
+  color: var(--gw-border-gold);
+}
+
+/* A leaderboard/loserboard row that navigates to its run's detail page — see RunLinkRow. */
+.gw-clickable-row {
+  cursor: pointer;
+}
+
+.gw-clickable-row:hover {
+  background: var(--gw-parchment-dark);
+}
+
+.gw-clickable-row:focus-visible {
+  outline: 2px solid var(--gw-border-gold-bright);
+  outline-offset: -2px;
+}
+
 button {
   background: var(--gw-panel-dark);
   color: var(--gw-text-on-dark);

@@ -11,8 +11,10 @@ import type {
   UserResign,
   UserStreak,
 } from '../api/types';
+import { ExpandToggle } from '../components/ExpandToggle';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
+import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
 import { ROLES } from '../common/roles';
@@ -27,6 +29,8 @@ import styles from './LoserboardsPage.module.css';
 export function LoserboardsPage() {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
   const from = timeWindowFrom(timeWindow);
+  // Same collapsed-by-default/expand-to-top-5 behavior as LeaderboardPage's ranked-run tables.
+  const [worstExpanded, setWorstExpanded] = useState(false);
 
   const worstQuery = useQuery({
     queryKey: ['loserboard', 'worst', timeWindow],
@@ -113,9 +117,14 @@ export function LoserboardsPage() {
                 </tr>
               </thead>
               <tbody>
-                {worstQuery.data.map((entry, index) => (
-                  <tr key={entry.run_id}>
-                    <td className={styles.rank}>{index + 1}</td>
+                {worstQuery.data.slice(0, worstExpanded ? 5 : 1).map((entry, index) => (
+                  <RunLinkRow key={entry.run_id} runId={entry.run_id}>
+                    <td className={styles.rank}>
+                      {index === 0 && worstQuery.data.length > 1 && (
+                        <ExpandToggle expanded={worstExpanded} onToggle={() => setWorstExpanded((v) => !v)} />
+                      )}
+                      {index + 1}
+                    </td>
                     <td>{formatDuration(entry.duration_ms)}</td>
                     <td>{formatDate(entry.utc_start)}</td>
                     <td>
@@ -127,7 +136,7 @@ export function LoserboardsPage() {
                         ))}
                       </div>
                     </td>
-                  </tr>
+                  </RunLinkRow>
                 ))}
               </tbody>
             </table>
@@ -337,6 +346,7 @@ export function LoserboardsPage() {
  * reach each objective. Not role-gated: unlike "who owns this objective's clear time," everyone in
  * the party experienced the slow pace, so the full participant list is shown. */
 function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; from: string | null }) {
+  const [expanded, setExpanded] = useState(false);
   const slowestQuery = useQuery({
     queryKey: ['loserboard', 'section', 'start', DEFAULT_MAP_ID, objectiveName, from],
     queryFn: () =>
@@ -345,27 +355,49 @@ function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; fro
       ),
   });
 
-  const slowest = slowestQuery.data?.[0];
+  const entries = slowestQuery.data ?? [];
+  const visible = entries.slice(0, expanded ? 5 : 1);
+
+  if (visible.length === 0) {
+    return (
+      <tr>
+        <td>{objectiveName}</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>
+          <span className={styles.emptyState}>—</span>
+        </td>
+      </tr>
+    );
+  }
 
   return (
-    <tr>
-      <td>{objectiveName}</td>
-      <td>{slowest ? formatDuration(slowest.duration_ms) : '—'}</td>
-      <td>{slowest ? formatDuration(slowest.start_ms) : '—'}</td>
-      <td>{slowest ? formatDuration(slowest.done_ms) : '—'}</td>
-      <td>
-        {slowest && slowest.participants.length > 0 ? (
-          <div className={styles.participants}>
-            {slowest.participants.map((p, i) => (
-              <span key={i} className={styles.participant}>
-                {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span className={styles.emptyState}>—</span>
-        )}
-      </td>
-    </tr>
+    <>
+      {visible.map((entry, index) => (
+        <RunLinkRow key={entry.run_id} runId={entry.run_id}>
+          <td>
+            {index === 0 && entries.length > 1 && <ExpandToggle expanded={expanded} onToggle={() => setExpanded((v) => !v)} />}
+            {objectiveName}
+          </td>
+          <td>{formatDuration(entry.duration_ms)}</td>
+          <td>{formatDuration(entry.start_ms)}</td>
+          <td>{formatDuration(entry.done_ms)}</td>
+          <td>
+            {entry.participants.length > 0 ? (
+              <div className={styles.participants}>
+                {entry.participants.map((p, i) => (
+                  <span key={i} className={styles.participant}>
+                    {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className={styles.emptyState}>—</span>
+            )}
+          </td>
+        </RunLinkRow>
+      ))}
+    </>
   );
 }

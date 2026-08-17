@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { ItemDropLeader, LeaderboardEntry, PersonalBestEntry, PersonalSectionBest, RunDetail, SectionEntry, UserStreak } from '../api/types';
+import { ExpandToggle } from '../components/ExpandToggle';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
+import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
 import styles from './LeaderboardPage.module.css';
@@ -19,6 +21,11 @@ export function LeaderboardPage() {
   const { mapId } = useParams<{ mapId: string }>();
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
   const from = timeWindowFrom(timeWindow);
+  // Every ranked-run table on this page defaults to showing just its #1 entry, expandable per-panel
+  // to its top 5 via ExpandToggle — collapsed data is already fetched (limit=10), just sliced client
+  // side, so toggling never triggers a refetch.
+  const [overallExpanded, setOverallExpanded] = useState(false);
+  const [personalOverallExpanded, setPersonalOverallExpanded] = useState(false);
 
   const overallQuery = useQuery({
     queryKey: ['leaderboard', 'overall', mapId, timeWindow],
@@ -99,9 +106,14 @@ export function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {overallQuery.data.map((entry, index) => (
-                  <tr key={entry.run_id}>
-                    <td className={styles.rank}>{index + 1}</td>
+                {overallQuery.data.slice(0, overallExpanded ? 5 : 1).map((entry, index) => (
+                  <RunLinkRow key={entry.run_id} runId={entry.run_id}>
+                    <td className={styles.rank}>
+                      {index === 0 && overallQuery.data.length > 1 && (
+                        <ExpandToggle expanded={overallExpanded} onToggle={() => setOverallExpanded((v) => !v)} />
+                      )}
+                      {index + 1}
+                    </td>
                     <td>{formatDuration(entry.duration_ms)}</td>
                     <td>{formatDate(entry.utc_start)}</td>
                     <td>
@@ -113,7 +125,7 @@ export function LeaderboardPage() {
                         ))}
                       </div>
                     </td>
-                  </tr>
+                  </RunLinkRow>
                 ))}
               </tbody>
             </table>
@@ -137,9 +149,14 @@ export function LeaderboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {personalOverallTopQuery.data.map((entry, index) => (
-                  <tr key={entry.run_id}>
-                    <td className={styles.rank}>{index + 1}</td>
+                {personalOverallTopQuery.data.slice(0, personalOverallExpanded ? 5 : 1).map((entry, index) => (
+                  <RunLinkRow key={entry.run_id} runId={entry.run_id}>
+                    <td className={styles.rank}>
+                      {index === 0 && personalOverallTopQuery.data.length > 1 && (
+                        <ExpandToggle expanded={personalOverallExpanded} onToggle={() => setPersonalOverallExpanded((v) => !v)} />
+                      )}
+                      {index + 1}
+                    </td>
                     <td>{formatDuration(entry.duration_ms)}</td>
                     <td>{formatDate(entry.utc_start)}</td>
                     <td>
@@ -151,7 +168,7 @@ export function LeaderboardPage() {
                         ))}
                       </div>
                     </td>
-                  </tr>
+                  </RunLinkRow>
                 ))}
               </tbody>
             </table>
@@ -388,6 +405,7 @@ function GlobalSectionRow({
   from: string | null;
   metric?: 'duration' | 'start' | 'finish';
 }) {
+  const [expanded, setExpanded] = useState(false);
   const suffix = metric === 'duration' ? '' : `/${metric}`;
   const overallQuery = useQuery({
     queryKey: ['leaderboard', 'section', metric, mapId, objectiveName, from],
@@ -397,28 +415,50 @@ function GlobalSectionRow({
       ),
   });
 
-  const fastest = overallQuery.data?.[0];
+  const entries = overallQuery.data ?? [];
+  const visible = entries.slice(0, expanded ? 5 : 1);
+
+  if (visible.length === 0) {
+    return (
+      <tr>
+        <td>{objectiveName}</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>
+          <span className={styles.emptyState}>—</span>
+        </td>
+      </tr>
+    );
+  }
 
   return (
-    <tr>
-      <td>{objectiveName}</td>
-      <td>{fastest ? formatDuration(fastest.duration_ms) : '—'}</td>
-      <td>{fastest ? formatDuration(fastest.start_ms) : '—'}</td>
-      <td>{fastest ? formatDuration(fastest.done_ms) : '—'}</td>
-      <td>
-        {fastest && fastest.participants.length > 0 ? (
-          <div className={styles.participants}>
-            {fastest.participants.map((p, i) => (
-              <span key={i} className={styles.participant}>
-                {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span className={styles.emptyState}>—</span>
-        )}
-      </td>
-    </tr>
+    <>
+      {visible.map((entry, index) => (
+        <RunLinkRow key={entry.run_id} runId={entry.run_id}>
+          <td>
+            {index === 0 && entries.length > 1 && <ExpandToggle expanded={expanded} onToggle={() => setExpanded((v) => !v)} />}
+            {objectiveName}
+          </td>
+          <td>{formatDuration(entry.duration_ms)}</td>
+          <td>{formatDuration(entry.start_ms)}</td>
+          <td>{formatDuration(entry.done_ms)}</td>
+          <td>
+            {entry.participants.length > 0 ? (
+              <div className={styles.participants}>
+                {entry.participants.map((p, i) => (
+                  <span key={i} className={styles.participant}>
+                    {p.alias ?? p.raw_name} <RoleBadge role={p.role} />
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className={styles.emptyState}>—</span>
+            )}
+          </td>
+        </RunLinkRow>
+      ))}
+    </>
   );
 }
 
@@ -442,8 +482,8 @@ function YourSectionRow({
       ),
   });
 
-  return (
-    <tr>
+  const cells = (
+    <>
       <td>{objectiveName}</td>
       <td>
         {personalQuery.data ? (
@@ -469,6 +509,8 @@ function YourSectionRow({
           <span className={styles.emptyState}>—</span>
         )}
       </td>
-    </tr>
+    </>
   );
+
+  return personalQuery.data ? <RunLinkRow runId={personalQuery.data.run_id}>{cells}</RunLinkRow> : <tr>{cells}</tr>;
 }

@@ -272,7 +272,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void sectionSlowestStartIncludesFullPartyNotJustGatedRoles() throws Exception {
+    void sectionSlowestStartIncludesOnlyRoleGatedParticipants() throws Exception {
         MockHttpSession session = signup("slowstartparticipants", "password123");
         GameMap map = map();
         Profession warrior = professionRepository.findById(1).orElseThrow();
@@ -286,6 +286,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].participants.length()").value(2));
+                .andExpect(jsonPath("$[0].participants.length()").value(1))
+                .andExpect(jsonPath("$[0].participants[0].raw_name").value("GatedTank"));
     }
 }

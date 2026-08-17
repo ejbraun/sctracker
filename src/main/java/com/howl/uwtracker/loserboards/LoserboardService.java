@@ -11,6 +11,7 @@ import com.howl.uwtracker.loserboards.dto.OutdatedUploadAttemptResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
+import com.howl.uwtracker.repository.RoleObjectiveRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
@@ -22,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * specs/frontend "Loserboards" — the mirror image of {@code LeaderboardService}, kept as its own
@@ -41,14 +44,17 @@ public class LoserboardService {
     private final RunRepository runRepository;
     private final RunObjectiveRepository runObjectiveRepository;
     private final RunParticipantRepository runParticipantRepository;
+    private final RoleObjectiveRepository roleObjectiveRepository;
     private final LoserboardQueryRepository loserboardQueryRepository;
 
     public LoserboardService(RunRepository runRepository, RunObjectiveRepository runObjectiveRepository,
                               RunParticipantRepository runParticipantRepository,
+                              RoleObjectiveRepository roleObjectiveRepository,
                               LoserboardQueryRepository loserboardQueryRepository) {
         this.runRepository = runRepository;
         this.runObjectiveRepository = runObjectiveRepository;
         this.runParticipantRepository = runParticipantRepository;
+        this.roleObjectiveRepository = roleObjectiveRepository;
         this.loserboardQueryRepository = loserboardQueryRepository;
     }
 
@@ -95,18 +101,24 @@ public class LoserboardService {
     }
 
     /**
-     * Slowest to reach this objective — the mirror of {@code LeaderboardService.sectionStart}. Not
-     * role-gated, full party shown, same reasoning as the leaderboard version.
+     * Slowest to reach this objective — the mirror of {@code LeaderboardService.sectionStart}.
+     * Role-gated the same way as the leaderboard version: credit (or blame, here) for reaching the
+     * objective belongs to whichever role is gated in for it, not the whole party.
      */
     @Transactional(readOnly = true)
     public List<SectionEntryResponse> sectionSlowestStart(Integer mapId, String objectiveName, Integer limit, Instant from, Instant to) {
         List<RunObjective> objectives = runObjectiveRepository.findSlowestStartForMapObjective(
                 mapId, objectiveName, from, to, PageRequest.of(0, limit == null ? DEFAULT_LIMIT : limit));
 
+        Set<String> gatedRoles = roleObjectiveRepository.findById_MapIdAndId_ObjectiveName(mapId, objectiveName).stream()
+                .map(ro -> ro.getId().getRole())
+                .collect(Collectors.toSet());
+
         return objectives.stream()
                 .map(ro -> {
                     List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ro.getRun().getId())
                             .stream()
+                            .filter(rp -> gatedRoles.contains(rp.getRole()))
                             .map(ParticipantSummary::from)
                             .toList();
                     return new SectionEntryResponse(ro.getRun().getId(), ro.getDurationMs(), ro.getRun().getUtcStart(),

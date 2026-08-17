@@ -105,24 +105,25 @@ public class LeaderboardQueryRepository {
     }
 
     /**
-     * Personal fastest-to-reach-objective, across every character the person has linked — not
-     * role-gated like {@link #findPersonalSectionBestRun}: arrival time is about the person's own
-     * pace getting there, not "who earned credit" for that trial, so any run they were in counts
-     * regardless of their role in it. Just the run ref; the full party for that run is assembled
-     * separately via JPA, same as {@link LeaderboardService#section}.
+     * Personal fastest-to-reach-objective, across every character the person has linked —
+     * role-gated the same way as {@link #findPersonalSectionBestRun}: arrival time only counts for
+     * a role that's actually mapped as involved in this objective, per {@code role_objectives}. Just
+     * the run ref; the full gated party for that run is assembled separately via JPA, same as
+     * {@link LeaderboardService#sectionStart}.
      */
     public PersonalSectionBestRunRef findPersonalSectionFastestStartRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
         List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
                 "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
                         "JOIN run_participants rp ON rp.run_id = ro.run_id " +
                         "JOIN characters c ON c.id = rp.character_id " +
+                        "JOIN role_objectives rol ON rol.map_id = ? AND rol.objective_name = ro.name AND rol.role = rp.role " +
                         "WHERE c.person_id = ? AND ro.name = ? AND ro.start_ms IS NOT NULL " +
                         "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
                         "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
                         "ORDER BY ro.start_ms ASC LIMIT 1",
                 (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
                         readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
-                personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
         return rows.isEmpty() ? null : rows.get(0);
     }
 

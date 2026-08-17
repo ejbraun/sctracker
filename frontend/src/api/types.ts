@@ -165,6 +165,7 @@ export interface ItemDropLeader {
 }
 
 export interface PersonalSectionBest {
+  run_id: number;
   duration_ms: number;
   // Steady-clock-relative offsets from the run's start, not absolute timestamps.
   start_ms: number | null;

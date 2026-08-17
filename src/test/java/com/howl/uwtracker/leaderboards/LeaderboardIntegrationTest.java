@@ -360,13 +360,13 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void sectionStartIncludesFullPartyNotJustGatedRoles() throws Exception {
+    void sectionStartIncludesOnlyRoleGatedParticipants() throws Exception {
         MockHttpSession session = signup("startparticipants", "password123");
         GameMap map = map();
         Profession warrior = professionRepository.findById(1).orElseThrow();
 
-        // Only "T1" is gated in for this objective, but sectionStart isn't role-gated (unlike
-        // sectionIncludesStartDoneOffsetsAndOnlyRoleGatedParticipants above) — both should show.
+        // Only "T1" is gated in for this objective — "spiker" played in the same run but doesn't earn
+        // it, same as the duration-ranked board (see sectionIncludesStartDoneOffsetsAndOnlyRoleGatedParticipants).
         roleObjectiveRepository.save(new RoleObjective(new RoleObjectiveId(MAP_ID, OBJECTIVE_NAME, "T1")));
 
         Run run = seedRun(map, 35_000L, true,
@@ -376,11 +376,12 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].participants.length()").value(2));
+                .andExpect(jsonPath("$[0].participants.length()").value(1))
+                .andExpect(jsonPath("$[0].participants[0].raw_name").value("GatedTank"));
     }
 
     @Test
-    void personalSectionStartIsNotRoleGated() throws Exception {
+    void personalSectionStartIsRoleGated() throws Exception {
         MockHttpSession session = signup("startpersonal", "password123");
         Person person = personRepository.findByUsername("startpersonal").orElseThrow();
         GameMap map = map();
@@ -397,10 +398,9 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/leaderboards/me/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME).session(session))
                 .andExpect(status().isNoContent());
 
-        // Start-ranked "Yours" isn't role-gated -> still finds it.
+        // Start-ranked "Yours" is role-gated the same way -> also excluded.
         mockMvc.perform(get("/api/leaderboards/me/maps/" + MAP_ID + "/sections/" + OBJECTIVE_NAME + "/start").session(session))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.start_ms").value(2000));
+                .andExpect(status().isNoContent());
     }
 
     @Test
