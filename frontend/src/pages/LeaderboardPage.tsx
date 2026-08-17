@@ -21,11 +21,11 @@ export function LeaderboardPage() {
   const { mapId } = useParams<{ mapId: string }>();
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
   const from = timeWindowFrom(timeWindow);
-  // Every ranked-run table on this page defaults to showing just its #1 entry, expandable per-panel
-  // to its top 5 via ExpandToggle — collapsed data is already fetched (limit=10), just sliced client
-  // side, so toggling never triggers a refetch.
-  const [overallExpanded, setOverallExpanded] = useState(false);
-  const [personalOverallExpanded, setPersonalOverallExpanded] = useState(false);
+  // Every ranked-run table on this page can collapse to just its #1 entry or expand to its top 5 via
+  // ExpandToggle — data is already fetched (limit=10), just sliced client side, so toggling never
+  // triggers a refetch. Both default open.
+  const [overallExpanded, setOverallExpanded] = useState(true);
+  const [personalOverallExpanded, setPersonalOverallExpanded] = useState(true);
 
   const overallQuery = useQuery({
     queryKey: ['leaderboard', 'overall', mapId, timeWindow],

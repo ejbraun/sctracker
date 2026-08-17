@@ -29,8 +29,9 @@ import styles from './LoserboardsPage.module.css';
 export function LoserboardsPage() {
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
   const from = timeWindowFrom(timeWindow);
-  // Same collapsed-by-default/expand-to-top-5 behavior as LeaderboardPage's ranked-run tables.
-  const [worstExpanded, setWorstExpanded] = useState(false);
+  // Same expand-to-top-5 behavior as LeaderboardPage's ranked-run tables — "Slowest Completions"
+  // defaults open, mirroring "Fastest To Complete Instance" there.
+  const [worstExpanded, setWorstExpanded] = useState(true);
 
   const worstQuery = useQuery({
     queryKey: ['loserboard', 'worst', timeWindow],
