@@ -20,15 +20,16 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Logs the plugin's requests — headers and (for JSON bodies) payload, alongside the outcome — so
- * failures like an unexplained 401 on /upload-run (Cloud Run's own access log has no headers or
- * body) can actually be diagnosed after the fact. Scoped to {@code User-Agent: GWToolbox} only:
- * this is plugin-traffic diagnostics, not general request logging, so the frontend's own /api/**
- * browser calls (far higher volume, and already debuggable from the browser devtools on the other
- * end) never hit it. Registered in {@link WebMvcConfig#requestLoggingFilter()} with an explicit
- * url-pattern list rather than a bare {@code @Component} — this must only wrap the API surface
- * (/api/**, plus the top-level plugin endpoints), not SpaFallbackController's HTML forwards or
- * static asset requests.
+ * Logs the plugin's failed requests — headers and (for JSON bodies) payload, alongside the outcome
+ * — so failures like an unexplained 401 on /upload-run (Cloud Run's own access log has no headers
+ * or body) can actually be diagnosed after the fact. Successful (2xx) requests are dropped: this is
+ * a failure-diagnostics log, not a request audit trail, and the plugin re-uploads the same run every
+ * ~60s until it succeeds, so logging every success too would mostly just be noise. Scoped to
+ * {@code User-Agent: GWToolbox} only: the frontend's own /api/** browser calls (far higher volume,
+ * and already debuggable from the browser devtools on the other end) never hit it. Registered in
+ * {@link WebMvcConfig#requestLoggingFilter()} with an explicit url-pattern list rather than a bare
+ * {@code @Component} — this must only wrap the API surface (/api/**, plus the top-level plugin
+ * endpoints), not SpaFallbackController's HTML forwards or static asset requests.
  *
  * <p>{@code X-Machine-Key} and {@code Cookie} are credentials, not debug data — never written raw.
  * The machine key keeps a 5-char prefix (enough to correlate a run of failures back to one key
@@ -55,14 +56,17 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(wrappedRequest, response);
         } finally {
-            long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
-            log.info("http request {} {}",
-                    kv("path", request.getRequestURI()),
-                    kv("status", response.getStatus()),
-                    kv("method", request.getMethod()),
-                    kv("latencyMs", latencyMs),
-                    kv("headers", collectHeaders(wrappedRequest)),
-                    kv("body", extractBody(wrappedRequest)));
+            int status = response.getStatus();
+            if (status < 200 || status >= 300) {
+                long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
+                log.info("http request {} {}",
+                        kv("path", request.getRequestURI()),
+                        kv("status", status),
+                        kv("method", request.getMethod()),
+                        kv("latencyMs", latencyMs),
+                        kv("headers", collectHeaders(wrappedRequest)),
+                        kv("body", extractBody(wrappedRequest)));
+            }
         }
     }
 
