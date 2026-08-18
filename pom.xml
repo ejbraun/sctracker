@@ -50,6 +50,14 @@
             <artifactId>mysql-socket-factory-connector-j-8</artifactId>
             <version>1.28.4</version>
         </dependency>
+        <!-- JSON console logs so Cloud Run's log agent parses each line into jsonPayload (queryable
+             fields) instead of one opaque textPayload string, and maps our level to Cloud Logging's
+             severity instead of every line landing as INFO regardless of actual level. -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.0</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

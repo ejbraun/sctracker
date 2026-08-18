@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  One JSON object per line to stdout. Cloud Run's log agent auto-detects a JSON-formatted line and
+  parses it into jsonPayload (queryable fields in Cloud Logging) instead of one opaque textPayload
+  string; "severity" is a field Cloud Logging recognizes specially (drives the log-level facet and
+  colouring in the console), which is why level is renamed to it below rather than left as "level".
+  Local/non-Cloud-Run runs still just see the same JSON on the console — no separate profile needed,
+  since there's nothing here Cloud-Run-specific beyond field naming.
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <level>severity</level>
+                <levelValue>[ignore]</levelValue>
+                <version>[ignore]</version>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
