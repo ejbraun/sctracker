@@ -20,13 +20,15 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Logs every request's headers and (for JSON bodies) payload alongside its outcome, so failures
- * like an unexplained 401 on /upload-run (Cloud Run's own access log has no headers or body) can
- * actually be diagnosed after the fact. Registered in {@link WebMvcConfig#requestLoggingFilter()}
- * with an explicit url-pattern list rather than a bare {@code @Component} — this must only wrap the
- * API surface (/api/**, plus the top-level plugin endpoints), not SpaFallbackController's HTML
- * forwards or static asset requests, which would otherwise dwarf the log volume with nothing
- * debuggable in it.
+ * Logs the plugin's requests — headers and (for JSON bodies) payload, alongside the outcome — so
+ * failures like an unexplained 401 on /upload-run (Cloud Run's own access log has no headers or
+ * body) can actually be diagnosed after the fact. Scoped to {@code User-Agent: GWToolbox} only:
+ * this is plugin-traffic diagnostics, not general request logging, so the frontend's own /api/**
+ * browser calls (far higher volume, and already debuggable from the browser devtools on the other
+ * end) never hit it. Registered in {@link WebMvcConfig#requestLoggingFilter()} with an explicit
+ * url-pattern list rather than a bare {@code @Component} — this must only wrap the API surface
+ * (/api/**, plus the top-level plugin endpoints), not SpaFallbackController's HTML forwards or
+ * static asset requests.
  *
  * <p>{@code X-Machine-Key} and {@code Cookie} are credentials, not debug data — never written raw.
  * The machine key keeps a 5-char prefix (enough to correlate a run of failures back to one key
@@ -36,12 +38,18 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
 
+    private static final String PLUGIN_USER_AGENT = "GWToolbox";
     private static final int MAX_BODY_CHARS = 10_000;
     private static final int MACHINE_KEY_PREFIX_LEN = 5;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        if (!PLUGIN_USER_AGENT.equals(request.getHeader("User-Agent"))) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
         long startNanos = System.nanoTime();
         try {
