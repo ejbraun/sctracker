@@ -56,10 +56,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             filterChain.doFilter(wrappedRequest, response);
         } finally {
             long latencyMs = (System.nanoTime() - startNanos) / 1_000_000;
-            log.info("http request",
-                    kv("method", request.getMethod()),
+            log.info("http request {} {}",
                     kv("path", request.getRequestURI()),
                     kv("status", response.getStatus()),
+                    kv("method", request.getMethod()),
                     kv("latencyMs", latencyMs),
                     kv("headers", collectHeaders(wrappedRequest)),
                     kv("body", extractBody(wrappedRequest)));
