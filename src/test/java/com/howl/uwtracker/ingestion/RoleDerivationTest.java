@@ -350,4 +350,43 @@ class RoleDerivationTest {
         // and with only one real hint present, elimination can't fire either.
         assertNull(roles.get(2));
     }
+
+    @Test
+    void elvarSlayerIsAlwaysT2EvenWithNoHint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("Elvar Slayer", RANGER, ASSASSIN));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(0));
+    }
+
+    @Test
+    void elvarSlayerOverridesHisOwnConflictingHint() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("Elvar Slayer", RANGER, ASSASSIN, "t1"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(0));
+    }
+
+    @Test
+    void elvarSlayerBlocksAnotherMemberFromClaimingT2() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("Elvar Slayer", RANGER, ASSASSIN));
+        party.set(1, member("AlsoClaimsT2", RANGER, ASSASSIN, "t2"));
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(0));
+        // The real hint loses to the identity override and, with no positional fallback, stays unresolved.
+        assertNull(roles.get(1));
+    }
+
+    @Test
+    void elvarSlayerStillLetsT1EliminationFireOffHisPreClaimedT2() {
+        List<PartyMemberDto> party = new java.util.ArrayList<>(fullValidParty());
+        party.set(0, member("Elvar Slayer", RANGER, ASSASSIN));
+        party.set(2, member("T3", RANGER, ASSASSIN, "t3"));
+        // index 1 gets no hint at all — inferred as T1 purely by elimination against Elvar's T2.
+        List<String> roles = RoleDerivation.resolveRoles(party);
+        assertEquals("T2", roles.get(0));
+        assertEquals("T1", roles.get(1));
+        assertEquals("T3", roles.get(2));
+    }
 }

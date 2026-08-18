@@ -52,6 +52,12 @@ public final class RoleDerivation {
 
     private static final List<String> TRAPPER_LABELS = List.of("T1", "T2", "T3");
 
+    // Elvar Slayer's client never reliably reports a role_hint, but he only ever plays T2 — an
+    // identity-based override applied before any role_hint is read, so it wins regardless of who
+    // uploaded the run (restrictHintsToSelf would otherwise null out his hint on runs he didn't
+    // upload) and regardless of whatever hint value his own client happens to send.
+    private static final String ELVAR_SLAYER = "Elvar Slayer";
+
     private RoleDerivation() {
     }
 
@@ -86,10 +92,22 @@ public final class RoleDerivation {
             throw new IllegalArgumentException("expected 8 party members, got " + partyMembers.size());
         }
         String[] roles = new String[8];
+        Set<String> claimedLabels = new LinkedHashSet<>();
+
+        // Pass 0: Elvar Slayer is always T2, ahead of anything role_hint-based below.
+        for (int i = 0; i < 8; i++) {
+            if (ELVAR_SLAYER.equals(partyMembers.get(i).name())) {
+                roles[i] = "T2";
+                claimedLabels.add("T2");
+                break;
+            }
+        }
 
         // Pass 1: apply plugin-supplied hints wherever that member actually sits in the array.
-        Set<String> claimedLabels = new LinkedHashSet<>();
         for (int i = 0; i < 8; i++) {
+            if (roles[i] != null) {
+                continue;
+            }
             String hint = partyMembers.get(i).roleHint();
             if (hint == null || hint.equalsIgnoreCase("unknown")) {
                 continue;
