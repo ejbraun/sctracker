@@ -2,13 +2,23 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { ItemDropLeader, LeaderboardEntry, PersonalBestEntry, PersonalSectionBest, RunDetail, SectionEntry, UserStreak } from '../api/types';
+import type {
+  ItemDropLeader,
+  LeaderboardEntry,
+  PersonalBestEntry,
+  PersonalSectionBest,
+  RoleMvpAwardEntry,
+  RunDetail,
+  SectionEntry,
+  UserStreak,
+} from '../api/types';
 import { ExpandToggle } from '../components/ExpandToggle';
 import { Panel } from '../components/Panel';
 import { RoleBadge } from '../components/RoleBadge';
 import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
+import { ROLES } from '../common/roles';
 import styles from './LeaderboardPage.module.css';
 
 /**
@@ -44,6 +54,13 @@ export function LeaderboardPage() {
     queryKey: ['leaderboard', 'streaks', 'completed', mapId, timeWindow],
     queryFn: () =>
       api.get<UserStreak[]>(`/leaderboards/maps/${mapId}/streaks/completed?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+    enabled: mapId != null,
+  });
+
+  const roleMvpAwardsQuery = useQuery({
+    queryKey: ['leaderboard', 'role-mvp-awards', mapId, timeWindow],
+    queryFn: () =>
+      api.get<RoleMvpAwardEntry[]>(`/leaderboards/maps/${mapId}/role-mvp-awards${from ? `?from=${encodeURIComponent(from)}` : ''}`),
     enabled: mapId != null,
   });
 
@@ -354,6 +371,47 @@ export function LeaderboardPage() {
               </tbody>
             </table>
           )}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>MVP By Role</h2>
+          {roleMvpAwardsQuery.isLoading && <p>Loading…</p>}
+          {roleMvpAwardsQuery.data &&
+            ROLES.map((role, index) => {
+              // Already sorted awards/run-desc by the backend; filtering preserves that relative order.
+              const rows = roleMvpAwardsQuery.data.filter((r) => r.role === role);
+              return (
+                <div key={role}>
+                  <h3 className={index === 0 ? undefined : styles.subsection}>
+                    <RoleBadge role={role} />
+                  </h3>
+                  {rows.length === 0 ? (
+                    <p className={styles.emptyState}>No runs recorded for this role yet.</p>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Total runs</th>
+                          <th>MVP Awards</th>
+                          <th>Awards/run</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => (
+                          <tr key={r.user}>
+                            <td>{r.user}</td>
+                            <td>{r.total_runs}</td>
+                            <td>{r.awards}</td>
+                            <td>{r.avg_awards.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
         </Panel>
 
         <Panel className={styles.section}>

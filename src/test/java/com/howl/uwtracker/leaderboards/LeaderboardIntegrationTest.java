@@ -8,11 +8,14 @@ import com.howl.uwtracker.domain.Profession;
 import com.howl.uwtracker.domain.RoleObjective;
 import com.howl.uwtracker.domain.RoleObjectiveId;
 import com.howl.uwtracker.domain.Run;
+import com.howl.uwtracker.domain.RunMvpAward;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.domain.RunParticipant;
 import com.howl.uwtracker.domain.RunParticipantItemDrop;
 import com.howl.uwtracker.domain.RunParticipantItemDropId;
+import com.howl.uwtracker.repository.RunMvpAwardRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 
 import java.time.Instant;
@@ -28,6 +31,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code RunObjective.run} after the repository call returns).
  */
 class LeaderboardIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired
+    private RunMvpAwardRepository runMvpAwardRepository;
 
     private static final int MAP_ID = UNDERWORLD_MAP_ID;
     private static final String OBJECTIVE_NAME = "The Vale";
@@ -67,6 +73,11 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
         RunParticipant participant = runParticipantRepository.findByRun_IdAndRawName(run.getId(), rawName).orElseThrow();
         runParticipantItemDropRepository.save(new RunParticipantItemDrop(
                 new RunParticipantItemDropId(participant.getId(), itemId), count));
+    }
+
+    private void seedMvpAward(Run run, String rawName) {
+        RunParticipant participant = runParticipantRepository.findByRun_IdAndRawName(run.getId(), rawName).orElseThrow();
+        runMvpAwardRepository.save(new RunMvpAward(run, participant, null));
     }
 
     @Test
@@ -496,6 +507,81 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].item_name").value("Glob of Ectoplasm"))
                 .andExpect(jsonPath("$[1].item_name").value("Mini Dhuum"));
+    }
+
+    @Test
+    void roleMvpAwardsCountsAwardsPerRolePerUserAndAveragesPerRun() throws Exception {
+        MockHttpSession session = signup("mvpviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        for (int i = 0; i < 4; i++) {
+            Run run = seedRun(map, 10_000L, true, participant(null, "Star", warrior, "Spiker", 0));
+            if (i % 2 == 0) {
+                seedMvpAward(run, "Star");
+            }
+        }
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/role-mvp-awards").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].role").value("Spiker"))
+                .andExpect(jsonPath("$[0].user").value("Star"))
+                .andExpect(jsonPath("$[0].total_runs").value(4))
+                .andExpect(jsonPath("$[0].awards").value(2))
+                .andExpect(jsonPath("$[0].avg_awards").value(0.5));
+    }
+
+    @Test
+    void roleMvpAwardsRanksByAwardsPerRunNotRawTotal() throws Exception {
+        MockHttpSession session = signup("mvpavgviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        // Grinder: bigger raw total (2) but spread across 4 runs -> lower average (0.5).
+        for (int i = 0; i < 4; i++) {
+            Run run = seedRun(map, 10_000L, true, participant(null, "Grinder", warrior, "Spiker", 0));
+            if (i < 2) {
+                seedMvpAward(run, "Grinder");
+            }
+        }
+
+        // Sniper: smaller raw total (1) but in a single run -> higher average (1.0), should rank first.
+        Run sniperRun = seedRun(map, 10_000L, true, participant(null, "Sniper", warrior, "Spiker", 0));
+        seedMvpAward(sniperRun, "Sniper");
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/role-mvp-awards").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user").value("Sniper"))
+                .andExpect(jsonPath("$[0].total_runs").value(1))
+                .andExpect(jsonPath("$[0].awards").value(1))
+                .andExpect(jsonPath("$[0].avg_awards").value(1.0))
+                .andExpect(jsonPath("$[1].user").value("Grinder"))
+                .andExpect(jsonPath("$[1].total_runs").value(4))
+                .andExpect(jsonPath("$[1].awards").value(2))
+                .andExpect(jsonPath("$[1].avg_awards").value(0.5));
+    }
+
+    @Test
+    void roleMvpAwardsGroupsRowsByRoleAndIncludesUsersWithZeroAwards() throws Exception {
+        MockHttpSession session = signup("mvproleviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Run spikerRun = seedRun(map, 10_000L, true, participant(null, "SpikerGuy", warrior, "Spiker", 0));
+        seedMvpAward(spikerRun, "SpikerGuy");
+        seedRun(map, 10_000L, true, participant(null, "T1Guy", warrior, "T1", 0)); // never awarded
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/role-mvp-awards").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].role").value("Spiker"))
+                .andExpect(jsonPath("$[0].user").value("SpikerGuy"))
+                .andExpect(jsonPath("$[0].awards").value(1))
+                .andExpect(jsonPath("$[1].role").value("T1"))
+                .andExpect(jsonPath("$[1].user").value("T1Guy"))
+                .andExpect(jsonPath("$[1].total_runs").value(1))
+                .andExpect(jsonPath("$[1].awards").value(0))
+                .andExpect(jsonPath("$[1].avg_awards").value(0.0));
     }
 
 }

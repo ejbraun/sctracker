@@ -6,6 +6,7 @@ import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.PersonalBestEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.PersonalBestResponse;
 import com.howl.uwtracker.leaderboards.dto.PersonalSectionBestResponse;
+import com.howl.uwtracker.leaderboards.dto.RoleMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
 import org.springframework.http.ResponseEntity;
@@ -81,6 +82,13 @@ public class LeaderboardController {
                                                                           @RequestParam(required = false) Instant from,
                                                                           @RequestParam(required = false) Instant to) {
         return ResponseEntity.ok(leaderboardService.luckiestPlayers(mapId, from, to));
+    }
+
+    @GetMapping("/maps/{mapId}/role-mvp-awards")
+    public ResponseEntity<List<RoleMvpAwardResponse>> roleMvpAwards(@PathVariable Integer mapId,
+                                                                       @RequestParam(required = false) Instant from,
+                                                                       @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(leaderboardService.roleMvpAwards(mapId, from, to));
     }
 
     @GetMapping("/me/maps/{mapId}/overall")

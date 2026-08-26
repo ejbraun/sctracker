@@ -1,6 +1,7 @@
 package com.howl.uwtracker.leaderboards;
 
 import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
+import com.howl.uwtracker.leaderboards.dto.RoleMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -216,6 +217,37 @@ public class LeaderboardQueryRepository {
                 (rs, rowNum) -> new ItemDropLeaderResponse(rs.getInt("item_id"), rs.getString("item_name"),
                         rs.getString("user"), rs.getLong("total_count"), rs.getLong("run_count"), rs.getDouble("avg_per_run")),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to),
+                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+    }
+
+    /**
+     * One row per (role, user) that has ever played that role on this map, MVP awards summed — the
+     * positive-side mirror of {@code LoserboardQueryRepository.findRoleFailureReasons}. Starts from
+     * {@code run_participants} (every run played in that role), left-joining {@code run_mvp_awards}
+     * on {@code run_participant_id} to count how many of those runs actually earned the award, so
+     * someone credited once in one run doesn't outrank someone credited less often but far more
+     * frequently relative to their total runs in that role. Ordered by awards-per-run within each
+     * role, most-credited first.
+     */
+    public List<RoleMvpAwardResponse> findRoleMvpAwards(Integer mapId, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT rp.role AS role, COALESCE(p.alias, rp.raw_name) AS user, " +
+                        "COUNT(*) AS total_runs, SUM(CASE WHEN rma.run_participant_id IS NOT NULL THEN 1 ELSE 0 END) AS total_awards " +
+                        "FROM run_participants rp " +
+                        "JOIN runs r ON r.id = rp.run_id " +
+                        "LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "LEFT JOIN people p ON p.id = c.person_id " +
+                        "LEFT JOIN run_mvp_awards rma ON rma.run_participant_id = rp.id " +
+                        "WHERE r.map_id = ? AND rp.role IS NOT NULL " +
+                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "GROUP BY rp.role, COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY rp.role, (total_awards / total_runs) DESC",
+                (rs, rowNum) -> {
+                    long totalRuns = rs.getLong("total_runs");
+                    long awards = rs.getLong("total_awards");
+                    double avgAwards = totalRuns == 0 ? 0.0 : ((double) awards) / totalRuns;
+                    return new RoleMvpAwardResponse(rs.getString("role"), rs.getString("user"), totalRuns, awards, avgAwards);
+                },
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 

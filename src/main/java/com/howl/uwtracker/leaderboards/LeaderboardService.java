@@ -8,6 +8,7 @@ import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
 import com.howl.uwtracker.leaderboards.dto.PersonalBestEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.PersonalSectionBestResponse;
+import com.howl.uwtracker.leaderboards.dto.RoleMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
 import com.howl.uwtracker.repository.RoleObjectiveRepository;
@@ -239,6 +240,11 @@ public class LeaderboardService {
     /** Global ranking only — no personal "Yours" counterpart for this stat. */
     public List<ItemDropLeaderResponse> luckiestPlayers(Integer mapId, Instant from, Instant to) {
         return leaderboardQueryRepository.findLuckiestPlayers(mapId, from, to);
+    }
+
+    /** Global ranking only — no personal "Yours" counterpart for this stat, same as {@link #luckiestPlayers}. */
+    public List<RoleMvpAwardResponse> roleMvpAwards(Integer mapId, Instant from, Instant to) {
+        return leaderboardQueryRepository.findRoleMvpAwards(mapId, from, to);
     }
 
     private Set<String> gatedRolesFor(Integer mapId, String objectiveName) {

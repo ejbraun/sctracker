@@ -141,6 +141,17 @@ export interface FailureReasonEntry {
   avg_fails: number;
 }
 
+// "Leaderboards" — the positive-side mirror of FailureReasonEntry: per-role, per-user count of how
+// many times that role earned the MVP award (via the plugin's post-run MVP popup). `user` is
+// whichever character held that role in each awarded run.
+export interface RoleMvpAwardEntry {
+  role: string;
+  user: string;
+  total_runs: number;
+  awards: number;
+  avg_awards: number;
+}
+
 // "Loserboards" — per-user count of /upload-run attempts rejected with 426 Upgrade Required (an
 // outdated plugin build). Not map-scoped — the version check happens before the request body (and
 // its map_id) is ever read.
