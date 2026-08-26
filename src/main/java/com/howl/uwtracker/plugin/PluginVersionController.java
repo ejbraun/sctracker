@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Public (no machine key, no session) — just "what's the latest build," non-sensitive. Top-level,
  * not under /api/**, same convention as every other plugin-facing endpoint (/upload-run,
- * /report-run-failure, /can-report-run-failure). The plugin calls this proactively on load to
+ * /report-run-failure, /can-report-run-failure, /report-run-mvp). The plugin calls this proactively on load to
  * compare against its own compiled-in version and self-disable/warn if behind; the 426 a stale
  * client gets back from its actual API calls (see MachineKeyAuthenticationService) is the backstop
  * for when that proactive check didn't happen or is out of date.

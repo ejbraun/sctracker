@@ -37,7 +37,8 @@ public class Person {
     @Column(name = "last_plugin_download_at")
     private Instant lastPluginDownloadAt;
 
-    // Gates POST /report-run-failure. Granted/revoked by an admin via PATCH
+    // Gates POST /report-run-failure and POST /report-run-mvp (the latter has no permission check
+    // of its own — it just reuses this flag). Granted/revoked by an admin via PATCH
     // /api/admin/users/{id}/can-report-failures (AdminUserController).
     @Column(name = "can_report_failures", nullable = false)
     private boolean canReportFailures;

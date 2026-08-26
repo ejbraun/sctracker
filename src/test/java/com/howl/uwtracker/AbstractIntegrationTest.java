@@ -79,13 +79,16 @@ public abstract class AbstractIntegrationTest {
     // data, not per-test fixture data, so every test should start from that canonical state, not an
     // empty table. ("professions"/"tracked_items" don't need this: nothing ever deletes rows from
     // them, so they're not in this list at all — unlike "maps," they also have no FK-order reason to
-    // be, since nothing but seed migrations ever writes to them.) "run_participant_item_drops" must
-    // truncate before "run_participants": TRUNCATE doesn't fire ON DELETE CASCADE, and run_participants'
-    // auto-increment resets after truncation — leftover drop rows would silently attach to whatever
-    // unrelated participant reuses that id in a later test otherwise.
+    // be, since nothing but seed migrations ever writes to them.) "run_participant_item_drops",
+    // "run_failure_reasons", and "run_mvp_awards" must all truncate before "run_participants"/"runs":
+    // TRUNCATE doesn't fire ON DELETE CASCADE, and run_participants'/runs' auto-increment resets after
+    // truncation — leftover rows in any of these would silently attach to whatever unrelated
+    // participant/run reuses that id in a later test otherwise (run_failure_reasons was missing from
+    // this list entirely until the run_mvp_awards addition surfaced the same latent bug in its sibling).
     private static final List<String> TABLES_TO_CLEAN = List.of(
-            "run_participant_item_drops", "run_participants", "run_objectives", "runs", "role_objectives",
-            "characters", "machine_keys", "signup_keys", "admins", "people", "maps");
+            "run_participant_item_drops", "run_failure_reasons", "run_mvp_awards", "run_participants",
+            "run_objectives", "runs", "role_objectives", "characters", "machine_keys", "signup_keys",
+            "admins", "people", "maps");
 
     @Autowired
     protected MockMvc mockMvc;

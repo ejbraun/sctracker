@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- The run_participant a permitted reporter credited as the standout on a successful run, via
+         POST /report-run-mvp — mirrors run_failure_reasons' shape (029/031): run_participant_id
+         nullable, NULL meaning "Nobody" was singled out (a deliberate assertion, distinct from no
+         vote having been filed at all). Differs from run_failure_reasons on one point: that table's
+         unique constraint is (run_id, run_participant_id) because failure voting is multi-select and
+         a single majority ballot can name several roles at once (several rows per run). MVP voting
+         is single-select (MvpReportService rejects more than one role per ballot), so a majority
+         ballot can only ever produce at most one row here — UNIQUE(run_id) alone is the tighter,
+         correct constraint, and also actually prevents two "Nobody" rows for the same run, which
+         run_failure_reasons' composite constraint doesn't (MySQL treats NULL as distinct in a unique
+         index). awarded_by_person_id is always NULL in practice (the persisted row is a collective
+         majority-vote outcome, not any single reporter's own pick — see MvpReportPersister); kept for
+         the same audit-shape parity as run_failure_reasons' reported_by_person_id, not because
+         anything currently reads it. -->
+    <changeSet id="034-create-run-mvp-awards" author="uwtracker">
+        <createTable tableName="run_mvp_awards">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="run_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="run_participant_id" type="BIGINT UNSIGNED"/>
+            <column name="awarded_by_person_id" type="BIGINT UNSIGNED"/>
+            <column name="awarded_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="run_mvp_awards" columnNames="run_id"
+                              constraintName="uq_run_mvp_awards_run"/>
+        <addForeignKeyConstraint baseTableName="run_mvp_awards" baseColumnNames="run_id"
+                                  constraintName="fk_run_mvp_awards_run"
+                                  referencedTableName="runs" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="run_mvp_awards" baseColumnNames="run_participant_id"
+                                  constraintName="fk_run_mvp_awards_participant"
+                                  referencedTableName="run_participants" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="run_mvp_awards" baseColumnNames="awarded_by_person_id"
+                                  constraintName="fk_run_mvp_awards_awarded_by"
+                                  referencedTableName="people" referencedColumnNames="id" onDelete="SET NULL"/>
+        <createIndex indexName="idx_run_mvp_awards_awarded_by" tableName="run_mvp_awards">
+            <column name="awarded_by_person_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

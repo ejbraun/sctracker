@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Shared X-Machine-Key authentication for every machine-key-authenticated endpoint (currently
- * /upload-run, /report-run-failure, /can-report-run-failure) — kept in com.howl.uwtracker.web
+ * /upload-run, /report-run-failure, /can-report-run-failure, /report-run-mvp) — kept in com.howl.uwtracker.web
  * rather than any one feature package, same reasoning as {@link MachineKeyHasher}.
  */
 @Service
