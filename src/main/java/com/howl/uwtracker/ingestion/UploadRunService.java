@@ -22,8 +22,10 @@ public class UploadRunService {
     private static final Logger log = LoggerFactory.getLogger(UploadRunService.class);
 
     // Below this, a run is more likely a pug/scrub/pickup group than a guild run worth tracking —
-    // see the rejection check in processUpload for the actual rationale.
-    private static final int MIN_REGISTERED_CHARACTERS = 4;
+    // see the rejection check in processUpload for the actual rationale. Public: AdminRunService
+    // reuses this as the single source of truth when retroactively wiping pre-existing runs that
+    // wouldn't have cleared this same bar had it existed at upload time.
+    public static final int MIN_REGISTERED_CHARACTERS = 4;
 
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final GameMapRepository gameMapRepository;

@@ -85,7 +85,7 @@ public abstract class AbstractIntegrationTest {
     // unrelated participant reuses that id in a later test otherwise.
     private static final List<String> TABLES_TO_CLEAN = List.of(
             "run_participant_item_drops", "run_participants", "run_objectives", "runs", "role_objectives",
-            "characters", "machine_keys", "signup_keys", "people", "maps");
+            "characters", "machine_keys", "signup_keys", "admins", "people", "maps");
 
     @Autowired
     protected MockMvc mockMvc;
@@ -184,5 +184,10 @@ public abstract class AbstractIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readValue(body, GeneratedMachineKeyResponse.class).key();
+    }
+
+    /** Grants admin status directly — the only way to, per {@code Admin}'s class doc (no API writes this table). */
+    protected void makeAdmin(Long personId) {
+        jdbcTemplate.update("INSERT INTO admins (person_id) VALUES (?)", personId);
     }
 }

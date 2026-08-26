@@ -46,6 +46,11 @@ export function Layout() {
             User Management
           </Link>
         )}
+        {person?.is_admin && (
+          <Link className={styles.navLink} to="/admin/runs">
+            Run Cleanup
+          </Link>
+        )}
         <span className={styles.spacer} />
         <button onClick={handleLogout}>Logout</button>
       </nav>

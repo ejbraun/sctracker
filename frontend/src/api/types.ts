@@ -23,6 +23,16 @@ export interface AdminUser {
   is_admin: boolean;
 }
 
+/** GET /api/admin/runs/unregistered-count — how many runs the wipe below would delete. */
+export interface UnregisteredRunsCount {
+  count: number;
+}
+
+/** POST /api/admin/runs/wipe-unregistered response. */
+export interface WipeUnregisteredRunsResult {
+  deleted_count: number;
+}
+
 /**
  * GET /plugin-version — top-level, not under /api (see PluginVersionController), so it's fetched
  * directly rather than through the /api-prefixed api client. Same shape the plugin itself checks

@@ -30,4 +30,21 @@ public interface RunRepository extends JpaRepository<Run, Long>, JpaSpecificatio
     List<Run> findDedupCandidates(@Param("mapId") Integer mapId,
                                    @Param("targetUtcStart") Instant targetUtcStart,
                                    @Param("windowSeconds") int windowSeconds);
+
+    /**
+     * Ids of runs with fewer than {@code minRegisteredCharacters} participants linked to a
+     * registered character (non-null {@code character_id}) — backs the admin "wipe unregistered
+     * runs" cleanup (AdminRunService), applying {@code UploadRunService.MIN_REGISTERED_CHARACTERS}
+     * retroactively to runs ingested before that rule existed. The join condition (not a WHERE
+     * clause) filters which participant rows count as registered while still keeping every run —
+     * including one with zero registered participants — in the grouped result, so it can't be
+     * silently dropped from the HAVING check the way a WHERE-filtered join would drop it. Native
+     * query, same reasoning as findDedupCandidates above (no JPQL portability concern either way,
+     * just consistency with that query's style).
+     */
+    @Query(value = "SELECT r.id FROM runs r " +
+            "LEFT JOIN run_participants rp ON rp.run_id = r.id AND rp.character_id IS NOT NULL " +
+            "GROUP BY r.id " +
+            "HAVING COUNT(rp.id) < :minRegisteredCharacters", nativeQuery = true)
+    List<Long> findIdsWithFewerThanNRegisteredCharacters(@Param("minRegisteredCharacters") int minRegisteredCharacters);
 }
