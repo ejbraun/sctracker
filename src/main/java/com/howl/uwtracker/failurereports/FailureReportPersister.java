@@ -61,6 +61,14 @@ public class FailureReportPersister {
 
         Run run = runRepository.getReferenceById(runId);
         runFailureReasonRepository.deleteByRun_Id(runId);
+        // deleteByRun_Id is a derived delete — Spring Data JPA implements it as entityManager.remove()
+        // per matching row (not an immediate bulk DELETE), so it's just a pending action in this
+        // transaction's flush queue until now. Hibernate's default flush order runs insertions before
+        // deletions, so without this explicit flush, a save() below would race ahead of the delete and
+        // collide with run_failure_reasons' UNIQUE(run_id, run_participant_id) on a resubmit — found
+        // via the identical bug in the new sibling MvpPersister, which had a test actually exercising
+        // this path; this method had none.
+        runFailureReasonRepository.flush();
         for (String role : winner.roles()) {
             RunParticipant participant = runParticipantRepository.findFirstByRun_IdAndRoleOrderByPartyIndexAsc(runId, role)
                     .orElseThrow(() -> new IllegalStateException(
