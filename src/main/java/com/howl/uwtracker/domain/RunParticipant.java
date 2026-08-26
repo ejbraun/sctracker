@@ -79,7 +79,7 @@ public class RunParticipant {
     // (positive) or lost (negative) gambling with other party members at the end of a successful
     // run. Unlike deaths above, null is a meaningful value in its own right (no gambling this run,
     // or an older plugin build that doesn't report it) rather than a stand-in for zero.
-    @Column(name = "gambling_stone_net")
+    @Column(name = "gambling_stone_net", columnDefinition = "SMALLINT")
     private Integer gamblingStoneNet;
 
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
