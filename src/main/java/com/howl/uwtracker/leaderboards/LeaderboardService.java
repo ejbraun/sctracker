@@ -3,6 +3,7 @@ package com.howl.uwtracker.leaderboards;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.history.RunSpecifications;
+import com.howl.uwtracker.leaderboards.dto.GamblingStoneLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
@@ -245,6 +246,11 @@ public class LeaderboardService {
     /** Global ranking only — no personal "Yours" counterpart for this stat, same as {@link #luckiestPlayers}. */
     public List<RoleMvpAwardResponse> roleMvpAwards(Integer mapId, Instant from, Instant to) {
         return leaderboardQueryRepository.findRoleMvpAwards(mapId, from, to);
+    }
+
+    /** Global ranking only — no personal "Yours" counterpart for this stat, same as {@link #luckiestPlayers}. */
+    public List<GamblingStoneLeaderResponse> gamblersAnonymous(Integer mapId, Instant from, Instant to) {
+        return leaderboardQueryRepository.findGamblersAnonymous(mapId, from, to);
     }
 
     private Set<String> gatedRolesFor(Integer mapId, String objectiveName) {

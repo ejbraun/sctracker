@@ -185,6 +185,17 @@ export interface ItemDropLeader {
   avg_per_run: number;
 }
 
+// "Leaderboards" — "Gamblers Anonymous": per-user net Ghastly Summoning Stones won (positive) or
+// lost (negative) gambling with other party members at the end of a successful run, summed across
+// every completed run on the map where the user actually gambled. run_count only counts runs where
+// they gambled, not every completed run they played in. Already sorted biggest-net-winner-first by
+// the backend.
+export interface GamblingStoneLeader {
+  user: string;
+  runs_gambled: number;
+  net_stones: number;
+}
+
 export interface PersonalSectionBest {
   run_id: number;
   duration_ms: number;

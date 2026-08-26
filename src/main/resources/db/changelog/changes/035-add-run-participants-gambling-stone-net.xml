@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- "gambling_stone_net" per party member — how many Ghastly Summoning Stones they won (positive)
+         or lost (negative) gambling with other party members at the end of a successful run. Unlike
+         "deaths" (014), NULL here is meaningful on its own (no gambling happened / older plugin build
+         that doesn't report it) rather than a stand-in for zero, so this stays nullable with no
+         default, and is signed (not UNSIGNED like the other per-member counters) since a loss is a
+         real, distinct outcome from a win of the same size. -->
+    <changeSet id="035-add-run-participants-gambling-stone-net" author="uwtracker">
+        <addColumn tableName="run_participants">
+            <column name="gambling_stone_net" type="SMALLINT"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

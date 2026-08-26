@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
+  GamblingStoneLeader,
   ItemDropLeader,
   LeaderboardEntry,
   PersonalBestEntry,
@@ -61,6 +62,13 @@ export function LeaderboardPage() {
     queryKey: ['leaderboard', 'role-mvp-awards', mapId, timeWindow],
     queryFn: () =>
       api.get<RoleMvpAwardEntry[]>(`/leaderboards/maps/${mapId}/role-mvp-awards${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+    enabled: mapId != null,
+  });
+
+  const gamblersAnonymousQuery = useQuery({
+    queryKey: ['leaderboard', 'gamblers-anonymous', mapId, timeWindow],
+    queryFn: () =>
+      api.get<GamblingStoneLeader[]>(`/leaderboards/maps/${mapId}/gamblers-anonymous${from ? `?from=${encodeURIComponent(from)}` : ''}`),
     enabled: mapId != null,
   });
 
@@ -412,6 +420,36 @@ export function LeaderboardPage() {
                 </div>
               );
             })}
+        </Panel>
+
+        <Panel className={styles.section}>
+          <h2>Gamblers Anonymous</h2>
+          {gamblersAnonymousQuery.isLoading && <p>Loading…</p>}
+          {gamblersAnonymousQuery.data && gamblersAnonymousQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No gambling recorded for this map yet.</p>
+          )}
+          {gamblersAnonymousQuery.data && gamblersAnonymousQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>User</th>
+                  <th>Net Stones</th>
+                  <th>Runs Gambled</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gamblersAnonymousQuery.data.map((entry, index) => (
+                  <tr key={entry.user}>
+                    <td className={styles.rank}>{index + 1}</td>
+                    <td>{entry.user}</td>
+                    <td>{entry.net_stones}</td>
+                    <td>{entry.runs_gambled}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Panel>
 
         <Panel className={styles.section}>

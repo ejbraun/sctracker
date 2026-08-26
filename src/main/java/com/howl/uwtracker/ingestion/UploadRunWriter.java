@@ -195,6 +195,13 @@ public class UploadRunWriter {
             boolean isHero = member.isHero() != null && member.isHero();
             boolean isHenchman = member.isHenchman() != null && member.isHenchman();
             int deaths = member.deaths() == null ? 0 : member.deaths();
+            // Unlike deaths, null itself is meaningful here (no gambling this run, or an older
+            // plugin build that doesn't report it), so it's passed through rather than defaulted —
+            // except a reported net of exactly 0 is collapsed to null too, so a wash isn't stored as
+            // distinguishable from "didn't gamble" (Gamblers Anonymous shouldn't count either as a
+            // gambled run).
+            Integer gamblingStoneNet = member.gamblingStoneNet() == null || member.gamblingStoneNet() == 0
+                    ? null : member.gamblingStoneNet();
 
             Optional<RunParticipant> existing = runParticipantRepository.findByRun_IdAndRawName(run.getId(), member.name());
             RunParticipant participant;
@@ -215,12 +222,13 @@ public class UploadRunWriter {
                 participant.setHero(isHero);
                 participant.setHenchman(isHenchman);
                 participant.setDeaths(deaths);
+                participant.setGamblingStoneNet(gamblingStoneNet);
                 participant.setUploadedByPerson(uploader);
                 // party_index intentionally left as originally recorded — not re-derived on resend
             } else {
                 participant = runParticipantRepository.save(new RunParticipant(
                         run, character, member.name(), primary, secondary, role, i, isPlayer, isHero, isHenchman,
-                        deaths, uploader));
+                        deaths, uploader, gamblingStoneNet));
             }
             attachItemDrops(participant, member.itemDrops());
         }

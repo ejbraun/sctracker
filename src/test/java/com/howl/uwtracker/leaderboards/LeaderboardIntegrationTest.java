@@ -80,6 +80,12 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
         runMvpAwardRepository.save(new RunMvpAward(run, participant, null));
     }
 
+    private void seedGambling(Run run, String rawName, int netStones) {
+        RunParticipant participant = runParticipantRepository.findByRun_IdAndRawName(run.getId(), rawName).orElseThrow();
+        participant.setGamblingStoneNet(netStones);
+        runParticipantRepository.save(participant);
+    }
+
     @Test
     void overallReturnsCompletedRunsFastestFirstRespectingLimit() throws Exception {
         MockHttpSession session = signup("lbviewer", "password123");
@@ -582,6 +588,52 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$[1].total_runs").value(1))
                 .andExpect(jsonPath("$[1].awards").value(0))
                 .andExpect(jsonPath("$[1].avg_awards").value(0.0));
+    }
+
+    @Test
+    void gamblersAnonymousSumsNetStonesPerUserAcrossCompletedRunsRankedDesc() throws Exception {
+        MockHttpSession session = signup("gambleviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Run run1 = seedRun(map, 10_000L, true, participant(null, "BigWinner", warrior, "T1", 0),
+                participant(null, "BigLoser", warrior, "T2", 1));
+        seedGambling(run1, "BigWinner", 5);
+        seedGambling(run1, "BigLoser", -5);
+
+        Run run2 = seedRun(map, 10_000L, true, participant(null, "BigWinner", warrior, "T1", 0));
+        seedGambling(run2, "BigWinner", 3); // BigWinner's total across both runs: 8
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/gamblers-anonymous").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].user").value("BigWinner"))
+                .andExpect(jsonPath("$[0].net_stones").value(8))
+                .andExpect(jsonPath("$[0].runs_gambled").value(2))
+                .andExpect(jsonPath("$[1].user").value("BigLoser"))
+                .andExpect(jsonPath("$[1].net_stones").value(-5))
+                .andExpect(jsonPath("$[1].runs_gambled").value(1));
+    }
+
+    @Test
+    void gamblersAnonymousExcludesParticipantsWhoDidNotGambleAndUncompletedRuns() throws Exception {
+        MockHttpSession session = signup("gamblenongambler", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        Run run = seedRun(map, 10_000L, true, participant(null, "Gambler", warrior, "T1", 0),
+                participant(null, "Bystander", warrior, "T2", 1)); // never gambled
+        seedGambling(run, "Gambler", 2);
+
+        Run failedRun = seedRun(map, 10_000L, false, participant(null, "Gambler", warrior, "T1", 0));
+        seedGambling(failedRun, "Gambler", 100); // uncompleted run — must not count
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/gamblers-anonymous").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].user").value("Gambler"))
+                .andExpect(jsonPath("$[0].net_stones").value(2))
+                .andExpect(jsonPath("$[0].runs_gambled").value(1));
     }
 
 }

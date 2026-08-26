@@ -1,5 +1,6 @@
 package com.howl.uwtracker.leaderboards;
 
+import com.howl.uwtracker.leaderboards.dto.GamblingStoneLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.RoleMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
@@ -248,6 +249,30 @@ public class LeaderboardQueryRepository {
                     double avgAwards = totalRuns == 0 ? 0.0 : ((double) awards) / totalRuns;
                     return new RoleMvpAwardResponse(rs.getString("role"), rs.getString("user"), totalRuns, awards, avgAwards);
                 },
+                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+    }
+
+    /**
+     * "Gamblers Anonymous" — per-user net Ghastly Summoning Stones won/lost gambling at the end of
+     * a successful run, summed across the map, biggest net winner first. Only completed runs count
+     * (gambling only happens at the end of a successful run) and only rows where the participant
+     * actually gambled ({@code gambling_stone_net IS NOT NULL} — a participant who didn't gamble
+     * that run is excluded from both the sum and {@code runs_gambled}, not counted as a 0). Same
+     * {@code COALESCE(p.alias, rp.raw_name)} identity as the other per-user boards above.
+     */
+    public List<GamblingStoneLeaderResponse> findGamblersAnonymous(Integer mapId, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT COALESCE(p.alias, rp.raw_name) AS user, COUNT(*) AS runs_gambled, " +
+                        "SUM(rp.gambling_stone_net) AS net_stones " +
+                        "FROM run_participants rp " +
+                        "JOIN runs r ON r.id = rp.run_id " +
+                        "LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "LEFT JOIN people p ON p.id = c.person_id " +
+                        "WHERE r.map_id = ? AND r.completed = TRUE AND rp.gambling_stone_net IS NOT NULL " +
+                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "GROUP BY COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY net_stones DESC",
+                (rs, rowNum) -> new GamblingStoneLeaderResponse(rs.getString("user"), rs.getLong("runs_gambled"), rs.getLong("net_stones")),
                 mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 

@@ -86,14 +86,14 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
     private static List<PartyMemberDto> validParty() {
         return new ArrayList<>(List.of(
-                new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of()),
-                new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()),
-                new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, "t3", List.of()),
-                new PartyMemberDto("T4", MESMER, ELEMENTALIST, true, false, false, 0, null, List.of()),
-                new PartyMemberDto("LT", MESMER, ASSASSIN, true, false, false, 0, null, List.of()),
-                new PartyMemberDto("Derv", DERVISH, WARRIOR, true, false, false, 0, null, List.of()),
-                new PartyMemberDto("SoS", RITUALIST, RANGER, true, false, false, 0, null, List.of()),
-                new PartyMemberDto("Emo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of())
+                new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), null),
+                new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of(), null),
+                new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, "t3", List.of(), null),
+                new PartyMemberDto("T4", MESMER, ELEMENTALIST, true, false, false, 0, null, List.of(), null),
+                new PartyMemberDto("LT", MESMER, ASSASSIN, true, false, false, 0, null, List.of(), null),
+                new PartyMemberDto("Derv", DERVISH, WARRIOR, true, false, false, 0, null, List.of(), null),
+                new PartyMemberDto("SoS", RITUALIST, RANGER, true, false, false, 0, null, List.of(), null),
+                new PartyMemberDto("Emo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of(), null)
         ));
     }
 
@@ -172,7 +172,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         String key = issueMachineKey();
         List<PartyMemberDto> members = validParty();
         members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1",
-                List.of(new ItemDropDto(930, 2), new ItemDropDto(32822, 1))));
+                List.of(new ItemDropDto(930, 2), new ItemDropDto(32822, 1)), null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
 
         upload(key, request);
@@ -194,12 +194,40 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void gamblingStoneNetIsPersistedPerParticipant() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> members = validParty();
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), 7));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of(), -3));
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
+
+        upload(key, request);
+
+        Run run = runRepository.findAll().get(0);
+        assertThat(runParticipantRepository.findByRun_IdAndRawName(run.getId(), "T1").orElseThrow().getGamblingStoneNet()).isEqualTo(7);
+        assertThat(runParticipantRepository.findByRun_IdAndRawName(run.getId(), "T2").orElseThrow().getGamblingStoneNet()).isEqualTo(-3);
+    }
+
+    @Test
+    void gamblingStoneNetOfExactlyZeroIsCollapsedToNull() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> members = validParty();
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), 0));
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
+
+        upload(key, request);
+
+        Run run = runRepository.findAll().get(0);
+        assertThat(runParticipantRepository.findByRun_IdAndRawName(run.getId(), "T1").orElseThrow().getGamblingStoneNet()).isNull();
+    }
+
+    @Test
     void unknownTrackedItemIdIsSkippedRatherThanFailingTheUpload() throws Exception {
         String key = issueMachineKey();
         List<PartyMemberDto> members = validParty();
         // 999999 isn't seeded in tracked_items — must not reject the whole upload over one bad row.
         members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1",
-                List.of(new ItemDropDto(999999, 1))));
+                List.of(new ItemDropDto(999999, 1)), null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
 
         mockMvc.perform(post("/upload-run")
@@ -217,13 +245,13 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         String key = issueMachineKey();
         List<PartyMemberDto> firstMembers = validParty();
         firstMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1",
-                List.of(new ItemDropDto(930, 2))));
+                List.of(new ItemDropDto(930, 2)), null));
         upload(key, validRequest(UTC_START_SECONDS, firstMembers));
 
         // Same run (same utc_start, within the dedup window) resent with a different drop count.
         List<PartyMemberDto> secondMembers = validParty();
         secondMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1",
-                List.of(new ItemDropDto(930, 5))));
+                List.of(new ItemDropDto(930, 5)), null));
         upload(key, validRequest(UTC_START_SECONDS, secondMembers));
 
         assertThat(runRepository.findAll()).hasSize(1);
@@ -245,8 +273,8 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         // T1/T2/T3), and must still be honored since it's a genuine self-report. "T1" (by name) is
         // NOT self and claims "t2" via hint - a stray, untrustworthy value (e.g. an old/misbehaving
         // client still guessing at someone else) that must be ignored even though it's well-formed.
-        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
-        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of()));
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of(), null));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, "T2", members);
 
         upload(key, request);
@@ -266,9 +294,9 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         // Upload 1, from "T2"'s own client: only T2 (self) carries a real hint - exactly what the
         // new client sends, nobody else even attempts to guess anymore.
         List<PartyMemberDto> firstMembers = validParty();
-        firstMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
-        firstMembers.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
-        firstMembers.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        firstMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        firstMembers.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of(), null));
+        firstMembers.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
         upload(key1, validRequest(UTC_START_SECONDS, "T2", firstMembers));
 
         Run run = runRepository.findAll().get(0);
@@ -281,9 +309,9 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         // own client: "T3" is self this time, and this upload has no data at all about T2 - its role
         // must not be reset to null just because this particular upload can't see it.
         List<PartyMemberDto> secondMembers = validParty();
-        secondMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
-        secondMembers.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
-        secondMembers.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, "t3", List.of()));
+        secondMembers.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        secondMembers.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        secondMembers.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, "t3", List.of(), null));
         upload(key2, validRequest(UTC_START_SECONDS + 2, "T3", secondMembers));
 
         assertThat(runRepository.findAll()).hasSize(1); // merged into the same run via dedup, not a second one
@@ -300,9 +328,9 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         // "T2" is self and genuinely reports "t2". "T1" is NOT self but still carries a well-formed
         // hint value - simulating an old/misbehaving client that still guesses at another player's
         // role from observed skill casts. It must be ignored rather than trusted.
-        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of()));
-        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
-        members.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), null));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of(), null));
+        members.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
         upload(key, validRequest(UTC_START_SECONDS, "T2", members));
 
         Run run = runRepository.findAll().get(0);
@@ -316,9 +344,9 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     void onlyOneSelfReportLeavesTheOtherTrappersUnknown() throws Exception {
         String key = issueMachineKey();
         List<PartyMemberDto> members = validParty();
-        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
-        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of()));
-        members.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of()));
+        members.set(0, new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        members.set(1, new PartyMemberDto("T2", RANGER, ASSASSIN, true, false, false, 0, "t2", List.of(), null));
+        members.set(2, new PartyMemberDto("T3", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
         upload(key, validRequest(UTC_START_SECONDS, "T2", members));
 
         // Nobody else's own client has uploaded yet - with only one of three known, elimination must
@@ -438,7 +466,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
                 firstResult.getResponse().getContentAsString(), UploadRunResponse.class);
 
         List<PartyMemberDto> differentParty = validParty();
-        differentParty.set(0, new PartyMemberDto("Someone Else", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of()));
+        differentParty.set(0, new PartyMemberDto("Someone Else", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), null));
         // Within the dedup time window, but a different party entirely (map_id is a global zone id,
         // not tied to any specific server/instance, so two unrelated parties could plausibly start
         // close together) — the roster mismatch should still create a second run, not merge into it.
@@ -487,11 +515,11 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         List<PartyMemberDto> party = validParty();
         // issueMachineKey() registers T1/T2/T3/T4/LT; rename all but T1/T2/T3 to unregistered names
         // so this party has only 3 registered characters, one short of the minimum.
-        party.set(3, new PartyMemberDto("UnregisteredT4", MESMER, ELEMENTALIST, true, false, false, 0, null, List.of()));
-        party.set(4, new PartyMemberDto("UnregisteredLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of()));
-        party.set(5, new PartyMemberDto("UnregisteredDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of()));
-        party.set(6, new PartyMemberDto("UnregisteredSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of()));
-        party.set(7, new PartyMemberDto("UnregisteredEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of()));
+        party.set(3, new PartyMemberDto("UnregisteredT4", MESMER, ELEMENTALIST, true, false, false, 0, null, List.of(), null));
+        party.set(4, new PartyMemberDto("UnregisteredLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        party.set(5, new PartyMemberDto("UnregisteredDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of(), null));
+        party.set(6, new PartyMemberDto("UnregisteredSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of(), null));
+        party.set(7, new PartyMemberDto("UnregisteredEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of(), null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, party);
 
         mockMvc.perform(post("/upload-run")
@@ -508,10 +536,10 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         String key = issueMachineKey();
         List<PartyMemberDto> party = validParty();
         // T1/T2/T3/T4 stay registered (exactly the minimum); rename the rest to unregistered names.
-        party.set(4, new PartyMemberDto("UnregisteredLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of()));
-        party.set(5, new PartyMemberDto("UnregisteredDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of()));
-        party.set(6, new PartyMemberDto("UnregisteredSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of()));
-        party.set(7, new PartyMemberDto("UnregisteredEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of()));
+        party.set(4, new PartyMemberDto("UnregisteredLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        party.set(5, new PartyMemberDto("UnregisteredDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of(), null));
+        party.set(6, new PartyMemberDto("UnregisteredSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of(), null));
+        party.set(7, new PartyMemberDto("UnregisteredEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of(), null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, party);
 
         mockMvc.perform(post("/upload-run")
@@ -570,7 +598,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     void rejectsUnknownProfessionId() throws Exception {
         String key = issueMachineKey();
         List<PartyMemberDto> members = validParty();
-        members.set(0, new PartyMemberDto("T1", 999, ASSASSIN, true, false, false, 0, null, List.of()));
+        members.set(0, new PartyMemberDto("T1", 999, ASSASSIN, true, false, false, 0, null, List.of(), null));
         UploadRunRequest request = validRequest(UTC_START_SECONDS, members);
 
         mockMvc.perform(post("/upload-run")

@@ -75,6 +75,13 @@ public class RunParticipant {
     @Column(nullable = false, columnDefinition = "SMALLINT UNSIGNED")
     private Integer deaths;
 
+    // SMALLINT (signed, nullable) — how many Ghastly Summoning Stones this participant won
+    // (positive) or lost (negative) gambling with other party members at the end of a successful
+    // run. Unlike deaths above, null is a meaningful value in its own right (no gambling this run,
+    // or an older plugin build that doesn't report it) rather than a stand-in for zero.
+    @Column(name = "gambling_stone_net")
+    private Integer gamblingStoneNet;
+
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 
@@ -85,6 +92,14 @@ public class RunParticipant {
                            Profession primaryProfession, Profession secondaryProfession,
                            String role, Integer partyIndex, boolean isPlayer, boolean isHero, boolean isHenchman,
                            Integer deaths, Person uploadedByPerson) {
+        this(run, character, rawName, primaryProfession, secondaryProfession, role, partyIndex,
+                isPlayer, isHero, isHenchman, deaths, uploadedByPerson, null);
+    }
+
+    public RunParticipant(Run run, PlayerCharacter character, String rawName,
+                           Profession primaryProfession, Profession secondaryProfession,
+                           String role, Integer partyIndex, boolean isPlayer, boolean isHero, boolean isHenchman,
+                           Integer deaths, Person uploadedByPerson, Integer gamblingStoneNet) {
         this.run = run;
         this.character = character;
         this.rawName = rawName;
@@ -97,6 +112,7 @@ public class RunParticipant {
         this.isHenchman = isHenchman;
         this.deaths = deaths;
         this.uploadedByPerson = uploadedByPerson;
+        this.gamblingStoneNet = gamblingStoneNet;
     }
 
     public Long getId() {
@@ -189,5 +205,13 @@ public class RunParticipant {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Integer getGamblingStoneNet() {
+        return gamblingStoneNet;
+    }
+
+    public void setGamblingStoneNet(Integer gamblingStoneNet) {
+        this.gamblingStoneNet = gamblingStoneNet;
     }
 }

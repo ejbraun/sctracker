@@ -22,11 +22,11 @@ class RoleDerivationTest {
     private static final int DERVISH = 10;
 
     private static PartyMemberDto member(String name, int primary, int secondary) {
-        return new PartyMemberDto(name, primary, secondary, true, false, false, 0, null, List.of());
+        return new PartyMemberDto(name, primary, secondary, true, false, false, 0, null, List.of(), null);
     }
 
     private static PartyMemberDto member(String name, int primary, int secondary, String roleHint) {
-        return new PartyMemberDto(name, primary, secondary, true, false, false, 0, roleHint, List.of());
+        return new PartyMemberDto(name, primary, secondary, true, false, false, 0, roleHint, List.of(), null);
     }
 
     /**

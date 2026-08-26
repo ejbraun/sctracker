@@ -23,8 +23,14 @@ import java.util.List;
  *
  * rez_scroll_uses was removed (changelog 027): there was never an accurate way for the plugin to
  * track it client-side, so it was always sent as 0 — dead weight, not a real stat.
+ *
+ * gamblingStoneNet — how many Ghastly Summoning Stones this member won (positive) or lost
+ * (negative) gambling with other party members at the end of a successful run. Unlike deaths,
+ * null here is a meaningful value on its own (no gambling happened this run, or an older plugin
+ * build that doesn't report it) rather than a stand-in for zero — UploadRunWriter stores it as-is
+ * rather than defaulting a missing value to 0.
  */
 public record PartyMemberDto(String name, Integer primary, Integer secondary,
                               Boolean isPlayer, Boolean isHero, Boolean isHenchman, Integer deaths,
-                              String roleHint, List<ItemDropDto> itemDrops) {
+                              String roleHint, List<ItemDropDto> itemDrops, Integer gamblingStoneNet) {
 }

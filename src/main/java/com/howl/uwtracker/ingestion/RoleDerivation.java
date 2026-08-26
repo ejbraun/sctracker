@@ -77,7 +77,7 @@ public final class RoleDerivation {
 
     private static PartyMemberDto clearHint(PartyMemberDto m) {
         return new PartyMemberDto(m.name(), m.primary(), m.secondary(), m.isPlayer(), m.isHero(), m.isHenchman(),
-                m.deaths(), null, m.itemDrops());
+                m.deaths(), null, m.itemDrops(), m.gamblingStoneNet());
     }
 
     /**
