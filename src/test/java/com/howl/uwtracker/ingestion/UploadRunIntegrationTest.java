@@ -2,6 +2,7 @@ package com.howl.uwtracker.ingestion;
 
 import com.howl.uwtracker.AbstractIntegrationTest;
 import com.howl.uwtracker.auth.dto.GeneratedMachineKeyResponse;
+import com.howl.uwtracker.characters.dto.CreateCharacterRequest;
 import com.howl.uwtracker.domain.GameMap;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
@@ -50,7 +51,13 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     // Matches src/main/resources/static/SCTracker.version.json's "version" — must satisfy
     // PluginVersionMetadataLoader.requireCurrentVersion or every authenticated request here gets a
     // 426 before it even reaches the logic under test. Bump alongside that file if it ever changes.
-    private static final String CURRENT_PLUGIN_VERSION = "1";
+    private static final String CURRENT_PLUGIN_VERSION = "7";
+
+    // 5, not just MIN_REGISTERED_CHARACTERS's 4: resendWithinWindowButDifferentRosterCreatesASecondRunInstead
+    // swaps out one of these names ("T1") for an unregistered one to build a different roster, so
+    // registering only the bare minimum would make that upload start failing this check instead of
+    // exercising the dedup-mismatch behavior it's actually testing.
+    private static final List<String> REGISTERED_CHARACTER_NAMES = List.of("T1", "T2", "T3", "T4", "LT");
 
     private String issueMachineKey() throws Exception {
         MockHttpSession session = signup("uploader-" + System.nanoTime(), "password123");
@@ -58,6 +65,22 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         // would have by the time it's actually uploading — otherwise every upload here would hit the
         // outdated-plugin silent-drop path (UploadRunService) instead of exercising ingestion itself.
         mockMvc.perform(post("/api/plugin/download").session(session)).andExpect(status().isOk());
+        // UploadRunService now rejects an upload with fewer than MIN_REGISTERED_CHARACTERS registered
+        // party members — register enough of validParty()'s names up front so every test here clears
+        // that bar by default, same as it already needs a current plugin version to clear the 426 gate.
+        // character_name is unique table-wide (spec 04), so a test that calls issueMachineKey() more
+        // than once (distinct uploaders, e.g. cross-upload role reconciliation tests) would 409 on the
+        // second registration — skip whatever an earlier call in this same test already registered.
+        for (String characterName : REGISTERED_CHARACTER_NAMES) {
+            if (playerCharacterRepository.existsByCharacterName(characterName)) {
+                continue;
+            }
+            mockMvc.perform(post("/api/characters")
+                            .session(session)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new CreateCharacterRequest(characterName))))
+                    .andExpect(status().isCreated());
+        }
         return generateMachineKey(session, "GWToolboxdll");
     }
 
@@ -456,6 +479,48 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
         assertThat(runRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void rejectsUploadWithFewerThanFourRegisteredCharacters() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> party = validParty();
+        // issueMachineKey() registers T1/T2/T3/T4/LT; rename all but T1/T2/T3 to unregistered names
+        // so this party has only 3 registered characters, one short of the minimum.
+        party.set(3, new PartyMemberDto("UnregisteredT4", MESMER, ELEMENTALIST, true, false, false, 0, null, List.of()));
+        party.set(4, new PartyMemberDto("UnregisteredLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of()));
+        party.set(5, new PartyMemberDto("UnregisteredDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of()));
+        party.set(6, new PartyMemberDto("UnregisteredSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of()));
+        party.set(7, new PartyMemberDto("UnregisteredEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of()));
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, party);
+
+        mockMvc.perform(post("/upload-run")
+                        .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+        assertThat(runRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void acceptsUploadWithExactlyFourRegisteredCharacters() throws Exception {
+        String key = issueMachineKey();
+        List<PartyMemberDto> party = validParty();
+        // T1/T2/T3/T4 stay registered (exactly the minimum); rename the rest to unregistered names.
+        party.set(4, new PartyMemberDto("UnregisteredLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of()));
+        party.set(5, new PartyMemberDto("UnregisteredDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of()));
+        party.set(6, new PartyMemberDto("UnregisteredSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of()));
+        party.set(7, new PartyMemberDto("UnregisteredEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of()));
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, party);
+
+        mockMvc.perform(post("/upload-run")
+                        .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+        assertThat(runRepository.findAll()).hasSize(1);
     }
 
     @Test

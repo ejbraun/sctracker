@@ -6,6 +6,7 @@ import com.howl.uwtracker.ingestion.dto.PartyMemberDto;
 import com.howl.uwtracker.ingestion.dto.UploadRunRequest;
 import com.howl.uwtracker.ingestion.dto.UploadRunResponse;
 import com.howl.uwtracker.repository.GameMapRepository;
+import com.howl.uwtracker.repository.PlayerCharacterRepository;
 import com.howl.uwtracker.web.ApiException;
 import com.howl.uwtracker.web.MachineKeyAuthenticationService;
 import org.slf4j.Logger;
@@ -20,15 +21,21 @@ public class UploadRunService {
 
     private static final Logger log = LoggerFactory.getLogger(UploadRunService.class);
 
+    // Below this, a run is more likely a pug/scrub/pickup group than a guild run worth tracking —
+    // see the rejection check in processUpload for the actual rationale.
+    private static final int MIN_REGISTERED_CHARACTERS = 4;
+
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final GameMapRepository gameMapRepository;
+    private final PlayerCharacterRepository playerCharacterRepository;
     private final MapDedupLock mapDedupLock;
     private final UploadRunWriter writer;
 
     public UploadRunService(MachineKeyAuthenticationService machineKeyAuthenticationService, GameMapRepository gameMapRepository,
-                             MapDedupLock mapDedupLock, UploadRunWriter writer) {
+                             PlayerCharacterRepository playerCharacterRepository, MapDedupLock mapDedupLock, UploadRunWriter writer) {
         this.machineKeyAuthenticationService = machineKeyAuthenticationService;
         this.gameMapRepository = gameMapRepository;
+        this.playerCharacterRepository = playerCharacterRepository;
         this.mapDedupLock = mapDedupLock;
         this.writer = writer;
     }
@@ -48,6 +55,21 @@ public class UploadRunService {
                     size, uploader.getId(), party.mapId());
             throw new ApiException(HttpStatus.BAD_REQUEST, "party size must be 8");
         }
+
+        // A "registered character" is one with a characters row (someone's claimed it via
+        // POST /api/characters) — same lookup UploadRunWriter uses to link a participant to an
+        // account. Requiring a minimum keeps out pug/scrub groups with few or no guild members in
+        // them; unregistered slots are still allowed (heroes/henchmen, or a guildmate who just
+        // hasn't registered yet), just not a majority of the party.
+        long registeredCount = members.stream()
+                .filter(m -> playerCharacterRepository.existsByCharacterName(m.name()))
+                .count();
+        if (registeredCount < MIN_REGISTERED_CHARACTERS) {
+            log.warn("rejecting upload: only {} of {} party members are registered characters (personId={}, mapId={})",
+                    registeredCount, size, uploader.getId(), party.mapId());
+            throw new ApiException(HttpStatus.BAD_REQUEST, "at least " + MIN_REGISTERED_CHARACTERS + " party members must be registered characters");
+        }
+
         if (request.objective() == null) {
             log.warn("rejecting upload: missing objective section (personId={}, mapId={})",
                     uploader.getId(), party.mapId());
