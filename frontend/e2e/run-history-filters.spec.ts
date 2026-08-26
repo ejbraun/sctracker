@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signUp, uniqueName } from './helpers';
+import { goToAccount, signUp, uniqueName } from './helpers';
 
 /**
  * Run History's "person" and "character" filters cross-filter each other (no raw ids, no free-text
@@ -14,7 +14,7 @@ test('selecting a person narrows the character dropdown, and selecting a charact
   const aliasB = uniqueName('FilterB');
 
   await signUp(page, uniqueName('filtersuserA'));
-  await page.getByRole('link', { name: 'Account' }).click();
+  await goToAccount(page);
   await page.getByLabel('Alias').fill(aliasA);
   await page.getByRole('button', { name: 'Save alias' }).click();
   await page.getByRole('link', { name: 'Characters' }).click();
@@ -24,7 +24,7 @@ test('selecting a person narrows the character dropdown, and selecting a charact
   await page.getByRole('button', { name: 'Logout' }).click();
 
   await signUp(page, uniqueName('filtersuserB'));
-  await page.getByRole('link', { name: 'Account' }).click();
+  await goToAccount(page);
   await page.getByLabel('Alias').fill(aliasB);
   await page.getByRole('button', { name: 'Save alias' }).click();
   await page.getByRole('link', { name: 'Characters' }).click();

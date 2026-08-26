@@ -6,9 +6,12 @@ import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.PlayerCharacter;
 import com.howl.uwtracker.domain.Profession;
 import com.howl.uwtracker.domain.Run;
+import com.howl.uwtracker.domain.RunMvpAward;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.domain.RunParticipant;
+import com.howl.uwtracker.repository.RunMvpAwardRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 
 import java.time.Instant;
@@ -24,6 +27,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * IMPLEMENTATION_PROGRESS.md flags as previously unverified against a live database.
  */
 class RunHistoryIntegrationTest extends AbstractIntegrationTest {
+
+    @Autowired
+    private RunMvpAwardRepository runMvpAwardRepository;
 
     private static final int MAP_ID = UNDERWORLD_MAP_ID;
     private static final int OTHER_MAP_ID = 99;
@@ -170,6 +176,48 @@ class RunHistoryIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.participants[0].raw_name").value("SlotOne"))
                 .andExpect(jsonPath("$.participants[0].primary_profession").value("Warrior"))
                 .andExpect(jsonPath("$.participants[1].raw_name").value("SlotTwo"));
+    }
+
+    @Test
+    void detailOmitsMvpAwardWhenNoVoteHasResolvedForTheRun() throws Exception {
+        MockHttpSession session = signup("historymvpnone", "password123");
+        GameMap map = gameMapRepository.getReferenceById(MAP_ID);
+        Run run = seedRun(map, Instant.now(), true);
+
+        mockMvc.perform(get("/api/runs/" + run.getId()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mvp_award").isEmpty());
+    }
+
+    @Test
+    void detailIncludesTheCreditedParticipantWhenAnMvpAwardExists() throws Exception {
+        MockHttpSession session = signup("historymvprole", "password123");
+        GameMap map = gameMapRepository.getReferenceById(MAP_ID);
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        Run run = seedRun(map, Instant.now(), true);
+        RunParticipant spiker = runParticipantRepository.save(
+                new RunParticipant(run, null, "SpikerName", warrior, null, "Spiker", 0, true, false, false, 0, null));
+        runMvpAwardRepository.save(new RunMvpAward(run, spiker, null));
+
+        mockMvc.perform(get("/api/runs/" + run.getId()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mvp_award.nobody").value(false))
+                .andExpect(jsonPath("$.mvp_award.role").value("Spiker"))
+                .andExpect(jsonPath("$.mvp_award.display_name").value("SpikerName"));
+    }
+
+    @Test
+    void detailIncludesANobodyMvpAward() throws Exception {
+        MockHttpSession session = signup("historymvpnobody", "password123");
+        GameMap map = gameMapRepository.getReferenceById(MAP_ID);
+        Run run = seedRun(map, Instant.now(), true);
+        runMvpAwardRepository.save(new RunMvpAward(run, null, null));
+
+        mockMvc.perform(get("/api/runs/" + run.getId()).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mvp_award.nobody").value(true))
+                .andExpect(jsonPath("$.mvp_award.role").isEmpty())
+                .andExpect(jsonPath("$.mvp_award.display_name").isEmpty());
     }
 
     @Test

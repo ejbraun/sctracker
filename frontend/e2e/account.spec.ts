@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { signUp, uniqueName } from './helpers';
+import { goToAccount, signUp, uniqueName } from './helpers';
 
 /** specs/frontend/02-account.md — machine-key generate/list/revoke against a real running backend. */
 test.describe('account', () => {
   test.beforeEach(async ({ page }) => {
     await signUp(page, uniqueName('accountuser'));
-    await page.getByRole('link', { name: 'Account' }).click();
+    await goToAccount(page);
     await expect(page).toHaveURL('/account');
   });
 

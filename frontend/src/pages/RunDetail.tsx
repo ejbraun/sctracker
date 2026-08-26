@@ -90,6 +90,19 @@ export function RunDetail() {
         </Panel>
       )}
 
+      {run.mvp_award && (
+        <Panel className={styles.section}>
+          <h2>MVP</h2>
+          {run.mvp_award.nobody ? (
+            'Nobody'
+          ) : (
+            <>
+              {run.mvp_award.display_name} <RoleBadge role={run.mvp_award.role} />
+            </>
+          )}
+        </Panel>
+      )}
+
       <Panel className={styles.section}>
         <h2>Participants</h2>
         <table>

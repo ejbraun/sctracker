@@ -1,54 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { signUp, uniqueName } from './helpers';
+import { goToAccount, signUp, uniqueName, uploadRun, UNDERWORLD_MAP_ID, UNDERWORLD_MAP_NAME } from './helpers';
 
-const BACKEND_ORIGIN = 'http://localhost:8080';
-
-// The only currently-supported map (specs/backend/01 — maps is a curated, well-defined set seeded
-// by migration; /upload-run rejects anything else). No per-test map name to key off of anymore, so
-// this suite disambiguates "its" run by character name / run id instead.
-const UNDERWORLD_MAP_ID = 72;
-const UNDERWORLD_MAP_NAME = 'Underworld';
-
-// Mirrors specs/backend/02-ingestion-upload-run.md's profession ids and RoleDerivation's T1 combo.
-const RANGER = 2;
-const ASSASSIN = 7;
-const MONK = 3;
-const MESMER = 5;
-const ELEMENTALIST = 6;
-const RITUALIST = 8;
-const WARRIOR = 1;
-const DERVISH = 10;
-
-function buildUploadPayload(heroName: string, utcStartSeconds: number) {
-  return {
-    party: {
-      utc_start: utcStartSeconds,
-      map_id: UNDERWORLD_MAP_ID,
-      character_name: heroName,
-      end_reason: 'victory',
-      party_members: [
-        { name: heroName, primary: RANGER, secondary: ASSASSIN, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'T2', primary: RANGER, secondary: ASSASSIN, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'T3', primary: RANGER, secondary: ASSASSIN, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'T4', primary: ELEMENTALIST, secondary: MESMER, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'LT', primary: MESMER, secondary: ASSASSIN, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'Spiker', primary: DERVISH, secondary: WARRIOR, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'SoS', primary: RITUALIST, secondary: RANGER, is_player: true, is_hero: false, is_henchman: false },
-        { name: 'Emo', primary: ELEMENTALIST, secondary: MONK, is_player: true, is_hero: false, is_henchman: false },
-      ],
-    },
-    objective: {
-      name: UNDERWORLD_MAP_NAME,
-      instance_start: 555_000,
-      utc_start: utcStartSeconds + 2,
-      objectives: [
-        { name: 'Vale', status: 2, start: 1000, done: 5000, duration: 4000, indent: 0 },
-        { name: 'Final Trial', status: 2, start: 9000, done: 15000, duration: 6000, indent: 0 },
-      ],
-      duration: 15_000,
-    },
-  };
-}
+// No per-test map name to key off of anymore (only one supported map — see helpers.ts), so this
+// suite disambiguates "its" run by character name / run id instead.
 
 /**
  * The end-to-end proof point: a real /upload-run call (as the GW1 SDK plugin would make, machine-key
@@ -68,7 +22,7 @@ test('an uploaded run surfaces in run history (by alias/character lookup), run d
   await signUp(page, username);
 
   // Set an alias — needed for the "Person" lookup below (specs: aliases, not raw person ids).
-  await page.getByRole('link', { name: 'Account' }).click();
+  await goToAccount(page);
   await page.getByLabel('Alias').fill(alias);
   await page.getByRole('button', { name: 'Save alias' }).click();
   await expect(page.getByText(`Alias: ${alias}`)).toBeVisible();
@@ -78,16 +32,9 @@ test('an uploaded run surfaces in run history (by alias/character lookup), run d
   const rawKey = (await page.locator('code').first().textContent())!.trim();
   await page.getByRole('button', { name: 'Dismiss' }).click();
 
-  // Upload as the SDK plugin would: machine-key header, no session cookie, straight to the backend
-  // (the frontend dev server only proxies /api, not the unprefixed /upload-run endpoint).
-  const uploadResponse = await page.request.post(`${BACKEND_ORIGIN}/upload-run`, {
-    headers: { 'X-Machine-Key': rawKey, 'Content-Type': 'application/json' },
-    data: buildUploadPayload(heroName, utcStartSeconds),
-  });
-  expect(uploadResponse.ok(), await uploadResponse.text()).toBeTruthy();
-  const uploadBody = await uploadResponse.json();
+  const uploadBody = await uploadRun(page, rawKey, heroName, utcStartSeconds);
   expect(uploadBody.created).toBe(true);
-  const runId = uploadBody.run_id as number;
+  const runId = uploadBody.run_id;
 
   // Run detail: navigate straight there by id (every e2e run shares the one supported map now, so
   // there's nothing map-name-specific left to search a table row by) — objectives in sequence order,

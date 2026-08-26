@@ -247,6 +247,16 @@ export interface RunFailureReasonEntry {
   display_name: string | null;
 }
 
+// The run_participant credited as MVP via the plugin's post-run popup, or a deliberate "nobody
+// stood out" assertion — same shape as RunFailureReasonEntry, just singular (a run has at most one
+// MVP award). `nobody` is structural, not a "Nobody" sentinel string in display_name.
+// role/display_name are null when nobody is true.
+export interface RunMvpAwardEntry {
+  nobody: boolean;
+  role: string | null;
+  display_name: string | null;
+}
+
 export interface RunDetail {
   run_id: number;
   map_id: number;
@@ -262,6 +272,8 @@ export interface RunDetail {
   objectives: ObjectiveEntry[];
   participants: ParticipantEntry[];
   failure_reasons: RunFailureReasonEntry[];
+  // null when no MVP vote has resolved for this run at all — distinct from an explicit "Nobody" result.
+  mvp_award: RunMvpAwardEntry | null;
 }
 
 export interface PageResponse<T> {
