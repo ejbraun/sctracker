@@ -3,10 +3,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
 }
 
 .form {
   width: 320px;
+  max-width: 100%;
 }
 
 .form label {

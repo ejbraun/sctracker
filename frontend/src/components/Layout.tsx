@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -10,6 +11,9 @@ export function Layout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { person } = useAuth();
+  // Drives the hamburger on narrow screens; ignored by the desktop layout, where the links are
+  // always shown (Layout.module.css).
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function handleLogout() {
     await api.post('/logout');
@@ -19,40 +23,64 @@ export function Layout() {
     navigate('/login');
   }
 
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
   return (
     <div className={styles.shell}>
       <nav className={styles.nav}>
-        <span className={styles.brand}>gwsctracker</span>
-        <Link className={styles.navLink} to="/">
-          Leaderboards
-        </Link>
-        <Link className={styles.navLink} to="/loserboards">
-          Loserboards
-        </Link>
-        <Link className={styles.navLink} to="/runs">
-          Run History
-        </Link>
-        <Link className={styles.navLink} to="/characters">
-          Characters
-        </Link>
-        <Link className={styles.navLink} to="/account">
-          Account
-        </Link>
-        <Link className={styles.navLink} to="/how-to-use">
-          How to Use
-        </Link>
-        {person?.is_admin && (
-          <Link className={styles.navLink} to="/admin/users">
-            User Management
+        <div className={styles.navBar}>
+          <span className={styles.brand}>gwsctracker</span>
+          <button
+            type="button"
+            className={styles.menuToggle}
+            aria-expanded={menuOpen}
+            aria-label="Toggle navigation menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            ☰
+          </button>
+        </div>
+        <div className={`${styles.links} ${menuOpen ? styles.linksOpen : ''}`}>
+          <Link className={styles.navLink} to="/" onClick={closeMenu}>
+            Leaderboards
           </Link>
-        )}
-        {person?.is_admin && (
-          <Link className={styles.navLink} to="/admin/runs">
-            Run Cleanup
+          <Link className={styles.navLink} to="/loserboards" onClick={closeMenu}>
+            Loserboards
           </Link>
-        )}
-        <span className={styles.spacer} />
-        <button onClick={handleLogout}>Logout</button>
+          <Link className={styles.navLink} to="/runs" onClick={closeMenu}>
+            Run History
+          </Link>
+          <Link className={styles.navLink} to="/characters" onClick={closeMenu}>
+            Characters
+          </Link>
+          <Link className={styles.navLink} to="/account" onClick={closeMenu}>
+            Account
+          </Link>
+          <Link className={styles.navLink} to="/how-to-use" onClick={closeMenu}>
+            How to Use
+          </Link>
+          {person?.is_admin && (
+            <Link className={styles.navLink} to="/admin/users" onClick={closeMenu}>
+              User Management
+            </Link>
+          )}
+          {person?.is_admin && (
+            <Link className={styles.navLink} to="/admin/runs" onClick={closeMenu}>
+              Run Cleanup
+            </Link>
+          )}
+          <span className={styles.spacer} />
+          <button
+            onClick={() => {
+              closeMenu();
+              handleLogout();
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </nav>
       <div className={styles.content}>
         <UpdateBanner />

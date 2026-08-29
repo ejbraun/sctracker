@@ -10,3 +10,10 @@
   flex-direction: column;
   gap: 0.25rem;
 }
+
+@media (max-width: 768px) {
+  .form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

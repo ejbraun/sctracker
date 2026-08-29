@@ -4,7 +4,9 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  /* min(100%, 420px) rather than a bare 420px so the track collapses to a single full-width column
+     once the viewport is narrower than 420px, instead of overflowing the screen. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 1.5rem;
   align-items: start;
 }

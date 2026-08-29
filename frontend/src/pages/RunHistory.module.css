@@ -28,3 +28,19 @@
   color: var(--gw-text-on-parchment);
   text-decoration: underline;
 }
+
+@media (max-width: 768px) {
+  /* Each filter control gets its own full-width row rather than crowding two-per-line. */
+  .filterBar {
+    gap: 0.75rem;
+  }
+
+  .filterBar label {
+    width: 100%;
+  }
+
+  .filterBar label select,
+  .filterBar label input {
+    width: 100%;
+  }
+}

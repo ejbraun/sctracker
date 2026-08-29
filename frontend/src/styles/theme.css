@@ -121,3 +121,31 @@ select {
   padding: 0.4rem 0.6rem;
   border-radius: 0;
 }
+
+/* --- Narrow screens --- */
+@media (max-width: 768px) {
+  /* Belt-and-braces guard: nothing should push the page wider than the viewport on a phone. */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Wide tables (long participant lists, per-role breakdowns) can't shrink to a 375px column, so
+     let each one scroll horizontally inside itself rather than stretching the whole page. */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  th,
+  td {
+    padding: 0.4rem 0.6rem;
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: 0.6rem;
+  }
+}

@@ -13,11 +13,35 @@
   gap: 1.5rem;
 }
 
+/* Wraps the brand + hamburger. On desktop it's just an inline group in the flex row; on mobile it
+   becomes the always-visible top bar with the toggle pushed to the right. */
+.navBar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .brand {
   font-family: var(--gw-font-display);
   font-size: 1.25rem;
   color: var(--gw-border-gold-bright);
   margin-right: 0.5rem;
+}
+
+/* Hidden on desktop — the links are always shown there. Revealed as the hamburger below the
+   breakpoint. */
+.menuToggle {
+  display: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.25rem 0.6rem;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex: 1;
 }
 
 .navLink {
@@ -37,4 +61,55 @@
 .content {
   padding: 1.5rem;
   flex: 1;
+}
+
+/* --- Narrow screens: collapse the nav into a hamburger, tighten page padding. --- */
+@media (max-width: 768px) {
+  .nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .navBar {
+    justify-content: space-between;
+  }
+
+  .brand {
+    margin-right: 0;
+  }
+
+  .menuToggle {
+    display: block;
+  }
+
+  /* Collapsed by default; .linksOpen (toggled from Layout.tsx) drops the menu open as a vertical
+     list. */
+  .links {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .linksOpen {
+    display: flex;
+  }
+
+  .navLink {
+    padding: 0.35rem 0;
+  }
+
+  .spacer {
+    display: none;
+  }
+
+  .links button {
+    width: 100%;
+  }
+
+  .content {
+    padding: 1rem 0.85rem;
+  }
 }
