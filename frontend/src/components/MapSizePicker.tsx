@@ -7,23 +7,23 @@ interface Props {
   partySize?: number;
   onMapChange: (mapId: string) => void;
   /**
-   * Called when the user picks a different party size. Omit to make the size read-only — it then
-   * renders as a static chip (used on Leaderboards / Loserboards in v1, where the map path segment
-   * already implies the size; see specs/features/fow-and-party-size.md §4.4).
+   * Called when the user picks a different party size. When supplied, the size always renders as a
+   * real <select> (with one option for a single-size map like the Underworld) so it looks and
+   * behaves the same across maps. Omit to fall back to a static, read-only chip.
    */
   onSizeChange?: (partySize: number) => void;
 }
 
 /**
- * Shared map + party-size control for Dashboard, Leaderboards, Loserboards, and Run History. The
- * size control only becomes a real <select> when the chosen map supports more than one party size
- * AND {@link Props.onSizeChange} is supplied; otherwise it's a display-only chip.
+ * Shared map + party-size control for Dashboard, Leaderboards, and Loserboards. The size control is
+ * a real <select> whenever {@link Props.onSizeChange} is supplied — even for a map with only one
+ * supported size — so it's visually consistent everywhere.
  */
 export function MapSizePicker({ mapId, partySize, onMapChange, onSizeChange }: Props) {
   const map = mapById(mapId);
   const sizes = map?.partySizes ?? [];
   const effectiveSize = partySize ?? defaultPartySize(mapId) ?? sizes[0];
-  const sizeIsSelectable = onSizeChange != null && sizes.length > 1;
+  const sizeIsSelectable = onSizeChange != null;
 
   function handleMapChange(nextMapId: string) {
     onMapChange(nextMapId);
