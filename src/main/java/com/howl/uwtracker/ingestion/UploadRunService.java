@@ -24,11 +24,6 @@ public class UploadRunService {
 
     private static final Logger log = LoggerFactory.getLogger(UploadRunService.class);
 
-    // The registered-character floor for a legacy 8-man run. AdminRunService's retroactive-wipe of
-    // pre-existing runs (all 8-man Underworld) still uses this fixed value; the per-upload floor is
-    // now size-dependent — see minRegisteredFor.
-    public static final int MIN_REGISTERED_CHARACTERS = 4;
-
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final MapConfigRepository mapConfigRepository;
     private final PlayerCharacterRepository playerCharacterRepository;
@@ -46,12 +41,13 @@ public class UploadRunService {
 
     /**
      * The registered-character floor for a party of {@code partySize} — 50% of the roster, rounded
-     * up (Underworld 8-man → 4, Fissure of Woe duo → 1). Keeps pug/scrub groups out while still
-     * allowing unregistered slots (a guildmate who just hasn't registered yet). See
-     * specs/features/fow-and-party-size.md.
+     * down (Underworld 8-man → 4, Fissure of Woe duo → 1). Keeps pug/scrub groups out while still
+     * allowing unregistered slots (a guildmate who just hasn't registered yet). The admin
+     * retroactive-wipe cleanup applies the same "half the party" bar per run (see
+     * RunRepository.findIdsWithFewerThanHalfPartyRegistered). See specs/features/fow-and-party-size.md.
      */
     public static int minRegisteredFor(int partySize) {
-        return (int) Math.ceil(partySize / 2.0);
+        return partySize / 2;
     }
 
     // pluginVersion (X-Plugin-Version) is enforced inside authenticate() itself — an outdated

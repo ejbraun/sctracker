@@ -32,19 +32,19 @@ public interface RunRepository extends JpaRepository<Run, Long>, JpaSpecificatio
                                    @Param("windowSeconds") int windowSeconds);
 
     /**
-     * Ids of runs with fewer than {@code minRegisteredCharacters} participants linked to a
-     * registered character (non-null {@code character_id}) — backs the admin "wipe unregistered
-     * runs" cleanup (AdminRunService), applying {@code UploadRunService.MIN_REGISTERED_CHARACTERS}
-     * retroactively to runs ingested before that rule existed. The join condition (not a WHERE
-     * clause) filters which participant rows count as registered while still keeping every run —
-     * including one with zero registered participants — in the grouped result, so it can't be
-     * silently dropped from the HAVING check the way a WHERE-filtered join would drop it. Native
-     * query, same reasoning as findDedupCandidates above (no JPQL portability concern either way,
-     * just consistency with that query's style).
+     * Ids of runs where fewer than half the party (party_size DIV 2, i.e. 50% rounded down) is
+     * linked to a registered character (non-null {@code character_id}) — backs the admin "wipe
+     * unregistered runs" cleanup (AdminRunService), the retroactive counterpart of ingestion's
+     * per-party-size registered-character floor. Per-run rather than a fixed threshold, so a
+     * legitimate Fissure of Woe duo (1 of 2 registered) isn't swept up alongside a pug 8-man.
+     * The join condition (not a WHERE clause) filters which participant rows count as registered
+     * while still keeping every run — including one with zero registered participants — in the
+     * grouped result, so it can't be silently dropped the way a WHERE-filtered join would drop it.
+     * Native query, same reasoning as findDedupCandidates above.
      */
     @Query(value = "SELECT r.id FROM runs r " +
             "LEFT JOIN run_participants rp ON rp.run_id = r.id AND rp.character_id IS NOT NULL " +
-            "GROUP BY r.id " +
-            "HAVING COUNT(rp.id) < :minRegisteredCharacters", nativeQuery = true)
-    List<Long> findIdsWithFewerThanNRegisteredCharacters(@Param("minRegisteredCharacters") int minRegisteredCharacters);
+            "GROUP BY r.id, r.party_size " +
+            "HAVING COUNT(rp.id) < r.party_size DIV 2", nativeQuery = true)
+    List<Long> findIdsWithFewerThanHalfPartyRegistered();
 }
