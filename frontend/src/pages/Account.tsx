@@ -103,8 +103,8 @@ export function Account() {
       <Panel className={styles.section}>
         <h2>Plugin</h2>
         <p>
-          SCTracker is the GW1 SDK plugin that uploads your runs. Put <code>SCTracker.dll</code> in your
-          GWToolbox++ <code>Plugins</code> folder, enable it from GWToolbox's plugin manager, then paste a
+          SCTracker is a third-party GWToolbox++ plugin that uploads your runs. Put <code>SCTracker.dll</code>{' '}
+          in your GWToolbox++ <code>Plugins</code> folder, enable it in GWToolbox's plugin manager, then paste a
           machine key (below) into its settings.
         </p>
         <p>
