@@ -3,6 +3,8 @@
 // source for names/ids at runtime, but the display order, short labels, and the set of party sizes
 // each map supports live here. See specs/features/fow-and-party-size.md.
 
+import { PRIMARY_PROFESSION_ROLES, TRAPPER_ROLES } from './roles';
+
 export interface MapChoice {
   /** GW map_id, as a string (route-param form). */
   id: string;
@@ -34,6 +36,18 @@ export const roleModelFor = (mapId: string, partySize: number): string | null | 
 /** Whether this (map, party size) config is role-gated — i.e. has a role model. */
 export const configHasRoles = (mapId: string, partySize: number): boolean =>
   roleModelFor(mapId, partySize) != null;
+
+/** The role codes that apply to this (map, party size) — what the by-role board panels iterate. */
+export const rolesForConfig = (mapId: string, partySize: number): readonly string[] => {
+  switch (roleModelFor(mapId, partySize)) {
+    case 'trapper':
+      return TRAPPER_ROLES;
+    case 'primary_profession':
+      return PRIMARY_PROFESSION_ROLES;
+    default:
+      return [];
+  }
+};
 
 // The default map for pages that need one before the user picks (Dashboard, Run History's map
 // filter). Underworld — the original and highest-traffic map.

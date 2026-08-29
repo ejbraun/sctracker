@@ -18,8 +18,7 @@ import { RoleBadge } from '../components/RoleBadge';
 import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
-import { ROLES } from '../common/roles';
-import { DEFAULT_MAP_ID, configHasRoles, defaultPartySize } from '../common/maps';
+import { DEFAULT_MAP_ID, configHasRoles, defaultPartySize, rolesForConfig } from '../common/maps';
 import { MapSizePicker } from '../components/MapSizePicker';
 import styles from './LoserboardsPage.module.css';
 
@@ -169,7 +168,7 @@ export function LoserboardsPage() {
           <h2>Deaths By Role</h2>
           {roleDeathsQuery.isLoading && <p>Loading…</p>}
           {roleDeathsQuery.data &&
-            ROLES.map((role, index) => {
+            rolesForConfig(mapId, partySize).map((role, index) => {
               // Already sorted deaths/run-desc by the backend; filtering preserves that relative order.
               const rows = roleDeathsQuery.data.filter((r) => r.role === role);
               return (
@@ -212,7 +211,7 @@ export function LoserboardsPage() {
           <h2>Blamed By Role</h2>
           {failureReasonsQuery.isLoading && <p>Loading…</p>}
           {failureReasonsQuery.data &&
-            ROLES.map((role, index) => {
+            rolesForConfig(mapId, partySize).map((role, index) => {
               // Already sorted fails/run-desc by the backend; filtering preserves that relative order.
               // Only users actually blamed at least once — a zero-blame row adds no signal here.
               const rows = failureReasonsQuery.data.filter((r) => r.role === role && r.fails > 0);

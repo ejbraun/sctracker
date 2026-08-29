@@ -19,8 +19,7 @@ import { RoleBadge } from '../components/RoleBadge';
 import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
-import { ROLES } from '../common/roles';
-import { DEFAULT_MAP_ID, configHasRoles, defaultPartySize, mapSupportsGambling } from '../common/maps';
+import { DEFAULT_MAP_ID, configHasRoles, defaultPartySize, mapSupportsGambling, rolesForConfig } from '../common/maps';
 import { MapSizePicker } from '../components/MapSizePicker';
 import styles from './LeaderboardPage.module.css';
 
@@ -406,7 +405,7 @@ export function LeaderboardPage() {
           <h2>MVP By Role</h2>
           {roleMvpAwardsQuery.isLoading && <p>Loading…</p>}
           {roleMvpAwardsQuery.data &&
-            ROLES.map((role, index) => {
+            rolesForConfig(mapId, partySize).map((role, index) => {
               // Already sorted awards/run-desc by the backend; filtering preserves that relative order.
               const rows = roleMvpAwardsQuery.data.filter((r) => r.role === role);
               return (
