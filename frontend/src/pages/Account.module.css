@@ -15,6 +15,16 @@
   opacity: 0.75;
 }
 
+.downloadLink {
+  display: inline-block;
+  font-family: var(--gw-font-display);
+  padding: 0.4rem 0.9rem;
+  border: 2px solid var(--gw-border-gold);
+  background: var(--gw-panel-dark);
+  color: var(--gw-text-on-dark);
+  text-decoration: none;
+}
+
 .revealBox {
   border: 2px solid var(--gw-border-gold-bright);
   background: var(--gw-panel-dark);
