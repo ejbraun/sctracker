@@ -39,7 +39,7 @@ class RunHistoryIntegrationTest extends AbstractIntegrationTest {
     }
 
     private Run seedRun(GameMap map, Instant utcStart, boolean completed, String endReason) {
-        return runRepository.save(new Run(map, utcStart, 1000L, utcStart, endReason, completed, 20_000L));
+        return runRepository.save(new Run(map, utcStart, 1000L, utcStart, endReason, completed, 20_000L, 8));
     }
 
     @Test

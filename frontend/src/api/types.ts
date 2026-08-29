@@ -81,6 +81,10 @@ export interface PlayerCharacter {
 export interface GameMap {
   id: number;
   name: string | null;
+  // Supported (party_size, role_model) configs for this map — mirrors map_configs. The frontend's
+  // static MAPS registry (common/maps.ts) is the primary source for the size selector; this is
+  // available for reconciliation. role_model is null for a config with no role model.
+  configs: { party_size: number; role_model: string | null }[];
 }
 
 export interface ParticipantSummary {
@@ -227,6 +231,10 @@ export interface RunSummary {
   end_reason: string;
   completed: boolean;
   duration_ms: number | null;
+  // Roster size the run was uploaded with (8 for Underworld, 2 for a Fissure of Woe duo), frozen at
+  // creation. participant_count can lag while multi-uploads for the same run trickle in; the UI
+  // shows party_size.
+  party_size: number;
   participant_count: number;
 }
 
@@ -291,6 +299,8 @@ export interface RunDetail {
   end_reason: string;
   completed: boolean;
   duration_ms: number | null;
+  // Roster size the run was uploaded with — 8 (Underworld) or 2 (Fissure of Woe duo).
+  party_size: number;
   objectives: ObjectiveEntry[];
   participants: ParticipantEntry[];
   failure_reasons: RunFailureReasonEntry[];

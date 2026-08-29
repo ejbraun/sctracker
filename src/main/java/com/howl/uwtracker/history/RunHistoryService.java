@@ -51,6 +51,7 @@ public class RunHistoryService {
     @Transactional(readOnly = true)
     public Page<RunSummaryResponse> search(RunHistoryFilter filter, Pageable pageable) {
         Specification<Run> spec = Specification.where(RunSpecifications.hasMap(filter.mapId()))
+                .and(RunSpecifications.hasPartySize(filter.partySize()))
                 .and(RunSpecifications.isCompleted(filter.completed()))
                 .and(RunSpecifications.hasEndReason(filter.endReason()))
                 .and(RunSpecifications.startedBetween(filter.from(), filter.to()))

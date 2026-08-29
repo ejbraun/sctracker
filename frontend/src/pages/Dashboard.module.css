@@ -1,6 +1,12 @@
 .mapPicker {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  max-width: 20rem;
+  gap: 1rem;
+  max-width: 32rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
 }

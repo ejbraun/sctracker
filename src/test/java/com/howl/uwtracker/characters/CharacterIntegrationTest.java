@@ -151,7 +151,7 @@ class CharacterIntegrationTest extends AbstractIntegrationTest {
         // Seed a run_participants row ingested under a raw_name before any character existed for it,
         // mirroring how the SDK plugin uploads runs by character name alone (no account link yet).
         GameMap map = gameMapRepository.getReferenceById(UNDERWORLD_MAP_ID);
-        Run run = runRepository.save(new Run(map, Instant.now(), 1000L, Instant.now(), "victory", true, 5000L));
+        Run run = runRepository.save(new Run(map, Instant.now(), 1000L, Instant.now(), "victory", true, 5000L, 8));
         Profession warrior = professionRepository.findById(1).orElseThrow();
         RunParticipant participant = runParticipantRepository.save(
                 new RunParticipant(run, null, "PreExisting Toon", warrior, null, "T1", 0, true, false, false, 0, null));

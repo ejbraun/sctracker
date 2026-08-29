@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- A map supports one or more (party_size, role_model) configurations. This is a table rather
+         than a column on `maps` because the Fissure of Woe will eventually support both a 2-man and
+         an 8-man config with DIFFERENT role models (see specs/features/fow-and-party-size.md).
+
+         - Allowed party sizes for a map  = the party_size values present here for it.
+         - Role model for a run           = the row matching (run.map_id, run.party_size).
+         - A map with no row here         = unsupported; ingestion rejects the upload, same as an
+                                            unseeded map id did before.
+
+         role_model is app-validated (com.howl.uwtracker.domain.RoleModel), not a DB enum — same
+         posture as end_reason / default_role in spec 01. NULL = this config has no role model, so
+         run_participants.role stays NULL and the personal section-best query is not role-gated. -->
+    <changeSet id="037-create-map-configs" author="uwtracker">
+        <createTable tableName="map_configs">
+            <column name="map_id" type="INT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="party_size" type="TINYINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role_model" type="VARCHAR(24)"/>
+        </createTable>
+        <addPrimaryKey tableName="map_configs" columnNames="map_id, party_size"
+                        constraintName="pk_map_configs"/>
+        <addForeignKeyConstraint baseTableName="map_configs" baseColumnNames="map_id"
+                                  constraintName="fk_map_configs_map"
+                                  referencedTableName="maps" referencedColumnNames="id"/>
+
+        <!-- The one config that exists today: 8-man Underworld, UW trapper-team role model. -->
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="72"/>
+            <column name="party_size" valueNumeric="8"/>
+            <column name="role_model" value="trapper"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

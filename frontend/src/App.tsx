@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
@@ -12,6 +12,7 @@ import { HowToUse } from './pages/HowToUse';
 import { Characters } from './pages/Characters';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LoserboardsPage } from './pages/LoserboardsPage';
+import { DEFAULT_MAP_ID } from './common/maps';
 import { RunHistory } from './pages/RunHistory';
 import { RunDetail } from './pages/RunDetail';
 import { AdminUsers } from './pages/AdminUsers';
@@ -35,7 +36,10 @@ export default function App() {
                 <Route path="/account" element={<Account />} />
                 <Route path="/characters" element={<Characters />} />
                 <Route path="/leaderboards/:mapId" element={<LeaderboardPage />} />
-                <Route path="/loserboards" element={<LoserboardsPage />} />
+                {/* Loserboards is map-scoped in the path now, matching /leaderboards/:mapId. The
+                    bare path redirects to the default map so old links/bookmarks keep working. */}
+                <Route path="/loserboards" element={<Navigate to={`/loserboards/${DEFAULT_MAP_ID}`} replace />} />
+                <Route path="/loserboards/:mapId" element={<LoserboardsPage />} />
                 <Route path="/runs" element={<RunHistory />} />
                 <Route path="/runs/:id" element={<RunDetail />} />
                 <Route element={<AdminRoute />}>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Which roles' section times count toward that objective's personal best (specs/backend/05 —
+         "role-gated"), for The Fissure of Woe (map 34), 2-person duo. A duo is present for the whole
+         run, so both roles are "involved" in every objective — every FoW objective x {Ranger, Derv}.
+         Objective names exactly as they arrive from the plugin (GWToolboxdll's FoW ObjectiveSet).
+         Same shape as 013-seed-underworld-role-objectives.xml. -->
+    <changeSet id="039-seed-fow-duo-role-objectives" author="uwtracker">
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="ToC"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="ToC"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Wailing Lord"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Wailing Lord"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Griffons"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Griffons"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Defend"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Defend"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Forge"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Forge"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Menzies"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Menzies"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Restore"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Restore"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Khobay"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Khobay"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="ToS"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="ToS"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Burning Forest"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="Burning Forest"/><column name="role" value="Derv"/></insert>
+
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="The Hunt"/><column name="role" value="Ranger"/></insert>
+        <insert tableName="role_objectives"><column name="map_id" valueNumeric="34"/><column name="objective_name" value="The Hunt"/><column name="role" value="Derv"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

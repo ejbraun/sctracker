@@ -63,7 +63,7 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
     /** 8-slot run with the given roles, party index 0..7 — professions are irrelevant to these tests. */
     private Run seedRun(String... roles) {
         Instant now = Instant.now();
-        Run run = runRepository.save(new Run(map(), now, 1000L, now, "victory", true, 10_000L));
+        Run run = runRepository.save(new Run(map(), now, 1000L, now, "victory", true, 10_000L, 8));
         Profession warrior = professionRepository.findById(1).orElseThrow();
         for (int i = 0; i < roles.length; i++) {
             runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, roles[i], i, true, false, false, 0, null));

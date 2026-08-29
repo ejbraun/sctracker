@@ -2,6 +2,7 @@ package com.howl.uwtracker.ingestion;
 
 import com.howl.uwtracker.domain.GameMap;
 import com.howl.uwtracker.domain.Person;
+import com.howl.uwtracker.domain.RoleModel;
 import com.howl.uwtracker.domain.PlayerCharacter;
 import com.howl.uwtracker.domain.Profession;
 import com.howl.uwtracker.domain.Run;
@@ -97,8 +98,9 @@ public class UploadRunWriter {
 
     @Transactional
     public UploadRunResponse ingest(PartyDto party, List<PartyMemberDto> members, List<String> roles,
-                                     ObjectiveSectionDto objective, Long uploaderPersonId) {
-        // Already validated to exist (UploadRunService — maps is a curated, migration-seeded set).
+                                     ObjectiveSectionDto objective, Long uploaderPersonId, RoleModel roleModel) {
+        // Already validated to exist (UploadRunService — (map, party_size) is a curated,
+        // migration-seeded set in map_configs).
         GameMap map = gameMapRepository.getReferenceById(party.mapId());
         // A reference proxy, not a fetch — same pattern as `map` above. Resolved here (inside this
         // method's own transaction) rather than passed in as an entity, since the MachineKey/Person
@@ -117,12 +119,16 @@ public class UploadRunWriter {
             run = existing.get();
             created = false;
         } else {
-            run = createRun(map, targetUtcStart, party, objective);
+            run = createRun(map, targetUtcStart, party, objective, members.size());
             created = true;
         }
 
         attachParticipants(run, members, roles, uploader);
-        inferRemainingTrapperRoleByElimination(run);
+        // Cross-upload T1/T2/T3-by-elimination only applies to the Underworld trapper model; other
+        // role models resolve every member deterministically from one upload, with nothing to infer.
+        if (roleModel == RoleModel.TRAPPER) {
+            inferRemainingTrapperRoleByElimination(run);
+        }
 
         return new UploadRunResponse(run.getId(), created);
     }
@@ -145,7 +151,7 @@ public class UploadRunWriter {
         return Optional.empty();
     }
 
-    private Run createRun(GameMap map, Instant targetUtcStart, PartyDto party, ObjectiveSectionDto objective) {
+    private Run createRun(GameMap map, Instant targetUtcStart, PartyDto party, ObjectiveSectionDto objective, int partySize) {
         List<ObjectiveDto> objectives = objective.objectives() == null ? List.of() : objective.objectives();
         boolean completed = !objectives.isEmpty()
                 && Objects.equals(objectives.get(objectives.size() - 1).status(), 2);
@@ -161,7 +167,8 @@ public class UploadRunWriter {
                 epochSecondsToInstant(objective.utcStart()),
                 party.endReason(),
                 completed,
-                SentinelMapper.map(objective.duration())
+                SentinelMapper.map(objective.duration()),
+                partySize
         );
         run = runRepository.save(run);
 

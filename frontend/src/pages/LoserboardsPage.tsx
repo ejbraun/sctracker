@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
@@ -18,51 +19,59 @@ import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
 import { ROLES } from '../common/roles';
-import { DEFAULT_MAP_ID } from '../common/maps';
+import { DEFAULT_MAP_ID, configHasRoles, defaultPartySize } from '../common/maps';
+import { MapSizePicker } from '../components/MapSizePicker';
 import styles from './LoserboardsPage.module.css';
 
 /**
- * The mirror image of LeaderboardPage — mirrors its time-window filter, but map-agnostic (no
- * :mapId route param) since there's only one supported map, same convention RunHistory already
- * uses for its default map filter.
+ * The mirror image of LeaderboardPage — mirrors its time-window filter and its `/loserboards/:mapId`
+ * map-scoped route (see specs/features/fow-and-party-size.md §6.3).
  */
 export function LoserboardsPage() {
+  const { mapId = DEFAULT_MAP_ID } = useParams<{ mapId: string }>();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
   const from = timeWindowFrom(timeWindow);
   // Same expand-to-top-5 behavior as LeaderboardPage's ranked-run tables — "Slowest Completions"
   // defaults open, mirroring "Fastest To Complete Instance" there.
   const [worstExpanded, setWorstExpanded] = useState(true);
 
+  const partySize = Number(searchParams.get('partySize')) || defaultPartySize(mapId) || 8;
+  const sizeAndWindow = `partySize=${partySize}${from ? `&from=${encodeURIComponent(from)}` : ''}`;
+
   const worstQuery = useQuery({
-    queryKey: ['loserboard', 'worst', timeWindow],
+    queryKey: ['loserboard', 'worst', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<LeaderboardEntry[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/worst?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+      api.get<LeaderboardEntry[]>(`/loserboards/maps/${mapId}/worst?limit=10&${sizeAndWindow}`),
   });
 
   const roleDeathsQuery = useQuery({
-    queryKey: ['loserboard', 'role-deaths', timeWindow],
+    queryKey: ['loserboard', 'role-deaths', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<RoleUserDeaths[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/role-deaths${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+      api.get<RoleUserDeaths[]>(`/loserboards/maps/${mapId}/role-deaths?${sizeAndWindow}`),
+    enabled: configHasRoles(mapId, partySize),
   });
 
   const globalFailsQuery = useQuery({
-    queryKey: ['loserboard', 'global-fails', timeWindow],
+    queryKey: ['loserboard', 'global-fails', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<UserResign[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/global-fails${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+      api.get<UserResign[]>(`/loserboards/maps/${mapId}/global-fails?${sizeAndWindow}`),
   });
 
   const failureReasonsQuery = useQuery({
-    queryKey: ['loserboard', 'role-failure-reasons', timeWindow],
+    queryKey: ['loserboard', 'role-failure-reasons', mapId, partySize, timeWindow],
     queryFn: () =>
       api.get<FailureReasonEntry[]>(
-        `/loserboards/maps/${DEFAULT_MAP_ID}/role-failure-reasons${from ? `?from=${encodeURIComponent(from)}` : ''}`,
+        `/loserboards/maps/${mapId}/role-failure-reasons?${sizeAndWindow}`,
       ),
+    enabled: configHasRoles(mapId, partySize),
   });
 
   const badStreakQuery = useQuery({
-    queryKey: ['loserboard', 'streaks', 'bad', timeWindow],
+    queryKey: ['loserboard', 'streaks', 'bad', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<UserStreak[]>(`/loserboards/maps/${DEFAULT_MAP_ID}/streaks/bad?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+      api.get<UserStreak[]>(`/loserboards/maps/${mapId}/streaks/bad?limit=10&${sizeAndWindow}`),
   });
 
   // Not map-scoped, unlike every other query here — the version check happens before the request
@@ -86,6 +95,15 @@ export function LoserboardsPage() {
   return (
     <div>
       <h1>Loserboards</h1>
+
+      <Panel className={styles.section}>
+        <MapSizePicker
+          mapId={mapId}
+          partySize={partySize}
+          onMapChange={(nextMapId) => navigate(`/loserboards/${nextMapId}?partySize=${defaultPartySize(nextMapId) ?? 8}`)}
+          onSizeChange={(n) => setSearchParams({ partySize: String(n) })}
+        />
+      </Panel>
 
       <Panel className={styles.section}>
         <label>
@@ -145,6 +163,8 @@ export function LoserboardsPage() {
           )}
         </Panel>
 
+        {/* FoW 8-man has no role composition (role_model = NULL) — the by-role boards would be empty. */}
+        {configHasRoles(mapId, partySize) && (
         <Panel className={styles.section}>
           <h2>Deaths By Role</h2>
           {roleDeathsQuery.isLoading && <p>Loading…</p>}
@@ -185,7 +205,9 @@ export function LoserboardsPage() {
               );
             })}
         </Panel>
+        )}
 
+        {configHasRoles(mapId, partySize) && (
         <Panel className={styles.section}>
           <h2>Blamed By Role</h2>
           {failureReasonsQuery.isLoading && <p>Loading…</p>}
@@ -227,6 +249,7 @@ export function LoserboardsPage() {
               );
             })}
         </Panel>
+        )}
 
         <Panel className={styles.section}>
           <h2>Resign Fails By User</h2>
@@ -336,7 +359,7 @@ export function LoserboardsPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <SlowestSectionRow key={name} objectiveName={name} from={from} />
+                  <SlowestSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} />
                 ))}
               </tbody>
             </table>
@@ -350,13 +373,13 @@ export function LoserboardsPage() {
 /** The mirror of LeaderboardPage's GlobalSectionRow(metric="start") — slowest instead of fastest to
  * reach each objective. Not role-gated: unlike "who owns this objective's clear time," everyone in
  * the party experienced the slow pace, so the full participant list is shown. */
-function SlowestSectionRow({ objectiveName, from }: { objectiveName: string; from: string | null }) {
+function SlowestSectionRow({ mapId, partySize, objectiveName, from }: { mapId: string; partySize: number; objectiveName: string; from: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const slowestQuery = useQuery({
-    queryKey: ['loserboard', 'section', 'start', DEFAULT_MAP_ID, objectiveName, from],
+    queryKey: ['loserboard', 'section', 'start', mapId, partySize, objectiveName, from],
     queryFn: () =>
       api.get<SectionEntry[]>(
-        `/loserboards/maps/${DEFAULT_MAP_ID}/sections/${encodeURIComponent(objectiveName)}/start${from ? `?from=${encodeURIComponent(from)}` : ''}`,
+        `/loserboards/maps/${mapId}/sections/${encodeURIComponent(objectiveName)}/start?partySize=${partySize}${from ? `&from=${encodeURIComponent(from)}` : ''}`,
       ),
   });
 

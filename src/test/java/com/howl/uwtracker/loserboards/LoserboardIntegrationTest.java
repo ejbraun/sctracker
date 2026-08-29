@@ -35,7 +35,7 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     private Run seedRun(GameMap map, Instant utcStart, long durationMs, boolean completed, String endReason, RunParticipant... participants) {
-        Run run = runRepository.save(new Run(map, utcStart, 1000L, utcStart, endReason, completed, durationMs));
+        Run run = runRepository.save(new Run(map, utcStart, 1000L, utcStart, endReason, completed, durationMs, 8));
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),

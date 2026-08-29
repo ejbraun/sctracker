@@ -69,9 +69,14 @@ public abstract class AbstractIntegrationTest {
         MYSQL.start();
     }
 
-    /** The one currently-supported map, matching 011-seed-supported-maps.xml. */
+    /** The default supported map, matching 011-seed-supported-maps.xml + its (8, trapper) map_configs row. */
     public static final int UNDERWORLD_MAP_ID = 72;
     public static final String UNDERWORLD_MAP_NAME = "Underworld";
+
+    /** The Fissure of Woe (038-seed-fow.xml) — a 2-person duo, primary_profession role model.
+     *  Not reseeded by cleanDatabase(); a test that needs it calls {@link #seedFissureOfWoe()}. */
+    public static final int FISSURE_OF_WOE_MAP_ID = 34;
+    public static final String FISSURE_OF_WOE_MAP_NAME = "The Fissure of Woe";
 
     // Children first, respecting FK order; role_objectives/people have no dependents left after this.
     // "maps" truncates like everything else, but — unlike everything else — cleanDatabase() below
@@ -88,7 +93,7 @@ public abstract class AbstractIntegrationTest {
     private static final List<String> TABLES_TO_CLEAN = List.of(
             "run_participant_item_drops", "run_failure_reasons", "run_mvp_awards", "run_participants",
             "run_objectives", "runs", "role_objectives", "characters", "machine_keys", "signup_keys",
-            "admins", "people", "maps");
+            "admins", "people", "map_configs", "maps");
 
     @Autowired
     protected MockMvc mockMvc;
@@ -143,6 +148,28 @@ public abstract class AbstractIntegrationTest {
         }
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
         jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", UNDERWORLD_MAP_ID, UNDERWORLD_MAP_NAME);
+        jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 8, 'trapper')", UNDERWORLD_MAP_ID);
+    }
+
+    /**
+     * Seeds The Fissure of Woe (map + its 2-person, primary_profession {@code map_configs} row +
+     * the duo role_objectives rows changeset 039 provides), for tests that exercise the FoW path.
+     * Not part of {@link #cleanDatabase()} since most tests don't need it.
+     */
+    protected void seedFissureOfWoe() {
+        jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", FISSURE_OF_WOE_MAP_ID, FISSURE_OF_WOE_MAP_NAME);
+        jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 2, 'primary_profession')",
+                FISSURE_OF_WOE_MAP_ID);
+        // The 8-man config has no role model (FoW 8-man has no fixed composition).
+        jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 8, NULL)",
+                FISSURE_OF_WOE_MAP_ID);
+        for (String objective : List.of("ToC", "Wailing Lord", "Griffons", "Defend", "Forge", "Menzies",
+                "Restore", "Khobay", "ToS", "Burning Forest", "The Hunt")) {
+            jdbcTemplate.update("INSERT INTO role_objectives (map_id, objective_name, role) VALUES (?, ?, 'Ranger')",
+                    FISSURE_OF_WOE_MAP_ID, objective);
+            jdbcTemplate.update("INSERT INTO role_objectives (map_id, objective_name, role) VALUES (?, ?, 'Derv')",
+                    FISSURE_OF_WOE_MAP_ID, objective);
+        }
     }
 
     /**

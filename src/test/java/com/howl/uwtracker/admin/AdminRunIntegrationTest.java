@@ -33,7 +33,7 @@ class AdminRunIntegrationTest extends AbstractIntegrationTest {
 
     private Run seedRun(GameMap map, RunParticipant... participants) {
         Instant now = Instant.now();
-        Run run = runRepository.save(new Run(map, now, 1000L, now, "victory", true, 10_000L));
+        Run run = runRepository.save(new Run(map, now, 1000L, now, "victory", true, 10_000L, 8));
         runObjectiveRepository.save(new RunObjective(run, 0, "Chamber", 2, 0L, 1000L, 1000L, 0));
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),

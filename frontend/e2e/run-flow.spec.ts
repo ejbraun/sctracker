@@ -74,15 +74,12 @@ test('an uploaded run surfaces in run history (by alias/character lookup), run d
   await expect(page).toHaveURL(new RegExp(`/runs/${runId}$`));
   await page.goBack();
 
-  // Leaderboard: the Dashboard's map picker is a dropdown, not a raw input — but with only one map
-  // ever offered (Underworld, per specs/backend/01's curated set), a real click could never change
-  // its value, so Dashboard auto-advances straight to that map's leaderboard instead of leaving the
-  // user stuck on a picker whose only option is already selected. The "Your Fastest Completions"
-  // panel reflects this account's personal best — which didn't exist until the character was
-  // linked — and, unlike the ranked "Fastest To Complete Instance" board, isn't affected by however
-  // many other runs other e2e executions have piled onto the shared Underworld map (see
-  // FRONTEND_IMPLEMENTATION_PROGRESS.md).
-  await page.getByRole('link', { name: 'Leaderboards' }).click();
+  // Leaderboard: the Dashboard defaults its map picker to Underworld, so "View Leaderboards" goes
+  // straight to that map's board. The "Your Fastest Completions" panel reflects this account's
+  // personal best — which didn't exist until the character was linked — and, unlike the ranked
+  // "Fastest To Complete Instance" board, isn't affected by however many other runs other e2e
+  // executions have piled onto the shared Underworld map (see FRONTEND_IMPLEMENTATION_PROGRESS.md).
+  await page.getByRole('link', { name: 'View Leaderboards' }).click();
   await expect(page).toHaveURL(new RegExp(`/leaderboards/${UNDERWORLD_MAP_ID}$`));
 
   // Global and "Yours" are separate panels — "Your Fastest Completions" heading text is unique on

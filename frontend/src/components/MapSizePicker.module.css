@@ -1,0 +1,24 @@
+.picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Shown in place of the size <select> when the current map supports only one party size — the
+   user still sees which size the page is showing, but there's nothing to pick. */
+.sizeChip {
+  display: inline-block;
+  font-family: var(--gw-font-display);
+  font-size: 0.9rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--gw-border-gold);
+  background: var(--gw-panel-dark);
+  color: var(--gw-text-on-dark);
+}

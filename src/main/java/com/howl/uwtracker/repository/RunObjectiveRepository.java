@@ -23,10 +23,12 @@ public interface RunObjectiveRepository extends JpaRepository<RunObjective, Long
      * so without this filter a quick death can out-rank a genuine clear.
      */
     @Query("select ro from RunObjective ro where ro.run.map.id = :mapId and ro.name = :name " +
+            "and (:partySize is null or ro.run.partySize = :partySize) " +
             "and ro.status = 2 and ro.durationMs is not null " +
             "and (:from is null or ro.run.utcStart >= :from) and (:to is null or ro.run.utcStart <= :to) " +
             "order by ro.durationMs asc")
     List<RunObjective> findFastestForMapObjective(@Param("mapId") Integer mapId, @Param("name") String name,
+                                                   @Param("partySize") Integer partySize,
                                                    @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
 
     /**
@@ -36,10 +38,12 @@ public interface RunObjectiveRepository extends JpaRepository<RunObjective, Long
      * the fastest-clear query above there's no {@code status = 2} filter here.
      */
     @Query("select ro from RunObjective ro where ro.run.map.id = :mapId and ro.name = :name " +
+            "and (:partySize is null or ro.run.partySize = :partySize) " +
             "and ro.startMs is not null " +
             "and (:from is null or ro.run.utcStart >= :from) and (:to is null or ro.run.utcStart <= :to) " +
             "order by ro.startMs asc")
     List<RunObjective> findFastestStartForMapObjective(@Param("mapId") Integer mapId, @Param("name") String name,
+                                                         @Param("partySize") Integer partySize,
                                                          @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
 
     /**
@@ -52,17 +56,21 @@ public interface RunObjectiveRepository extends JpaRepository<RunObjective, Long
      * genuine finish.
      */
     @Query("select ro from RunObjective ro where ro.run.map.id = :mapId and ro.name = :name " +
+            "and (:partySize is null or ro.run.partySize = :partySize) " +
             "and ro.status = 2 and ro.doneMs is not null " +
             "and (:from is null or ro.run.utcStart >= :from) and (:to is null or ro.run.utcStart <= :to) " +
             "order by ro.doneMs asc")
     List<RunObjective> findFastestDoneForMapObjective(@Param("mapId") Integer mapId, @Param("name") String name,
+                                                        @Param("partySize") Integer partySize,
                                                         @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
 
     /** The mirror of {@link #findFastestStartForMapObjective} — slowest to reach the objective, for Loserboards. */
     @Query("select ro from RunObjective ro where ro.run.map.id = :mapId and ro.name = :name " +
+            "and (:partySize is null or ro.run.partySize = :partySize) " +
             "and ro.startMs is not null " +
             "and (:from is null or ro.run.utcStart >= :from) and (:to is null or ro.run.utcStart <= :to) " +
             "order by ro.startMs desc")
     List<RunObjective> findSlowestStartForMapObjective(@Param("mapId") Integer mapId, @Param("name") String name,
+                                                         @Param("partySize") Integer partySize,
                                                          @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
 }

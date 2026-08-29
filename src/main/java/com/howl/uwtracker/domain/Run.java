@@ -51,6 +51,15 @@ public class Run {
     @Column(name = "duration_ms")
     private Long durationMs;
 
+    /**
+     * Roster size this run was uploaded with ({@code party_members.length}), frozen at creation like
+     * every other run-level field. 8 for an Underworld run, 2 for a Fissure of Woe duo — and a
+     * filterable dimension alongside map on every leaderboard/loserboard/history query. See
+     * specs/features/fow-and-party-size.md.
+     */
+    @Column(name = "party_size", nullable = false, columnDefinition = "TINYINT UNSIGNED")
+    private Integer partySize;
+
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 
@@ -58,7 +67,7 @@ public class Run {
     }
 
     public Run(GameMap map, Instant utcStart, Long instanceStartMs, Instant objectiveStart,
-               String endReason, boolean completed, Long durationMs) {
+               String endReason, boolean completed, Long durationMs, Integer partySize) {
         this.map = map;
         this.utcStart = utcStart;
         this.instanceStartMs = instanceStartMs;
@@ -66,6 +75,7 @@ public class Run {
         this.endReason = endReason;
         this.completed = completed;
         this.durationMs = durationMs;
+        this.partySize = partySize;
     }
 
     public Long getId() {
@@ -98,6 +108,10 @@ public class Run {
 
     public Long getDurationMs() {
         return durationMs;
+    }
+
+    public Integer getPartySize() {
+        return partySize;
     }
 
     public Instant getCreatedAt() {

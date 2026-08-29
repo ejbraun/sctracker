@@ -48,7 +48,7 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
     }
 
     private Run seedRun(GameMap map, Instant utcStart, long durationMs, boolean completed, RunParticipant... participants) {
-        Run run = runRepository.save(new Run(map, utcStart, 1000L, utcStart, "victory", completed, durationMs));
+        Run run = runRepository.save(new Run(map, utcStart, 1000L, utcStart, "victory", completed, durationMs, 8));
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
                     blueprint.getPrimaryProfession(), blueprint.getSecondaryProfession(), blueprint.getRole(),

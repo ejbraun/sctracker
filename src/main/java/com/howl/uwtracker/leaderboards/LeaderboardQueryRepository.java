@@ -27,15 +27,19 @@ public class LeaderboardQueryRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    /** Full-run personal best, completed runs only, aggregated across every character the person has linked. */
-    public Long findPersonalOverallBestMs(Long personId, Integer mapId) {
+    /**
+     * Full-run personal best, completed runs only, aggregated across every character the person has
+     * linked. {@code partySize} null = every size for the map; non-null = that size only (a person's
+     * FoW-duo PB and FoW-8-man PB are distinct achievements — see specs/features/fow-and-party-size.md).
+     */
+    public Long findPersonalOverallBestMs(Long personId, Integer mapId, Integer partySize) {
         return jdbcTemplate.query(
                 "SELECT MIN(r.duration_ms) FROM runs r " +
                         "JOIN run_participants rp ON rp.run_id = r.id " +
                         "JOIN characters c ON c.id = rp.character_id " +
-                        "WHERE c.person_id = ? AND r.map_id = ? AND r.completed = TRUE",
+                        "WHERE c.person_id = ? AND r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND r.completed = TRUE",
                 LeaderboardQueryRepository::readNullableLong,
-                personId, mapId);
+                personId, mapId, partySize, partySize);
     }
 
     /**
@@ -49,19 +53,50 @@ public class LeaderboardQueryRepository {
      * {@code status = 2} (Completed) excludes Failed objectives — GWToolboxdll still fills in a real
      * {@code duration_ms} for those, so without this filter a quick death can out-rank a real clear.
      */
-    public PersonalSectionBestRunRef findPersonalSectionBestRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+    public PersonalSectionBestRunRef findPersonalSectionBestRun(Long personId, Integer mapId, Integer partySize, String objectiveName, Instant from, Instant to) {
         List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
                 "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
                         "JOIN run_participants rp ON rp.run_id = ro.run_id " +
                         "JOIN characters c ON c.id = rp.character_id " +
                         "JOIN role_objectives rol ON rol.map_id = ? AND rol.objective_name = ro.name AND rol.role = rp.role " +
                         "WHERE c.person_id = ? AND ro.name = ? AND ro.status = 2 AND ro.duration_ms IS NOT NULL " +
-                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
+                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? AND (? IS NULL OR party_size = ?) " +
                         "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
                         "ORDER BY ro.duration_ms ASC LIMIT 1",
                 (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
                         readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
-                mapId, personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, personId, objectiveName, mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /**
+     * The un-gated variant of {@link #findPersonalSectionBestRun} for a {@code (map, party_size)}
+     * config with no role model (FoW 8-man) — drops the {@code role_objectives} join entirely, so
+     * the PB is simply the person's own fastest clear of this objective at this party size. The
+     * {@code party_size} filter is not optional here: it's what keeps a person's UW-8 and FoW-8 rows
+     * (or FoW-2 and FoW-8) from bleeding together on a role-less map.
+     */
+    public PersonalSectionBestRunRef findPersonalSectionBestRunUngated(Long personId, Integer mapId, Integer partySize,
+                                                                        String objectiveName, Instant from, Instant to, String metric) {
+        String orderColumn = switch (metric) {
+            case "start" -> "ro.start_ms";
+            case "finish" -> "ro.done_ms";
+            default -> "ro.duration_ms";
+        };
+        // status = 2 (Completed) filter for duration/finish, same reason as the gated query; "start"
+        // has no such filter since start_ms is set whether or not the objective later completed.
+        String reachedFilter = metric.equals("start") ? "ro.start_ms IS NOT NULL" : "ro.status = 2 AND " + orderColumn + " IS NOT NULL";
+        List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
+                "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
+                        "JOIN run_participants rp ON rp.run_id = ro.run_id " +
+                        "JOIN characters c ON c.id = rp.character_id " +
+                        "WHERE c.person_id = ? AND ro.name = ? AND " + reachedFilter + " " +
+                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? AND party_size = ? " +
+                        "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
+                        "ORDER BY " + orderColumn + " ASC LIMIT 1",
+                (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
+                        readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
+                personId, objectiveName, mapId, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -72,16 +107,16 @@ public class LeaderboardQueryRepository {
      * via JPA, since that touches lazy associations raw JDBC can't map onto directly. {@code from}/
      * {@code to} are optional (null means unbounded) — the time-window filter.
      */
-    public List<PersonalBestRunRef> findPersonalOverallTop(Long personId, Integer mapId, int limit, Instant from, Instant to) {
+    public List<PersonalBestRunRef> findPersonalOverallTop(Long personId, Integer mapId, Integer partySize, int limit, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT DISTINCT r.id, r.duration_ms, r.utc_start FROM runs r " +
                         "JOIN run_participants rp ON rp.run_id = r.id " +
                         "JOIN characters c ON c.id = rp.character_id " +
-                        "WHERE c.person_id = ? AND r.map_id = ? AND r.completed = TRUE " +
+                        "WHERE c.person_id = ? AND r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND r.completed = TRUE " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "ORDER BY r.duration_ms ASC LIMIT ?",
                 (rs, rowNum) -> new PersonalBestRunRef(rs.getLong("id"), rs.getLong("duration_ms"), rs.getTimestamp("utc_start").toInstant()),
-                personId, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
+                personId, mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
     }
 
     /**
@@ -90,19 +125,19 @@ public class LeaderboardQueryRepository {
      * objective, just ordered by a different column ({@code done_ms} instead of {@code duration_ms}).
      * Same {@code status = 2} filter and reasoning as that method.
      */
-    public PersonalSectionBestRunRef findPersonalSectionFinishRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+    public PersonalSectionBestRunRef findPersonalSectionFinishRun(Long personId, Integer mapId, Integer partySize, String objectiveName, Instant from, Instant to) {
         List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
                 "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
                         "JOIN run_participants rp ON rp.run_id = ro.run_id " +
                         "JOIN characters c ON c.id = rp.character_id " +
                         "JOIN role_objectives rol ON rol.map_id = ? AND rol.objective_name = ro.name AND rol.role = rp.role " +
                         "WHERE c.person_id = ? AND ro.name = ? AND ro.status = 2 AND ro.done_ms IS NOT NULL " +
-                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
+                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? AND (? IS NULL OR party_size = ?) " +
                         "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
                         "ORDER BY ro.done_ms ASC LIMIT 1",
                 (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
                         readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
-                mapId, personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, personId, objectiveName, mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -113,19 +148,19 @@ public class LeaderboardQueryRepository {
      * the run ref; the full gated party for that run is assembled separately via JPA, same as
      * {@link LeaderboardService#sectionStart}.
      */
-    public PersonalSectionBestRunRef findPersonalSectionFastestStartRun(Long personId, Integer mapId, String objectiveName, Instant from, Instant to) {
+    public PersonalSectionBestRunRef findPersonalSectionFastestStartRun(Long personId, Integer mapId, Integer partySize, String objectiveName, Instant from, Instant to) {
         List<PersonalSectionBestRunRef> rows = jdbcTemplate.query(
                 "SELECT ro.run_id, ro.duration_ms, ro.start_ms, ro.done_ms FROM run_objectives ro " +
                         "JOIN run_participants rp ON rp.run_id = ro.run_id " +
                         "JOIN characters c ON c.id = rp.character_id " +
                         "JOIN role_objectives rol ON rol.map_id = ? AND rol.objective_name = ro.name AND rol.role = rp.role " +
                         "WHERE c.person_id = ? AND ro.name = ? AND ro.start_ms IS NOT NULL " +
-                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? " +
+                        "AND ro.run_id IN (SELECT id FROM runs WHERE map_id = ? AND (? IS NULL OR party_size = ?) " +
                         "AND (? IS NULL OR utc_start >= ?) AND (? IS NULL OR utc_start <= ?)) " +
                         "ORDER BY ro.start_ms ASC LIMIT 1",
                 (rs, rowNum) -> new PersonalSectionBestRunRef(rs.getLong("run_id"),
                         readNullableColumnLong(rs, "duration_ms"), readNullableColumnLong(rs, "start_ms"), readNullableColumnLong(rs, "done_ms")),
-                mapId, personId, objectiveName, mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, personId, objectiveName, mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -139,7 +174,7 @@ public class LeaderboardQueryRepository {
      * the person_id-only joins above. A user with no completed runs has no {@code is_hit = 1} island
      * and is simply absent from the result, not a zero row.
      */
-    public List<UserStreakResponse> findLongestCompletedStreak(Integer mapId, int limit, Instant from, Instant to) {
+    public List<UserStreakResponse> findLongestCompletedStreak(Integer mapId, Integer partySize, int limit, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "WITH person_runs AS (" +
                         "    SELECT DISTINCT COALESCE(p.alias, rp.raw_name) AS user, r.id AS run_id, r.utc_start, " +
@@ -148,7 +183,7 @@ public class LeaderboardQueryRepository {
                         "    JOIN runs r ON r.id = rp.run_id " +
                         "    LEFT JOIN characters c ON c.id = rp.character_id " +
                         "    LEFT JOIN people p ON p.id = c.person_id " +
-                        "    WHERE r.map_id = ? " +
+                        "    WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) " +
                         "      AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?)" +
                         "), numbered AS (" +
                         "    SELECT user, run_id, utc_start, is_hit, " +
@@ -170,7 +205,7 @@ public class LeaderboardQueryRepository {
                         "ORDER BY streak_len DESC, streak_end DESC LIMIT ?",
                 (rs, rowNum) -> new UserStreakResponse(rs.getString("user"), rs.getLong("streak_len"),
                         rs.getTimestamp("streak_start").toInstant(), rs.getTimestamp("streak_end").toInstant()),
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
     }
 
     /**
@@ -185,7 +220,7 @@ public class LeaderboardQueryRepository {
      * per-item sub-sections directly from that grouping rather than needing a separately-maintained
      * list of tracked items.
      */
-    public List<ItemDropLeaderResponse> findLuckiestPlayers(Integer mapId, Instant from, Instant to) {
+    public List<ItemDropLeaderResponse> findLuckiestPlayers(Integer mapId, Integer partySize, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "WITH user_runs AS (" +
                         "    SELECT DISTINCT COALESCE(p.alias, rp.raw_name) AS user, rp.run_id " +
@@ -193,7 +228,7 @@ public class LeaderboardQueryRepository {
                         "    JOIN runs r ON r.id = rp.run_id " +
                         "    LEFT JOIN characters c ON c.id = rp.character_id " +
                         "    LEFT JOIN people p ON p.id = c.person_id " +
-                        "    WHERE r.map_id = ? " +
+                        "    WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) " +
                         "    AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?)" +
                         "), run_counts AS (" +
                         "    SELECT user, COUNT(*) AS run_count FROM user_runs GROUP BY user" +
@@ -206,7 +241,7 @@ public class LeaderboardQueryRepository {
                         "    JOIN runs r ON r.id = rp.run_id " +
                         "    LEFT JOIN characters c ON c.id = rp.character_id " +
                         "    LEFT JOIN people p ON p.id = c.person_id " +
-                        "    WHERE r.map_id = ? " +
+                        "    WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) " +
                         "    AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "    GROUP BY ti.id, ti.name, COALESCE(p.alias, rp.raw_name)" +
                         ") " +
@@ -217,8 +252,8 @@ public class LeaderboardQueryRepository {
                         "ORDER BY d.item_id, avg_per_run DESC",
                 (rs, rowNum) -> new ItemDropLeaderResponse(rs.getInt("item_id"), rs.getString("item_name"),
                         rs.getString("user"), rs.getLong("total_count"), rs.getLong("run_count"), rs.getDouble("avg_per_run")),
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to),
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to),
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /**
@@ -230,7 +265,7 @@ public class LeaderboardQueryRepository {
      * frequently relative to their total runs in that role. Ordered by awards-per-run within each
      * role, most-credited first.
      */
-    public List<RoleMvpAwardResponse> findRoleMvpAwards(Integer mapId, Instant from, Instant to) {
+    public List<RoleMvpAwardResponse> findRoleMvpAwards(Integer mapId, Integer partySize, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT rp.role AS role, COALESCE(p.alias, rp.raw_name) AS user, " +
                         "COUNT(*) AS total_runs, SUM(CASE WHEN rma.run_participant_id IS NOT NULL THEN 1 ELSE 0 END) AS total_awards " +
@@ -239,7 +274,7 @@ public class LeaderboardQueryRepository {
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
                         "LEFT JOIN run_mvp_awards rma ON rma.run_participant_id = rp.id " +
-                        "WHERE r.map_id = ? AND rp.role IS NOT NULL " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND rp.role IS NOT NULL " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "GROUP BY rp.role, COALESCE(p.alias, rp.raw_name) " +
                         "ORDER BY rp.role, (total_awards / total_runs) DESC",
@@ -249,7 +284,7 @@ public class LeaderboardQueryRepository {
                     double avgAwards = totalRuns == 0 ? 0.0 : ((double) awards) / totalRuns;
                     return new RoleMvpAwardResponse(rs.getString("role"), rs.getString("user"), totalRuns, awards, avgAwards);
                 },
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /**
@@ -260,7 +295,7 @@ public class LeaderboardQueryRepository {
      * that run is excluded from both the sum and {@code runs_gambled}, not counted as a 0). Same
      * {@code COALESCE(p.alias, rp.raw_name)} identity as the other per-user boards above.
      */
-    public List<GamblingStoneLeaderResponse> findGamblersAnonymous(Integer mapId, Instant from, Instant to) {
+    public List<GamblingStoneLeaderResponse> findGamblersAnonymous(Integer mapId, Integer partySize, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT COALESCE(p.alias, rp.raw_name) AS user, COUNT(*) AS runs_gambled, " +
                         "SUM(rp.gambling_stone_net) AS net_stones " +
@@ -268,12 +303,12 @@ public class LeaderboardQueryRepository {
                         "JOIN runs r ON r.id = rp.run_id " +
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
-                        "WHERE r.map_id = ? AND r.completed = TRUE AND rp.gambling_stone_net IS NOT NULL " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND r.completed = TRUE AND rp.gambling_stone_net IS NOT NULL " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "GROUP BY COALESCE(p.alias, rp.raw_name) " +
                         "ORDER BY net_stones DESC",
                 (rs, rowNum) -> new GamblingStoneLeaderResponse(rs.getString("user"), rs.getLong("runs_gambled"), rs.getLong("net_stones")),
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /** {@code java.time.Instant} isn't one of JDBC 4.2's mandated {@code setObject} conversions; convert explicitly. */

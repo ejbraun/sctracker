@@ -27,6 +27,13 @@ public final class RunSpecifications {
         return (root, query, cb) -> cb.equal(root.get("map").get("id"), mapId);
     }
 
+    public static Specification<Run> hasPartySize(Integer partySize) {
+        if (partySize == null) {
+            return null;
+        }
+        return (root, query, cb) -> cb.equal(root.get("partySize"), partySize);
+    }
+
     public static Specification<Run> isCompleted(Boolean completed) {
         if (completed == null) {
             return null;
