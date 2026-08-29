@@ -192,14 +192,15 @@ export function LoserboardsPage() {
           {failureReasonsQuery.data &&
             ROLES.map((role, index) => {
               // Already sorted fails/run-desc by the backend; filtering preserves that relative order.
-              const rows = failureReasonsQuery.data.filter((r) => r.role === role);
+              // Only users actually blamed at least once — a zero-blame row adds no signal here.
+              const rows = failureReasonsQuery.data.filter((r) => r.role === role && r.fails > 0);
               return (
                 <div key={role}>
                   <h3 className={index === 0 ? undefined : styles.subsection}>
                     <RoleBadge role={role} />
                   </h3>
                   {rows.length === 0 ? (
-                    <p className={styles.emptyState}>No runs recorded for this role yet.</p>
+                    <p className={styles.emptyState}>No blames recorded for this role yet.</p>
                   ) : (
                     <table>
                       <thead>
