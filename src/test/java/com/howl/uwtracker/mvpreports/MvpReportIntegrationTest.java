@@ -40,7 +40,7 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private RunMvpAwardRepository runMvpAwardRepository;
 
-    private static final String CURRENT_PLUGIN_VERSION = "9";
+    private static final String CURRENT_PLUGIN_VERSION = "10";
     private static final String[] FULL_PARTY_ROLES = {"T1", "T2", "T3", "T4", "LT", "Spiker", "SoS", "Emo"};
 
     private GameMap map() {

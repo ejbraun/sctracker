@@ -51,7 +51,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     // Matches src/main/resources/static/SCTracker.version.json's "version" — must satisfy
     // PluginVersionMetadataLoader.requireCurrentVersion or every authenticated request here gets a
     // 426 before it even reaches the logic under test. Bump alongside that file if it ever changes.
-    private static final String CURRENT_PLUGIN_VERSION = "9";
+    private static final String CURRENT_PLUGIN_VERSION = "10";
 
     // 5, more than minRegisteredFor(8)'s 4: resendWithinWindowButDifferentRosterCreatesASecondRunInstead
     // swaps out one of these names ("T1") for an unregistered one to build a different roster, so
