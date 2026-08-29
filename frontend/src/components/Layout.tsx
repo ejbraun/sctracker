@@ -46,7 +46,7 @@ export function Layout() {
           </button>
         </div>
         <div className={`${styles.links} ${menuOpen ? styles.linksOpen : ''}`}>
-          <Link className={styles.navLink} to="/" onClick={closeMenu}>
+          <Link className={styles.navLink} to={`/leaderboards/${DEFAULT_MAP_ID}`} onClick={closeMenu}>
             Leaderboards
           </Link>
           <Link className={styles.navLink} to={`/loserboards/${DEFAULT_MAP_ID}`} onClick={closeMenu}>
