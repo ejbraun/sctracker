@@ -47,7 +47,10 @@ export function Dashboard() {
           <MapSizePicker
             mapId={mapId}
             partySize={partySize}
-            onMapChange={setMapId}
+            onMapChange={(m, size) => {
+              setMapId(m);
+              setPartySize(size);
+            }}
             onSizeChange={setPartySize}
           />
         </div>

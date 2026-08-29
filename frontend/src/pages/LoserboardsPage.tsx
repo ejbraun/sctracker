@@ -99,7 +99,7 @@ export function LoserboardsPage() {
         <MapSizePicker
           mapId={mapId}
           partySize={partySize}
-          onMapChange={(nextMapId) => navigate(`/loserboards/${nextMapId}?partySize=${defaultPartySize(nextMapId) ?? 8}`)}
+          onMapChange={(nextMapId, size) => navigate(`/loserboards/${nextMapId}?partySize=${size}`)}
           onSizeChange={(n) => setSearchParams({ partySize: String(n) })}
         />
       </Panel>

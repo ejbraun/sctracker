@@ -113,7 +113,7 @@ export function LeaderboardPage() {
         <MapSizePicker
           mapId={mapId}
           partySize={partySize}
-          onMapChange={(nextMapId) => navigate(`/leaderboards/${nextMapId}?partySize=${defaultPartySize(nextMapId) ?? 8}`)}
+          onMapChange={(nextMapId, size) => navigate(`/leaderboards/${nextMapId}?partySize=${size}`)}
           onSizeChange={(n) => setSearchParams({ partySize: String(n) })}
         />
       </Panel>

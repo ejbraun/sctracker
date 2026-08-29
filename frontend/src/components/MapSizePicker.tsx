@@ -5,7 +5,13 @@ interface Props {
   mapId: string;
   /** Currently-selected party size. Defaults to the map's default when omitted. */
   partySize?: number;
-  onMapChange: (mapId: string) => void;
+  /**
+   * Called when the user picks a different map. Receives the new map id AND that map's default
+   * party size, so the parent can apply both in one update — changing the map always snaps the
+   * size to the new map's default. (A separate {@link Props.onSizeChange} afterwards would race a
+   * navigation-based {@code onMapChange}.)
+   */
+  onMapChange: (mapId: string, defaultPartySize: number) => void;
   /**
    * Called when the user picks a different party size. When supplied, the size always renders as a
    * real <select> (with one option for a single-size map like the Underworld) so it looks and
@@ -26,14 +32,7 @@ export function MapSizePicker({ mapId, partySize, onMapChange, onSizeChange }: P
   const sizeIsSelectable = onSizeChange != null;
 
   function handleMapChange(nextMapId: string) {
-    onMapChange(nextMapId);
-    // Keep the selected size consistent with the new map — snap to its default.
-    if (onSizeChange) {
-      const nextDefault = defaultPartySize(nextMapId);
-      if (nextDefault != null) {
-        onSizeChange(nextDefault);
-      }
-    }
+    onMapChange(nextMapId, defaultPartySize(nextMapId) ?? mapById(nextMapId)?.partySizes[0] ?? 8);
   }
 
   return (
