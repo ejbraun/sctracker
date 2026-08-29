@@ -15,7 +15,6 @@ export function Dashboard() {
 
   return (
     <div>
-      <h1>gwsctracker</h1>
       <Panel className={styles.mapPicker}>
         <MapSizePicker
           mapId={mapId}

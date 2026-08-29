@@ -32,7 +32,9 @@ export function Layout() {
     <div className={styles.shell}>
       <nav className={styles.nav}>
         <div className={styles.navBar}>
-          <span className={styles.brand}>gwsctracker</span>
+          <Link className={styles.brand} to="/" onClick={closeMenu}>
+            gwsctracker
+          </Link>
           <button
             type="button"
             className={styles.menuToggle}

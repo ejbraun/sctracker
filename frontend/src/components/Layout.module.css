@@ -26,6 +26,7 @@
   font-size: 1.25rem;
   color: var(--gw-border-gold-bright);
   margin-right: 0.5rem;
+  text-decoration: none;
 }
 
 /* Hidden on desktop — the links are always shown there. Revealed as the hamburger below the

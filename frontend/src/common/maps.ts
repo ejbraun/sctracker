@@ -43,8 +43,8 @@ export const mapById = (id: string): MapChoice | undefined => MAPS.find((m) => m
 
 export const defaultPartySize = (mapId: string): number | undefined => mapById(mapId)?.partySizes[0];
 
-/** "Duo" for a 2-person party, otherwise "N-man". */
-export const sizeLabel = (n: number): string => (n <= 2 ? 'Duo' : `${n}-man`);
+/** "Duo" for a 2-person party, otherwise "N-Man". */
+export const sizeLabel = (n: number): string => (n <= 2 ? 'Duo' : `${n}-Man`);
 
 // Gambling-stone / ecto data is only collected on the Underworld (the post-Dhuum gambling ritual),
 // so the "Gamblers Anonymous" / "Luckiest Players" panels are hidden for other maps rather than
