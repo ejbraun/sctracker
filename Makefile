@@ -89,8 +89,12 @@ test-frontend: backend-up
 # Builds the multi-stage Dockerfile (frontend + backend) via Cloud Build and pushes it to Artifact
 # Registry, tagged :latest. Requires gcloud auth login / an active gcloud config pointed at
 # $(GCP_PROJECT) — see specs/backend/07-deployment.md.
+# --suppress-logs: don't stream the build log (it still waits and fails on a bad build). Cloud
+# Build writes to a Google-managed default logs bucket that a non-owner identity — e.g. the CI
+# github-deployer SA — can't read, and without this gcloud exits non-zero on that alone. The build
+# URL is printed; open it for logs.
 gcloud-build:
-	gcloud builds submit --tag $(IMAGE) .
+	gcloud builds submit --tag $(IMAGE) --suppress-logs .
 
 # Points the Cloud Run service at whatever image :latest currently resolves to and rolls out a new
 # revision. Env vars/secrets/Cloud SQL connection etc. aren't specified here — gcloud carries over
