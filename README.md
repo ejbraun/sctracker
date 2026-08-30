@@ -124,6 +124,14 @@ Cloud Run connects to Cloud SQL over a private Unix socket via
 lives in Secret Manager, injected as an env var at deploy time; nothing sensitive is baked into the
 image or committed to this repo.
 
+**CI/CD**: every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) —
+`./mvnw test` + the frontend `npm run build` as a gate, then `make deploy` (Cloud Build → Artifact
+Registry → `gcloud run deploy`) authenticated as the `github-deployer` service account via the
+`GCP_DEPLOY_KEY` repo secret. `gcloud run deploy` carries over the live service's
+secrets/env/Cloud SQL/instance config, so the pipeline never has to restate them.
+
+`make deploy` from a laptop stays as the manual / break-glass path (needs `gcloud auth login`):
+
 ```
 gcloud builds submit --tag us-central1-docker.pkg.dev/PROJECT/uwtracker-repo/uwtracker:latest .
 gcloud run deploy uwtracker --image=... --region=us-central1

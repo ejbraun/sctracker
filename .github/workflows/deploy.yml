@@ -1,0 +1,63 @@
+name: Deploy
+
+# Push to main -> run the test gate, then `make deploy` (Cloud Build builds the multi-stage
+# image -> Artifact Registry -> gcloud run deploy). One image / one Cloud Run service serves
+# both the API and the built SPA. Bare `gcloud run deploy` carries over the live service's
+# secrets / env vars / Cloud SQL / instance-count config (see the Makefile comment).
+on:
+  push:
+    branches: [main]
+    # Doc-only pushes produce a byte-identical image (.dockerignore strips *.md) — skip the run.
+    paths-ignore: ['**.md', 'specs/**', '.idea/**', '.claude/**']
+
+# Serialize: a newer push queues behind the running deploy; nothing is cancelled mid-rollout.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      # Testcontainers spins up its own mysql:8.4 — Docker is available on ubuntu-latest.
+      # chmod because the mvnw exec bit isn't guaranteed to survive the repo's Windows checkouts.
+      - run: chmod +x ./mvnw && ./mvnw test
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # `npm run build` = tsc (strict, noUnusedLocals/Params) && vite build — a fast typecheck
+      # gate that fails in ~1 min instead of minutes into a Cloud Build.
+      - run: npm run build
+
+  deploy:
+    needs: [backend-test, frontend-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_DEPLOY_KEY }}'
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: make deploy
+        env:
+          CLOUDSDK_CORE_PROJECT: sc-tracker-504501
+          CLOUDSDK_CORE_DISABLE_PROMPTS: '1'

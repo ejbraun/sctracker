@@ -1,0 +1,20 @@
+# `gcloud builds submit` (make deploy) uploads this directory as the Cloud Build source. It does
+# NOT honor .dockerignore, and with no .gcloudignore it only derives ignores from the top-level
+# .gitignore (missing frontend/node_modules, uploading .git / specs / docs). Keep the upload lean.
+#
+# Everything the multi-stage Dockerfile needs must stay OUT of this list: Dockerfile, .mvn/, mvnw,
+# pom.xml, src/, frontend/package*.json, and the frontend/ sources.
+.git/
+.github/
+.idea/
+.claude/
+target/
+lib/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+specs/
+*.md
+.backend.pid
+.backend.log
