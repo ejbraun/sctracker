@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -39,15 +40,28 @@ public class MvpPersister {
     }
 
     /**
-     * Every ballot here was already validated against the run's roster and single-select rule at
-     * submit time (see {@code MvpReportService.submit}), so this only tallies and writes — no
-     * re-validation. Ties for the most common exact ballot are broken by picking uniformly at random
-     * among the tied ballots. {@code awarded_by_person_id} is left null on the persisted row: this is
-     * a collective outcome of the vote, not any single reporter's own pick.
+     * Tallies the closed window's ballots and writes the winner. Ballots are no longer roster-checked
+     * at submit time (see {@code MvpReportService.submit}), so that happens here instead: a ballot
+     * crediting a role that isn't in the run's roster <em>now</em> — with every party member's
+     * upload in and {@code RoleDerivation} done — is dropped before the tally. "Nobody" and the
+     * legitimately-empty ballot carry no role and always count. If nothing tallyable survives, any
+     * existing award is left untouched (no delete). Ties for the most common surviving ballot are
+     * broken by picking uniformly at random among them. {@code awarded_by_person_id} is left null on
+     * the persisted row: this is a collective outcome of the vote, not any single reporter's pick.
      */
     @Transactional
     public void persistMajority(Long runId, Collection<MvpBallot> ballots) {
-        Map<MvpBallot, Long> counts = ballots.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
+        Set<String> rolesInRun = runParticipantRepository.findDistinctRolesByRunId(runId);
+        List<MvpBallot> tallied = ballots.stream()
+                .filter(b -> b.nobody() || b.roles().isEmpty() || rolesInRun.containsAll(b.roles()))
+                .toList();
+        if (tallied.isEmpty()) {
+            log.info("mvp voting window closed for run {}: all {} ballot(s) named a role not in the run; "
+                    + "leaving any existing award as-is", runId, ballots.size());
+            return;
+        }
+
+        Map<MvpBallot, Long> counts = tallied.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
         long maxVotes = counts.values().stream().mapToLong(Long::longValue).max().orElseThrow();
         List<MvpBallot> winners = counts.entrySet().stream()
                 .filter(e -> e.getValue() == maxVotes)
@@ -55,8 +69,9 @@ public class MvpPersister {
                 .toList();
         MvpBallot winner = winners.size() == 1 ? winners.get(0) : winners.get(ThreadLocalRandom.current().nextInt(winners.size()));
 
-        log.info("persisting majority mvp award for run {}: {} vote(s) for {} ({} distinct ballot(s) cast, {} tied for first)",
-                runId, maxVotes, winner, counts.size(), winners.size());
+        log.info("persisting majority mvp award for run {}: {} vote(s) for {} ({} ballot(s) tallied, {} dropped for an "
+                        + "off-roster role, {} distinct, {} tied for first)",
+                runId, maxVotes, winner, tallied.size(), ballots.size() - tallied.size(), counts.size(), winners.size());
 
         Run run = runRepository.getReferenceById(runId);
         runMvpAwardRepository.deleteByRun_Id(runId);

@@ -3,7 +3,6 @@ package com.howl.uwtracker.mvpreports;
 import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.mvpreports.dto.ReportRunMvpRequest;
-import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
 import com.howl.uwtracker.web.ApiException;
 import com.howl.uwtracker.web.MachineKeyAuthenticationService;
@@ -25,30 +24,39 @@ public class MvpReportService {
     // Sent as a plain entry in roles[], not a separate field — mirrors failurereports' NOBODY_ROLE.
     private static final String NOBODY_ROLE = "Nobody";
 
-    // The client's radio-button group already enforces this, but that's a UI convention, not a
-    // guarantee about what actually reaches this endpoint — enforced server-side same as everything
-    // else here (run-roster membership, permission).
+    // The client's radio-button group already enforces this. A payload that breaks it is normalized
+    // (first role kept, rest dropped) rather than rejected — this endpoint never 4xx's a well-formed
+    // POST back to the plugin over vote content; see the class-level note below.
     private static final int MAX_SELECTED_ROLES = 1;
 
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final RunRepository runRepository;
-    private final RunParticipantRepository runParticipantRepository;
     private final MvpVotingRegistry votingRegistry;
 
     public MvpReportService(MachineKeyAuthenticationService machineKeyAuthenticationService, RunRepository runRepository,
-                             RunParticipantRepository runParticipantRepository, MvpVotingRegistry votingRegistry) {
+                             MvpVotingRegistry votingRegistry) {
         this.machineKeyAuthenticationService = machineKeyAuthenticationService;
         this.runRepository = runRepository;
-        this.runParticipantRepository = runParticipantRepository;
         this.votingRegistry = votingRegistry;
     }
 
     /**
-     * Validates and casts one vote into {@link MvpVotingRegistry} — same shape as
-     * {@code FailureReportService.submit}, minus the failure endpoint's own can-I-do-this
-     * pre-check (there's no {@code GET /can-report-run-mvp}; MVP reuses
-     * {@code Person.isCanReportFailures()} directly, same permission as failure reports). Read-only:
-     * the only repository work here is validating the request against the run's existing roster.
+     * Validates and casts one vote into {@link MvpVotingRegistry}. The plugin fires this as a
+     * deferred submit once its own {@code /upload-run} confirms and hands back a {@code run_id}
+     * (see SCTracker's {@code FireVoteSubmit}) — by design it can't know the server-side role
+     * roster at that point, so nothing here rejects a vote on run content. Every anomaly short of
+     * an auth failure is normalized or dropped with a WARN and still returns 204:
+     * <ul>
+     *   <li>missing / unknown {@code runId} — dropped (the plugin never does this; it only submits
+     *       with a {@code run_id} the server itself just issued).</li>
+     *   <li>more than one role — first kept, rest dropped.</li>
+     *   <li>a role not (yet) in the run's roster — accepted as-is; {@link MvpPersister} filters it
+     *       at window close against the by-then-complete roster, so a "T1" vote cast before the
+     *       other trappers' uploads let {@code RoleDerivation} resolve T1 still counts once it does.</li>
+     *   <li>a closed voting window — dropped in {@link MvpVotingRegistry#submitVote}.</li>
+     * </ul>
+     * Only a bad/missing machine key (401) or a reporter without permission (403) still fails the
+     * request. Read-only: the only repository work here is loading the run to open its window.
      */
     @Transactional(readOnly = true)
     public void submit(String rawMachineKey, Integer pluginVersion, ReportRunMvpRequest request) {
@@ -59,35 +67,28 @@ public class MvpReportService {
         }
 
         if (request.runId() == null) {
-            log.warn("rejecting mvp report: missing runId (personId={}, roles={})", reporter.getId(), request.roles());
-            throw new ApiException(HttpStatus.BAD_REQUEST, "runId is required");
+            log.warn("dropping mvp report: missing runId (personId={}, roles={})", reporter.getId(), request.roles());
+            return;
         }
-        Run run = runRepository.findById(request.runId())
-                .orElseThrow(() -> {
-                    log.warn("rejecting mvp report: run not found (personId={}, runId={})", reporter.getId(), request.runId());
-                    return new ApiException(HttpStatus.BAD_REQUEST, "run not found");
-                });
+        Run run = runRepository.findById(request.runId()).orElse(null);
+        if (run == null) {
+            log.warn("dropping mvp report: run not found (personId={}, runId={})", reporter.getId(), request.runId());
+            return;
+        }
 
         List<String> requestedRoles = request.roles() == null ? List.of() : request.roles();
-        if (requestedRoles.size() > MAX_SELECTED_ROLES) {
-            log.warn("rejecting mvp report: {} roles submitted, at most {} allowed (personId={}, runId={}, roles={})",
-                    requestedRoles.size(), MAX_SELECTED_ROLES, reporter.getId(), run.getId(), requestedRoles);
-            throw new ApiException(HttpStatus.BAD_REQUEST, "at most " + MAX_SELECTED_ROLES + " role may be selected for mvp");
-        }
         Set<String> roles = new LinkedHashSet<>(requestedRoles);
         boolean wantsNobody = roles.remove(NOBODY_ROLE);
 
-        Set<String> rolesInRun = runParticipantRepository.findDistinctRolesByRunId(run.getId());
-        for (String role : roles) {
-            if (!rolesInRun.contains(role)) {
-                log.warn("rejecting mvp report: role {} not present in run (personId={}, runId={}, rolesInRun={})",
-                        role, reporter.getId(), run.getId(), rolesInRun);
-                throw new ApiException(HttpStatus.BAD_REQUEST, "role " + role + " not present in run " + run.getId());
-            }
+        if (roles.size() > MAX_SELECTED_ROLES) {
+            String kept = roles.iterator().next();
+            log.warn("normalizing mvp report: {} roles submitted, keeping only '{}' (personId={}, runId={}, roles={})",
+                    roles.size(), kept, reporter.getId(), run.getId(), requestedRoles);
+            roles.retainAll(Set.of(kept));
         }
 
-        // May throw a 409 ApiException if this run's voting window has already closed — see
-        // MvpVotingRegistry#submitVote.
+        // May drop the vote (WARN, no exception) if this run's voting window has already closed —
+        // see MvpVotingRegistry#submitVote.
         votingRegistry.submitVote(run.getId(), run.getCreatedAt(), reporter.getId(), new MvpBallot(wantsNobody, roles));
     }
 }

@@ -4,7 +4,6 @@ import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.failurereports.dto.CanReportFailureResponse;
 import com.howl.uwtracker.failurereports.dto.ReportRunFailureRequest;
-import com.howl.uwtracker.repository.RunParticipantRepository;
 import com.howl.uwtracker.repository.RunRepository;
 import com.howl.uwtracker.web.ApiException;
 import com.howl.uwtracker.web.MachineKeyAuthenticationService;
@@ -30,15 +29,12 @@ public class FailureReportService {
 
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final RunRepository runRepository;
-    private final RunParticipantRepository runParticipantRepository;
     private final FailureReportVotingRegistry votingRegistry;
 
     public FailureReportService(MachineKeyAuthenticationService machineKeyAuthenticationService, RunRepository runRepository,
-                                 RunParticipantRepository runParticipantRepository,
                                  FailureReportVotingRegistry votingRegistry) {
         this.machineKeyAuthenticationService = machineKeyAuthenticationService;
         this.runRepository = runRepository;
-        this.runParticipantRepository = runParticipantRepository;
         this.votingRegistry = votingRegistry;
     }
 
@@ -49,11 +45,20 @@ public class FailureReportService {
     }
 
     /**
-     * Validates and casts one vote into {@link FailureReportVotingRegistry} — this no longer writes
-     * run_failure_reasons directly. The registry holds every vote in memory until the run's 60s
-     * voting window (from Run.createdAt) closes, then {@link FailureReportPersister} writes whichever
-     * ballot got the most votes. Read-only: the only repository work here is validating the request
-     * against the run's existing roster, same queries as before.
+     * Validates and casts one vote into {@link FailureReportVotingRegistry}. Same contract as
+     * {@code MvpReportService.submit}: the plugin submits this deferred, after its own
+     * {@code /upload-run} hands back a {@code run_id}, with no view of the server-side role roster —
+     * so nothing here rejects a vote on run content. Every anomaly short of an auth failure is
+     * normalized or dropped with a WARN and still returns 204:
+     * <ul>
+     *   <li>missing / unknown {@code runId} — dropped.</li>
+     *   <li>"Nobody" mixed with specific roles — "Nobody" dropped, the specific roles win.</li>
+     *   <li>a blamed role not (yet) in the run's roster — accepted; {@link FailureReportPersister}
+     *       strips it at window close against the complete roster.</li>
+     *   <li>a closed voting window — dropped in {@link FailureReportVotingRegistry#submitVote}.</li>
+     * </ul>
+     * Only a bad/missing machine key (401) or a reporter without permission (403) still fails the
+     * request. Read-only: the only repository work here is loading the run to open its window.
      */
     @Transactional(readOnly = true)
     public void submit(String rawMachineKey, Integer pluginVersion, ReportRunFailureRequest request) {
@@ -64,36 +69,27 @@ public class FailureReportService {
         }
 
         if (request.runId() == null) {
-            log.warn("rejecting failure report: missing runId (personId={}, roles={})", reporter.getId(), request.roles());
-            throw new ApiException(HttpStatus.BAD_REQUEST, "runId is required");
+            log.warn("dropping failure report: missing runId (personId={}, roles={})", reporter.getId(), request.roles());
+            return;
         }
-        Run run = runRepository.findById(request.runId())
-                .orElseThrow(() -> {
-                    log.warn("rejecting failure report: run not found (personId={}, runId={})", reporter.getId(), request.runId());
-                    return new ApiException(HttpStatus.BAD_REQUEST, "run not found");
-                });
+        Run run = runRepository.findById(request.runId()).orElse(null);
+        if (run == null) {
+            log.warn("dropping failure report: run not found (personId={}, runId={})", reporter.getId(), request.runId());
+            return;
+        }
 
         List<String> requestedRoles = request.roles() == null ? List.of() : request.roles();
         Set<String> roles = new LinkedHashSet<>(requestedRoles);
 
         boolean wantsNobody = roles.remove(NOBODY_ROLE);
         if (wantsNobody && !roles.isEmpty()) {
-            log.warn("rejecting failure report: Nobody mixed with roles (personId={}, runId={}, roles={})",
+            log.warn("normalizing failure report: Nobody mixed with roles, dropping Nobody (personId={}, runId={}, roles={})",
                     reporter.getId(), run.getId(), requestedRoles);
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Nobody is exclusive of specific roles");
+            wantsNobody = false;
         }
 
-        Set<String> rolesInRun = runParticipantRepository.findDistinctRolesByRunId(run.getId());
-        for (String role : roles) {
-            if (!rolesInRun.contains(role)) {
-                log.warn("rejecting failure report: role {} not present in run (personId={}, runId={}, rolesInRun={})",
-                        role, reporter.getId(), run.getId(), rolesInRun);
-                throw new ApiException(HttpStatus.BAD_REQUEST, "role " + role + " not present in run " + run.getId());
-            }
-        }
-
-        // May throw a 409 ApiException if this run's voting window has already closed — see
-        // FailureReportVotingRegistry#submitVote.
+        // May drop the vote (WARN, no exception) if this run's voting window has already closed —
+        // see FailureReportVotingRegistry#submitVote.
         votingRegistry.submitVote(run.getId(), run.getCreatedAt(), reporter.getId(), new Ballot(wantsNobody, roles));
     }
 }
