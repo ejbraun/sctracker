@@ -67,12 +67,12 @@ const DERVISH = 10;
 
 const BACKEND_ORIGIN = 'http://localhost:8080';
 
-// Matches src/main/resources/static/SCTracker.version.json's "version" — must satisfy
-// PluginVersionMetadataLoader.requireCurrentVersion or /upload-run rejects every e2e upload before
-// ever reaching the logic a test actually wants to exercise. Bump alongside that file if it ever
-// changes (same constant, same reasoning, as UploadRunIntegrationTest.CURRENT_PLUGIN_VERSION on the
-// backend side — kept here instead of duplicated per spec file after that exact staleness bit both).
-const CURRENT_PLUGIN_VERSION = '7';
+// The backend now reads the required version from the plugin manifest in its GCS bucket
+// (PluginArtifactCache). `make backend-up` runs with no PLUGIN_STORAGE_BUCKET, so
+// requireCurrentVersion fails open and this value is currently inert — but it WILL start 426-ing
+// every e2e upload if a bucket is ever wired to the e2e backend. Keep it at the real current
+// version (the plugin's kPluginVersion) so that day isn't a surprise.
+const CURRENT_PLUGIN_VERSION = '10';
 
 // The 7 non-hero slots below — fixed names, shared/reused across every e2e run (no DB reset between
 // runs; see uniqueName's note). uploadRun registers these as characters before uploading so the

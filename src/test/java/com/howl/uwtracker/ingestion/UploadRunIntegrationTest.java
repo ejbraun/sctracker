@@ -48,9 +48,9 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     private static final int MAP_ID = 72;
     private static final long UTC_START_SECONDS = 1_700_000_000L;
     private static final long SENTINEL = SentinelMapper.SENTINEL;
-    // Matches src/main/resources/static/SCTracker.version.json's "version" — must satisfy
+    // Matches FakePluginStorageConfig.FAKE_VERSION — must satisfy
     // PluginVersionMetadataLoader.requireCurrentVersion or every authenticated request here gets a
-    // 426 before it even reaches the logic under test. Bump alongside that file if it ever changes.
+    // 426 before it even reaches the logic under test. Bump alongside the fake if it ever changes.
     private static final String CURRENT_PLUGIN_VERSION = "10";
 
     // 5, more than minRegisteredFor(8)'s 4: resendWithinWindowButDifferentRosterCreatesASecondRunInstead

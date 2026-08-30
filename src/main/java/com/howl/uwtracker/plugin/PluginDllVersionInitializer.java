@@ -4,36 +4,33 @@ import com.howl.uwtracker.domain.PluginDllVersion;
 import com.howl.uwtracker.repository.PluginDllVersionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Optional;
 
 /**
- * On every app startup, hashes the deployed SCTracker.dll and compares it against the last-known
- * hash (see {@link PluginDllVersion} for why a content hash, not the file's on-disk last-modified
- * time). If the content changed — or this is the first boot ever — records a fresh "detected at"
- * timestamp, which is what the "new plugin version available" banner compares each person's
- * last_plugin_download_at against.
+ * Keeps the singleton {@code plugin_dll_version} row (id={@link PluginDllVersion#SINGLETON_ID}) in
+ * step with the plugin build currently in the storage bucket. Whenever
+ * {@link PluginArtifactCache} pulls in a manifest with a new {@code sha256} — the first successful
+ * fetch, or any later refresh that sees a changed build — it publishes a
+ * {@link PluginDllChangedEvent}, and this records a fresh {@code detected_at}. That timestamp is
+ * what the website's "new plugin version available" banner compares each person's
+ * {@code last_plugin_download_at} against (see {@link PluginVersionService}).
  *
- * <p>Runs on {@link ApplicationReadyEvent} rather than {@code @PostConstruct} so it fires strictly
- * after Liquibase has created plugin_dll_version — {@code @PostConstruct} on an unrelated bean
- * gives no such ordering guarantee against another bean's migrations.
+ * <p>Unlike the previous startup-only classpath hash, this can now fire mid-run: a plugin published
+ * to the bucket is picked up within the cache TTL without a backend redeploy.
+ *
+ * <p>The event is published from a different bean and delivered through Spring's event
+ * multicaster, so this {@code @EventListener} is invoked through the proxy and its
+ * {@code @Transactional} boundary applies. Not {@code @TransactionalEventListener}: the cache
+ * refresh runs on a plain read path with no surrounding transaction to bind an AFTER_COMMIT phase to.
  */
 @Component
 public class PluginDllVersionInitializer {
 
     private static final Logger log = LoggerFactory.getLogger(PluginDllVersionInitializer.class);
-    private static final String DLL_CLASSPATH_LOCATION = "static/SCTracker.dll";
 
     private final PluginDllVersionRepository pluginDllVersionRepository;
 
@@ -41,42 +38,19 @@ public class PluginDllVersionInitializer {
         this.pluginDllVersionRepository = pluginDllVersionRepository;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
+    @EventListener
     @Transactional
-    public void recordCurrentDllVersion() {
-        String hash;
-        try {
-            hash = sha256Hex();
-        } catch (IOException | NoSuchAlgorithmException e) {
-            // Deliberately non-fatal: a missing/unreadable dll shouldn't block the whole app from
-            // starting. No row (or a stale one) just means the "new version available" check has
-            // nothing newer to compare against, so the banner stays off.
-            log.warn("could not hash {} — plugin update banner will stay disabled", DLL_CLASSPATH_LOCATION, e);
-            return;
-        }
-
+    public void onPluginDllChanged(PluginDllChangedEvent event) {
         Optional<PluginDllVersion> existing = pluginDllVersionRepository.findById(PluginDllVersion.SINGLETON_ID);
         if (existing.isEmpty()) {
-            pluginDllVersionRepository.save(new PluginDllVersion(hash, Instant.now()));
-            log.info("recorded initial SCTracker.dll version (hash={})", hash);
-        } else if (!existing.get().getContentHash().equals(hash)) {
+            pluginDllVersionRepository.save(new PluginDllVersion(event.sha256(), event.detectedAt()));
+            log.info("recorded initial SCTracker.dll version (sha256={})", event.sha256());
+        } else if (!existing.get().getContentHash().equalsIgnoreCase(event.sha256())) {
             PluginDllVersion version = existing.get();
-            version.setContentHash(hash);
-            version.setDetectedAt(Instant.now());
-            log.info("SCTracker.dll content changed — new version detected (hash={})", hash);
+            version.setContentHash(event.sha256());
+            version.setDetectedAt(event.detectedAt());
+            log.info("SCTracker.dll changed — new version detected (sha256={})", event.sha256());
         }
-        // else: same content as last boot, nothing to do.
-    }
-
-    private String sha256Hex() throws IOException, NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (InputStream in = new ClassPathResource(DLL_CLASSPATH_LOCATION).getInputStream()) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                digest.update(buffer, 0, read);
-            }
-        }
-        return HexFormat.of().formatHex(digest.digest());
+        // else: same build as the row already has, nothing to do.
     }
 }

@@ -2,6 +2,7 @@ package com.howl.uwtracker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.howl.uwtracker.auth.dto.GeneratedMachineKeyResponse;
+import com.howl.uwtracker.plugin.FakePluginStorageConfig;
 import com.howl.uwtracker.auth.dto.LoginRequest;
 import com.howl.uwtracker.auth.dto.SignupRequest;
 import com.howl.uwtracker.domain.SignupKey;
@@ -23,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
@@ -60,6 +62,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
+@Import(FakePluginStorageConfig.class)
 public abstract class AbstractIntegrationTest {
 
     @ServiceConnection

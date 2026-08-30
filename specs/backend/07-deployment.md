@@ -3,7 +3,7 @@
 ## Dockerfile (multi-stage)
 
 1. **Node stage**: build the React app (`npm ci && npm run build`), producing a static bundle.
-2. **Maven stage**: copy the React build output into `src/main/resources/static/` *before* `mvn package`, so Spring Boot serves it as static content from the fat jar — one artifact, no separate frontend server or nginx sidecar.
+2. **Maven stage**: copy the React build output into `src/main/resources/static/` *before* `mvn package`, so Spring Boot serves it as static content from the fat jar — one artifact, no separate frontend server or nginx sidecar. (The React bundle is the *only* thing in `static/` now — the plugin binary is fetched from a GCS bucket at runtime, see "Plugin artifacts" below.)
 3. **Runtime stage**: minimal JRE base image (matching the Java 25 build), copy only the built jar from stage 2, `ENTRYPOINT ["java", "-jar", "app.jar"]`.
 
 Container listens on `8080` (matches `server.port`, spec 00's repo layout).
@@ -30,6 +30,14 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 ## Secrets
 
 `DB_USERNAME`/`DB_PASSWORD` (and `INSTANCE_CONNECTION_NAME`/`DB_NAME` if not baked into the image) come from Secret Manager, injected via Cloud Run's `--set-secrets` at deploy time — never baked into the image or committed to the repo.
+
+## Plugin artifacts (GCS bucket)
+
+`SCTracker.dll` + `SCTracker.version.json` are **not** in the image. The app fetches them from a private GCS bucket at runtime (`com.howl.uwtracker.plugin.GcsPluginStorageClient`), caches for `plugin.storage.cache-ttl` (default 1h), streams the dll at `GET /SCTracker.dll`, and re-detects `plugin_dll_version` when the manifest `sha256` changes — so a plugin-only update needs no backend redeploy.
+
+- **Env var**: `PLUGIN_STORAGE_BUCKET=<bucket>` on the Cloud Run service (`gcloud run services update uwtracker --region us-central1 --update-env-vars PLUGIN_STORAGE_BUCKET=<bucket>`). Blank/unset → plugin storage disabled: `/plugin-version` and `/SCTracker.dll` 503, version enforcement fails open. Optional overrides: `plugin.storage.manifest-object`, `plugin.storage.dll-object`, `plugin.storage.cache-ttl`.
+- **IAM**: the Cloud Run runtime service account needs `roles/storage.objectViewer` on the bucket (a 403 in the logs = this is missing). Auth is ADC via the metadata server — no key file.
+- **Publisher**: GWToolboxpp CI (`cmake.yml`) uploads to `gs://<bucket>/sctracker/` on every `master` build, authenticated with a dedicated SA JSON key (`GCP_SA_KEY` repo secret) that has `roles/storage.objectAdmin` on the bucket only.
 
 ## Migrations on boot
 

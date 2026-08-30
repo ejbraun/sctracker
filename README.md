@@ -27,6 +27,13 @@ One deployable artifact: the backend is a normal Spring Boot app, and the built 
 copied into `src/main/resources/static/` at Docker build time, so the same jar serves both the API
 and the website — no separate frontend server or reverse proxy needed.
 
+The plugin binary itself is **not** in the image: the app fetches `SCTracker.dll` +
+`SCTracker.version.json` from a private GCS bucket (`PLUGIN_STORAGE_BUCKET`) at runtime, caches them
+for ~1h, and streams the dll at `GET /SCTracker.dll` (`PluginDllController`). GWToolboxpp CI
+publishes to that bucket on every plugin build, so a plugin-only update reaches users within the
+cache window with no backend redeploy. Locally (no bucket) `/SCTracker.dll` and `/plugin-version`
+return 503 and version enforcement is off.
+
 Two independent auth planes, since the plugin and the browser are different kinds of clients:
 
 - **Machine key** (`X-Machine-Key` header) — the *only* thing the GW1 plugin ever sends. A
@@ -84,8 +91,8 @@ src/main/java/com/howl/uwtracker/
   domain/, repository/            # JPA entities + Spring Data repos
 src/main/resources/
   db/changelog/                   # Liquibase changesets (auto-run on boot)
-  static/SCTracker.dll            # the plugin binary, served directly for download
-  application.properties
+  application.properties          # (the frontend build fills static/; the plugin
+                                  #  binary is fetched from a GCS bucket at runtime)
 frontend/
   src/pages/, components/, api/, auth/, common/, styles/
   e2e/                             # Playwright end-to-end tests

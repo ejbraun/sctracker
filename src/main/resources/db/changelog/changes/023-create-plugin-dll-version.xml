@@ -5,15 +5,16 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
-    <!-- Singleton table (always exactly one row, id=1) tracking the currently-deployed
-         SCTracker.dll's content hash and when that content was first observed. Populated/updated
-         by PluginDllVersionInitializer on every app startup, comparing a freshly-computed SHA-256
-         of the classpath resource against the stored hash — NOT the file's on-disk last-modified
-         time, which resets on every deploy regardless of whether the dll actually changed (the
-         Dockerfile COPYs a fresh src/ tree into the build container every time). detected_at only
-         advances when the content genuinely changes, which is what the "new plugin version
-         available" banner needs to compare against each person's last_plugin_download_at (022)
-         without false-positiving on unrelated deploys. -->
+    <!-- Singleton table (always exactly one row, id=1) tracking the SCTracker.dll build currently
+         in the plugin storage bucket and when it was first observed. Updated by
+         PluginDllVersionInitializer whenever PluginArtifactCache pulls in a manifest with a new
+         sha256 (the first fetch, or any later ~hourly refresh that sees a changed build) — so
+         detected_at can now advance mid-run when a plugin is published, not just at startup.
+         content_hash stores the manifest-declared sha256 (64-char lowercase hex), NOT a
+         last-modified time — that would reset on every deploy regardless of whether the dll
+         actually changed. detected_at advancing only on genuine content change is what the "new
+         plugin version available" banner compares against each person's last_plugin_download_at
+         (022) without false-positiving. -->
     <changeSet id="023-create-plugin-dll-version" author="uwtracker">
         <createTable tableName="plugin_dll_version">
             <column name="id" type="TINYINT UNSIGNED">

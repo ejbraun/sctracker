@@ -18,9 +18,9 @@ COPY mvnw pom.xml ./
 # git checkout, so `./mvnw` fails with "Permission denied" in the Linux build container.
 RUN sh mvnw -q -DskipTests dependency:go-offline
 COPY src/ src/
-# Docker COPY merges into an existing directory rather than replacing it, so this lands
-# alongside the already-committed src/main/resources/static/SCTracker.dll instead of
-# clobbering it — do NOT rm -rf static/ first.
+# The React build is the sole source of src/main/resources/static/ now — the SCTracker plugin
+# binary is no longer committed here; the running app fetches it from a GCS bucket
+# (com.howl.uwtracker.plugin.GcsPluginStorageClient). COPY creates static/ if absent.
 COPY --from=frontend-build /app/dist/ src/main/resources/static/
 RUN sh mvnw -q -DskipTests package
 

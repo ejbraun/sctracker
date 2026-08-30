@@ -34,8 +34,7 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     private static final int DERVISH = 10;
     private static final int MONK = 3;
     private static final long UTC_START_SECONDS = 1_700_000_500L;
-    // Matches src/main/resources/static/SCTracker.version.json's "version" — same gate as
-    // UploadRunIntegrationTest.
+    // Matches FakePluginStorageConfig.FAKE_VERSION — same gate as UploadRunIntegrationTest.
     private static final String CURRENT_PLUGIN_VERSION = "10";
 
     @BeforeEach

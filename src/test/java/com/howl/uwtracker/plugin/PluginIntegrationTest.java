@@ -13,10 +13,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The "new plugin version available" banner flag against real MySQL. PluginDllVersionInitializer
- * runs once at real app startup (well before any test method here), so by the time these run,
- * plugin_dll_version already has a row whose detected_at is "around when this test JVM booted" —
- * these tests only need to control each person's last_plugin_download_at relative to that.
+ * The "new plugin version available" banner flag against real MySQL. At startup
+ * PluginArtifactCache.prime() fetches the FakePluginStorageConfig manifest and publishes a
+ * PluginDllChangedEvent, which PluginDllVersionInitializer turns into the plugin_dll_version row —
+ * so by the time these run, that row exists with a detected_at "around when this test JVM booted",
+ * and these tests only need to control each person's last_plugin_download_at relative to it.
  */
 class PluginIntegrationTest extends AbstractIntegrationTest {
 

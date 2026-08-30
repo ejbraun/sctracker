@@ -54,9 +54,9 @@ These are deliberately separate. The SDK plugin that uploads runs never sees a s
 
 The built React app and the JSON API are served from the same origin (see repo layout above), so an unprefixed path like `/runs` is ambiguous — the SPA's `/runs` page, or the backend's run-history endpoint? To disambiguate, every session-cookie-plane endpoint is namespaced under `/api/*` (`/api/signup`, `/api/characters`, `/api/runs`, ...); the frontend's own routes stay unprefixed (`/runs`, `/characters`, ...) since React Router owns those client-side.
 
-`POST /upload-run` is the one exception — it's never browser-navigated and never collides with a frontend route, so it stays unprefixed as a stable external contract for the SDK plugin.
+`POST /upload-run` is the one exception — it's never browser-navigated and never collides with a frontend route, so it stays unprefixed as a stable external contract for the SDK plugin. A few other plugin-facing endpoints follow the same convention: `/report-run-failure`, `/can-report-run-failure`, `/report-run-mvp`, `/plugin-version`, and `/SCTracker.dll` (`PluginDllController` — streams the plugin binary from the GCS-backed cache, replacing what used to be a committed static file).
 
-This requires one more piece on the backend: a catch-all controller forwarding any request that isn't `/api/**`, `/upload-run`, or a static asset (`/static/**`, favicon, etc.) to `index.html`, so React Router can render deep links (e.g. a browser hitting `/runs/42` directly) instead of getting a 404.
+This requires one more piece on the backend: a catch-all controller forwarding any request that isn't an explicit `@RequestMapping` (`/api/**`, `/upload-run`, `/SCTracker.dll`, ...) or a static asset (any path with a `.`) to `index.html`, so React Router can render deep links (e.g. a browser hitting `/runs/42` directly) instead of getting a 404.
 
 ## Shared conventions
 

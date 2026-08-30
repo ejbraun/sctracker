@@ -317,10 +317,12 @@ role-gated query already returns correct PBs for `Ranger`/`Derv`. A `role_model 
 
 ### 4.7 Plugin-version gate
 
-Bump `static/SCTracker.version.json` `version` + `compiled_at` and drop the new `SCTracker.dll`
-into `src/main/resources/static/` **in the same deploy** as the plugin release that adds FoW
-(`MachineKeyAuthenticationService` 426s any client below the declared version — see
-`PluginVersionMetadataLoader`).
+No backend action. GWToolboxpp CI publishes `SCTracker.{dll,version.json}` to the plugin storage
+bucket on every `master` build; the running backend picks the new build up within
+`plugin.storage.cache-ttl` (~1h) or on restart — `PluginArtifactCache` re-reads the manifest, so
+`version` (the 426 gate in `MachineKeyAuthenticationService` → `PluginVersionMetadataLoader`) and
+`plugin_dll_version` advance on their own. Just confirm the plugin's `SCTRACKER_PLUGIN_VERSION` was
+bumped for the FoW release if you want old clients gated out.
 
 ---
 
@@ -394,10 +396,10 @@ for a FoW duo).
   "the map's expected size".
 - `SCTRACKER_PLUGIN_VERSION` bumped `9 → 10` in `cmake/gwtoolboxdll_plugins.cmake` (feeds both
   `kPluginVersion` and the generated `SCTracker.version.json`).
-- **Not done here** (deploy-time, needs a real build): committing the rebuilt `SCTracker.dll` +
-  regenerated `SCTracker.version.json` (`version: 10`) into the backend's
-  `src/main/resources/static/`. Bumping the backend JSON *before* the v10 dll exists would 426
-  every live v9 client — do it in the same deploy as the dll (§4.7).
+- **Deploy-time**: nothing to commit into the backend. A GWToolboxpp `master` build compiles the v10
+  dll, its manifest (`version: 10`), and CI uploads both to the plugin storage bucket; the running
+  backend picks them up within `plugin.storage.cache-ttl` (~1h). The manifest's `version` and the
+  dll can't skew — CI publishes them together, dll first (§4.7).
 
 ---
 
@@ -513,9 +515,9 @@ Current inconsistency the user flagged: `/leaderboards/72` (map in path) vs `/lo
 3. **Plugin (`SCTracker`)** — `kTrackedMapIds += FoW`, `ExpectedPartySize` per-map publish+vote
    gate, `MapHasDhuumMechanics` guards on the Dhuum latches + gambling, `Ranger` in `kVoteRoles` +
    map-level popup role filter, `SCTRACKER_PLUGIN_VERSION 9→10`. **Status: done — builds clean in
-   `~/repos/GWToolboxpp` (`SCTracker.dll` v10 in `bin/Release/`).** Release step: commit the built
-   dll + regenerated `SCTracker.version.json` (v10) into the backend's `static/`, deploy backend +
-   dll together. FoW duo uploads begin.
+   `~/repos/GWToolboxpp` (`SCTracker.dll` v10 in `bin/Release/`).** Release step: a GWToolboxpp
+   `master` build ships the v10 dll + manifest to the plugin storage bucket via CI; the running
+   backend picks them up within ~1h (no backend deploy). FoW duo uploads begin.
 4. **Seed a few FoW runs** (`seed-fow-runs.mjs`) per environment for smoke-testing the boards.
 
 Steps 1–2 are independent of 3; 3 can slip without breaking anything. **FoW 8-man** is a

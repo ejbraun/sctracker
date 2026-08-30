@@ -8,10 +8,12 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * Singleton row (always id={@link #SINGLETON_ID}) tracking the currently-deployed SCTracker.dll's
- * content hash and when that content was first observed — see PluginDllVersionInitializer, which
- * upserts this on every app startup, and 023-create-plugin-dll-version.xml for why this is a
- * content hash rather than the file's on-disk last-modified time.
+ * Singleton row (always id={@link #SINGLETON_ID}) tracking the SCTracker.dll build currently in the
+ * plugin storage bucket and when it was first observed — see PluginDllVersionInitializer, which
+ * upserts this whenever PluginArtifactCache pulls in a manifest with a new {@code sha256} (first
+ * fetch or any later refresh). {@code content_hash} holds that manifest-declared {@code sha256}
+ * (64-char lowercase hex); 023-create-plugin-dll-version.xml explains why a content hash rather than
+ * a last-modified time.
  */
 @Entity
 @Table(name = "plugin_dll_version")
