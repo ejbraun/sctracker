@@ -101,14 +101,22 @@ export function Account() {
       </Panel>
 
       <Panel className={styles.section}>
-        <h2>Machine keys</h2>
+        <h2>Plugin</h2>
         <p>
-          Used by the GW1 SDK plugin to authenticate uploads. Don't have the plugin yet?{' '}
-          <a href="/SCTracker.dll" download onClick={() => recordDownloadMutation.mutate()}>
+          SCTracker is a third-party GWToolbox++ plugin that uploads your runs. Put <code>SCTracker.dll</code>{' '}
+          in your GWToolbox++ <code>Plugins</code> folder, enable it in GWToolbox's plugin manager, then paste a
+          machine key (below) into its settings.
+        </p>
+        <p>
+          <a className={styles.downloadLink} href="/SCTracker.dll" download onClick={() => recordDownloadMutation.mutate()}>
             Download SCTracker.dll{pluginVersionQuery.data && ` (v${pluginVersionQuery.data.version})`}
           </a>
-          .
         </p>
+      </Panel>
+
+      <Panel className={styles.section}>
+        <h2>Machine keys</h2>
+        <p>Used by the plugin to authenticate uploads to your account.</p>
 
         {revealed && (
           <div className={styles.revealBox}>

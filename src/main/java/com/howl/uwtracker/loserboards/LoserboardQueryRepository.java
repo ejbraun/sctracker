@@ -31,7 +31,7 @@ public class LoserboardQueryRepository {
      * role-scoped. Ordered by resign rate (percentage), not raw resign count — someone with 2
      * resigns in 2 runs belongs above someone with 5 resigns in 50.
      */
-    public List<UserResignResponse> findGlobalFails(Integer mapId, Instant from, Instant to) {
+    public List<UserResignResponse> findGlobalFails(Integer mapId, Integer partySize, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT COALESCE(p.alias, rp.raw_name) AS user, " +
                         "COUNT(*) AS total_runs, " +
@@ -40,7 +40,7 @@ public class LoserboardQueryRepository {
                         "JOIN runs r ON r.id = rp.run_id " +
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
-                        "WHERE r.map_id = ? " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "GROUP BY COALESCE(p.alias, rp.raw_name) " +
                         "ORDER BY (resigns / total_runs) DESC",
@@ -50,7 +50,7 @@ public class LoserboardQueryRepository {
                     double percentage = totalRuns == 0 ? 0.0 : (resigns * 100.0) / totalRuns;
                     return new UserResignResponse(rs.getString("user"), totalRuns, resigns, percentage);
                 },
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /**
@@ -62,7 +62,7 @@ public class LoserboardQueryRepository {
      * by deaths-per-run, not raw total — someone with 20 deaths across 100 runs isn't worse than
      * someone with 5 deaths across 5.
      */
-    public List<RoleUserDeathsResponse> findRoleDeaths(Integer mapId, Instant from, Instant to) {
+    public List<RoleUserDeathsResponse> findRoleDeaths(Integer mapId, Integer partySize, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT rp.role AS role, COALESCE(p.alias, rp.raw_name) AS user, " +
                         "COUNT(*) AS total_runs, SUM(rp.deaths) AS total_deaths " +
@@ -70,7 +70,7 @@ public class LoserboardQueryRepository {
                         "JOIN runs r ON r.id = rp.run_id " +
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
-                        "WHERE r.map_id = ? AND rp.role IS NOT NULL " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND rp.role IS NOT NULL " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "GROUP BY rp.role, COALESCE(p.alias, rp.raw_name) " +
                         "ORDER BY (total_deaths / total_runs) DESC",
@@ -80,7 +80,7 @@ public class LoserboardQueryRepository {
                     double avgDeaths = totalRuns == 0 ? 0.0 : ((double) deaths) / totalRuns;
                     return new RoleUserDeathsResponse(rs.getString("role"), rs.getString("user"), totalRuns, deaths, avgDeaths);
                 },
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /**
@@ -90,7 +90,7 @@ public class LoserboardQueryRepository {
      * an inverted {@code is_hit} predicate. A run with {@code end_reason = 'unknown'} is neither a
      * "completed" hit nor a "bad" hit — it's its own island and correctly breaks a streak either way.
      */
-    public List<UserStreakResponse> findLongestBadStreak(Integer mapId, int limit, Instant from, Instant to) {
+    public List<UserStreakResponse> findLongestBadStreak(Integer mapId, Integer partySize, int limit, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "WITH person_runs AS (" +
                         "    SELECT DISTINCT COALESCE(p.alias, rp.raw_name) AS user, r.id AS run_id, r.utc_start, " +
@@ -99,7 +99,7 @@ public class LoserboardQueryRepository {
                         "    JOIN runs r ON r.id = rp.run_id " +
                         "    LEFT JOIN characters c ON c.id = rp.character_id " +
                         "    LEFT JOIN people p ON p.id = c.person_id " +
-                        "    WHERE r.map_id = ? " +
+                        "    WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) " +
                         "      AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?)" +
                         "), numbered AS (" +
                         "    SELECT user, run_id, utc_start, is_hit, " +
@@ -121,7 +121,7 @@ public class LoserboardQueryRepository {
                         "ORDER BY streak_len DESC, streak_end DESC LIMIT ?",
                 (rs, rowNum) -> new UserStreakResponse(rs.getString("user"), rs.getLong("streak_len"),
                         rs.getTimestamp("streak_start").toInstant(), rs.getTimestamp("streak_end").toInstant()),
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), limit);
     }
 
     /**
@@ -132,7 +132,7 @@ public class LoserboardQueryRepository {
      * one run doesn't outrank someone blamed less often but far more frequently relative to their
      * total runs in that role. Ordered by fails-per-run within each role, most-blamed first.
      */
-    public List<RoleFailureReasonResponse> findRoleFailureReasons(Integer mapId, Instant from, Instant to) {
+    public List<RoleFailureReasonResponse> findRoleFailureReasons(Integer mapId, Integer partySize, Instant from, Instant to) {
         return jdbcTemplate.query(
                 "SELECT rp.role AS role, COALESCE(p.alias, rp.raw_name) AS user, " +
                         "COUNT(*) AS total_runs, SUM(CASE WHEN rfr.run_participant_id IS NOT NULL THEN 1 ELSE 0 END) AS total_fails " +
@@ -141,7 +141,7 @@ public class LoserboardQueryRepository {
                         "LEFT JOIN characters c ON c.id = rp.character_id " +
                         "LEFT JOIN people p ON p.id = c.person_id " +
                         "LEFT JOIN run_failure_reasons rfr ON rfr.run_participant_id = rp.id " +
-                        "WHERE r.map_id = ? AND rp.role IS NOT NULL " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND rp.role IS NOT NULL " +
                         "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
                         "GROUP BY rp.role, COALESCE(p.alias, rp.raw_name) " +
                         "ORDER BY rp.role, (total_fails / total_runs) DESC",
@@ -151,7 +151,7 @@ public class LoserboardQueryRepository {
                     double avgFails = totalRuns == 0 ? 0.0 : ((double) fails) / totalRuns;
                     return new RoleFailureReasonResponse(rs.getString("role"), rs.getString("user"), totalRuns, fails, avgFails);
                 },
-                mapId, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
 
     /**

@@ -1,13 +1,16 @@
 package com.howl.uwtracker.ingestion;
 
+import com.howl.uwtracker.domain.RoleModel;
 import com.howl.uwtracker.ingestion.dto.PartyMemberDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -52,6 +55,22 @@ public final class RoleDerivation {
 
     private static final List<String> TRAPPER_LABELS = List.of("T1", "T2", "T3");
 
+    // primary_profession role model (Fissure of Woe duo): role = primary profession's name, with
+    // Dervish mapped to the existing "Derv" role code rather than "Dervish". Only Ranger and Derv
+    // are seeded in role_objectives (specs/features/fow-and-party-size.md §8), but every primary is
+    // mapped so a stray build still shows a role in history rather than a bare null.
+    private static final Map<Integer, String> PRIMARY_PROFESSION_ROLE = Map.ofEntries(
+            Map.entry(WARRIOR, "Warrior"),
+            Map.entry(RANGER, "Ranger"),
+            Map.entry(MONK, "Monk"),
+            Map.entry(NECROMANCER, "Necromancer"),
+            Map.entry(MESMER, "Mesmer"),
+            Map.entry(ELEMENTALIST, "Elementalist"),
+            Map.entry(ASSASSIN, "Assassin"),
+            Map.entry(RITUALIST, "Ritualist"),
+            Map.entry(PARAGON, "Paragon"),
+            Map.entry(DERVISH, "Derv"));
+
     // Elvar Slayer's client never reliably reports a role_hint, but he only ever plays T2 — an
     // identity-based override applied before any role_hint is read, so it wins regardless of who
     // uploaded the run (restrictHintsToSelf would otherwise null out his hint on runs he didn't
@@ -81,13 +100,59 @@ public final class RoleDerivation {
     }
 
     /**
-     * @param partyMembers must have exactly 8 entries — caller validates size before calling
-     *                     (party size != 8 is a 400 at the controller level, not this method's concern).
-     * @return roles in the same order as partyMembers; entries are null where no combo matched.
-     *         T1 is assigned by elimination (not its own hint) once T2 and T3 are both hinted and
-     *         exactly one Ranger/Assassin member remains unassigned.
+     * Derives each party member's role, dispatching on the {@link RoleModel} configured for this
+     * run's {@code (map, party_size)} — see specs/features/fow-and-party-size.md.
+     *
+     * <ul>
+     *   <li>{@link RoleModel#TRAPPER} — the Underworld 8-man algorithm ({@link #resolveByTrapperModel}).</li>
+     *   <li>{@link RoleModel#PRIMARY_PROFESSION} — role = primary profession, size-agnostic
+     *       ({@link #resolveByPrimaryProfession}).</li>
+     *   <li>{@code null} — no role model for this config: every entry is {@code null}.</li>
+     * </ul>
+     *
+     * @return roles in the same order as {@code partyMembers}; entries are null where nothing resolved.
      */
-    public static List<String> resolveRoles(List<PartyMemberDto> partyMembers) {
+    public static List<String> resolveRoles(List<PartyMemberDto> partyMembers, RoleModel model) {
+        if (model == null) {
+            return Collections.nCopies(partyMembers.size(), null);
+        }
+        return switch (model) {
+            case TRAPPER -> resolveByTrapperModel(partyMembers);
+            case PRIMARY_PROFESSION -> resolveByPrimaryProfession(partyMembers);
+        };
+    }
+
+    /**
+     * Fissure of Woe (and any future {@code primary_profession} config): the role is simply the
+     * primary profession's name — Ranger-primary → {@code Ranger}, Dervish-primary → {@code Derv}
+     * (reusing the existing role code). No dependence on secondary, {@code role_hint}, or party
+     * position, so it works at any party size. An unknown profession id → {@code null} + WARN, same
+     * as an unresolved combo under the trapper model.
+     */
+    static List<String> resolveByPrimaryProfession(List<PartyMemberDto> partyMembers) {
+        return partyMembers.stream()
+                .map(m -> {
+                    String role = PRIMARY_PROFESSION_ROLE.get(m.primary());
+                    if (role == null) {
+                        log.warn("primary_profession model: unknown primary profession id {} for '{}'", m.primary(), m.name());
+                    }
+                    return role;
+                })
+                .toList();
+    }
+
+    /**
+     * The Underworld 8-man scheme. T1 is assigned by elimination (not its own hint) once T2 and T3
+     * are both hinted and exactly one Ranger/Assassin member remains unassigned.
+     *
+     * <p>Package-visible and directly callable so {@code RoleDerivationTest} can exercise the
+     * trapper algorithm in isolation; production code always goes through
+     * {@link #resolveRoles(List, RoleModel)}.
+     *
+     * @param partyMembers must have exactly 8 entries — {@code trapper} is only ever configured for
+     *                     {@code (UW, 8)}, so a non-8 list here is a bug.
+     */
+    static List<String> resolveByTrapperModel(List<PartyMemberDto> partyMembers) {
         if (partyMembers.size() != 8) {
             throw new IllegalArgumentException("expected 8 party members, got " + partyMembers.size());
         }

@@ -40,7 +40,7 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private RunMvpAwardRepository runMvpAwardRepository;
 
-    private static final String CURRENT_PLUGIN_VERSION = "9";
+    private static final String CURRENT_PLUGIN_VERSION = "10";
     private static final String[] FULL_PARTY_ROLES = {"T1", "T2", "T3", "T4", "LT", "Spiker", "SoS", "Emo"};
 
     private GameMap map() {
@@ -63,7 +63,7 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
     /** 8-slot run with the given roles, party index 0..7 — professions are irrelevant to these tests. */
     private Run seedRun(String... roles) {
         Instant now = Instant.now();
-        Run run = runRepository.save(new Run(map(), now, 1000L, now, "victory", true, 10_000L));
+        Run run = runRepository.save(new Run(map(), now, 1000L, now, "victory", true, 10_000L, 8));
         Profession warrior = professionRepository.findById(1).orElseThrow();
         for (int i = 0; i < roles.length; i++) {
             runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, roles[i], i, true, false, false, 0, null));
@@ -114,33 +114,37 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsMoreThanOneRole() throws Exception {
+    void normalizesMoreThanOneRoleRatherThanRejecting() throws Exception {
+        // The client radio group sends one role; a payload that breaks that is normalized (first
+        // kept) and still accepted, never 400'd back to the plugin.
         String key = issueMachineKey(true);
         Run run = seedRun(FULL_PARTY_ROLES);
 
-        vote(key, run.getId(), List.of("T1", "Spiker")).andExpect(status().isBadRequest());
+        vote(key, run.getId(), List.of("T1", "Spiker")).andExpect(status().isNoContent());
     }
 
     @Test
-    void rejectsARoleNotPresentInTheRun() throws Exception {
+    void acceptsARoleNotPresentInTheRun() throws Exception {
+        // No roster check at submit time anymore — "T1" before the other trappers have uploaded is a
+        // real case. The role is filtered at window close if it never resolves (see MvpPersister).
         String key = issueMachineKey(true);
         Run run = seedRun(FULL_PARTY_ROLES);
 
-        vote(key, run.getId(), List.of("Necro")).andExpect(status().isBadRequest());
+        vote(key, run.getId(), List.of("Necro")).andExpect(status().isNoContent());
     }
 
     @Test
-    void rejectsMissingRunId() throws Exception {
+    void acceptsAndDropsMissingRunId() throws Exception {
         String key = issueMachineKey(true);
 
-        vote(key, null, List.of("Spiker")).andExpect(status().isBadRequest());
+        vote(key, null, List.of("Spiker")).andExpect(status().isNoContent());
     }
 
     @Test
-    void rejectsUnknownRunId() throws Exception {
+    void acceptsAndDropsUnknownRunId() throws Exception {
         String key = issueMachineKey(true);
 
-        vote(key, 999_999L, List.of("Spiker")).andExpect(status().isBadRequest());
+        vote(key, 999_999L, List.of("Spiker")).andExpect(status().isNoContent());
     }
 
     @Test
@@ -167,15 +171,29 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsVoteAfterTheWindowHasClosed() throws Exception {
+    void acceptsAVoteWhenTheRunWasCreatedOverAMinuteAgo() throws Exception {
+        // The 60s window is measured from the first vote, not from created_at — a party member who
+        // zones out (and whose deferred vote fires) well after the first publisher still gets in.
         String key = issueMachineKey(true);
         Run run = seedRun(FULL_PARTY_ROLES);
-        // Backdate created_at (DB-generated, not settable through the entity) well past the 60s
-        // window so the very first vote already finds it closed — no need to actually wait 60s.
         jdbcTemplate.update("UPDATE runs SET created_at = ? WHERE id = ?",
-                Timestamp.from(Instant.now().minusSeconds(120)), run.getId());
+                Timestamp.from(Instant.now().minusSeconds(180)), run.getId());
 
-        vote(key, run.getId(), List.of("Spiker")).andExpect(status().isConflict());
+        vote(key, run.getId(), List.of("Spiker")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void acceptsAndDropsVoteLongAfterTheRunEnded() throws Exception {
+        String key = issueMachineKey(true);
+        Run run = seedRun(FULL_PARTY_ROLES);
+        // The window now opens on the first vote, so a merely-old run still accepts one. Backdate
+        // created_at (DB-generated, not settable through the entity) past the 10-minute hard cap so
+        // even this first vote finds the window already shut — no need to actually wait it out.
+        jdbcTemplate.update("UPDATE runs SET created_at = ? WHERE id = ?",
+                Timestamp.from(Instant.now().minusSeconds(900)), run.getId());
+
+        // A closed window drops the vote with a WARN — the plugin's deferred submit never sees a 4xx.
+        vote(key, run.getId(), List.of("Spiker")).andExpect(status().isNoContent());
     }
 
     @Test
@@ -228,6 +246,40 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
         // (unlike a real request) has no active Hibernate session by the time it runs, matching this
         // app's open-in-view=false — same constraint persistMajorityWritesTheWinningRoleParticipant
         // above already works around the same way.
+        List<RunMvpAward> awards = awardsForRun(run.getId());
+        assertThat(awards).hasSize(1);
+        assertThat(awards.get(0).getRunParticipant().getId()).isEqualTo(spiker.getId());
+    }
+
+    @Test
+    void persistMajorityDropsBallotsForARoleNotInTheRun() {
+        // T1 never resolved for this run (the other trappers never uploaded), so the three T1 votes
+        // are dropped at the tally and the two Spiker votes decide it.
+        Run run = seedRun("T2", "T3", "T4", "LT", "Spiker", "SoS", "Emo");
+        RunParticipant spiker = runParticipantRepository.findByRun_IdAndRawName(run.getId(), "P4").orElseThrow();
+
+        mvpPersister.persistMajority(run.getId(), List.of(
+                new MvpBallot(false, Set.of("T1")),
+                new MvpBallot(false, Set.of("T1")),
+                new MvpBallot(false, Set.of("T1")),
+                new MvpBallot(false, Set.of("Spiker")),
+                new MvpBallot(false, Set.of("Spiker"))));
+
+        List<RunMvpAward> awards = awardsForRun(run.getId());
+        assertThat(awards).hasSize(1);
+        assertThat(awards.get(0).getRunParticipant().getId()).isEqualTo(spiker.getId());
+    }
+
+    @Test
+    void persistMajorityKeepsThePriorAwardWhenEveryBallotIsOffRoster() {
+        Run run = seedRun(FULL_PARTY_ROLES);
+        RunParticipant spiker = runParticipantRepository.findByRun_IdAndRawName(run.getId(), "P5").orElseThrow();
+        mvpPersister.persistMajority(run.getId(), List.of(new MvpBallot(false, Set.of("Spiker"))));
+
+        // Every ballot names a role not in the run — nothing tallyable survives, so the existing
+        // award is left as-is rather than cleared.
+        mvpPersister.persistMajority(run.getId(), List.of(new MvpBallot(false, Set.of("Necro"))));
+
         List<RunMvpAward> awards = awardsForRun(run.getId());
         assertThat(awards).hasSize(1);
         assertThat(awards.get(0).getRunParticipant().getId()).isEqualTo(spiker.getId());

@@ -15,6 +15,22 @@
   opacity: 0.75;
 }
 
+/* A filled button; color/text-decoration forced past Panel.module.css's `.panel a` rule (which
+   would otherwise tint the label dark-on-dark until :hover). */
+.downloadLink {
+  display: inline-block;
+  font-family: var(--gw-font-display);
+  padding: 0.4rem 0.9rem;
+  border: 2px solid var(--gw-border-gold);
+  background: var(--gw-border-gold);
+  color: var(--gw-panel-dark) !important;
+  text-decoration: none !important;
+}
+
+.downloadLink:hover {
+  background: var(--gw-border-gold-bright);
+}
+
 .revealBox {
   border: 2px solid var(--gw-border-gold-bright);
   background: var(--gw-panel-dark);

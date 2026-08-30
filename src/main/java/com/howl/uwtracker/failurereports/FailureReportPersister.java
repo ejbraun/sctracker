@@ -12,8 +12,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -40,15 +42,38 @@ public class FailureReportPersister {
     }
 
     /**
-     * Every ballot here was already validated against the run's roster at submit time (see
-     * {@code FailureReportService.submit}), so this only tallies and writes — no re-validation. Ties
-     * for the most common exact ballot are broken by picking uniformly at random among the tied
-     * ballots. {@code reported_by_person_id} is left null on the persisted rows: this is a collective
-     * outcome of the vote, not any single reporter's own report.
+     * Tallies the closed window's ballots and writes the winner. Ballots are no longer roster-checked
+     * at submit time (see {@code FailureReportService.submit}), so that happens here: any blamed role
+     * not in the run's roster <em>now</em> — every party member's upload in, {@code RoleDerivation}
+     * done — is stripped from each ballot before the tally. A ballot left with no roles and no
+     * "Nobody" had nothing tallyable and is dropped; "Nobody" ballots always count. If nothing
+     * survives, any existing failure rows are left untouched (no delete). Ties for the most common
+     * surviving ballot are broken by picking uniformly at random among them.
+     * {@code reported_by_person_id} is left null on the persisted rows: this is a collective outcome
+     * of the vote, not any single reporter's own report.
      */
     @Transactional
     public void persistMajority(Long runId, Collection<Ballot> ballots) {
-        Map<Ballot, Long> counts = ballots.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
+        Set<String> rolesInRun = runParticipantRepository.findDistinctRolesByRunId(runId);
+        List<Ballot> tallied = ballots.stream()
+                .map(b -> {
+                    if (b.nobody() || rolesInRun.containsAll(b.roles())) {
+                        return b;
+                    }
+                    Set<String> kept = b.roles().stream()
+                            .filter(rolesInRun::contains)
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                    return new Ballot(false, kept);
+                })
+                .filter(b -> b.nobody() || !b.roles().isEmpty())
+                .toList();
+        if (tallied.isEmpty()) {
+            log.info("failure voting window closed for run {}: all {} ballot(s) blamed only roles not in the run; "
+                    + "leaving any existing failure rows as-is", runId, ballots.size());
+            return;
+        }
+
+        Map<Ballot, Long> counts = tallied.stream().collect(Collectors.groupingBy(b -> b, Collectors.counting()));
         long maxVotes = counts.values().stream().mapToLong(Long::longValue).max().orElseThrow();
         List<Ballot> winners = counts.entrySet().stream()
                 .filter(e -> e.getValue() == maxVotes)
@@ -56,8 +81,9 @@ public class FailureReportPersister {
                 .toList();
         Ballot winner = winners.size() == 1 ? winners.get(0) : winners.get(ThreadLocalRandom.current().nextInt(winners.size()));
 
-        log.info("persisting majority failure reason for run {}: {} vote(s) for {} ({} distinct ballot(s) cast, {} tied for first)",
-                runId, maxVotes, winner, counts.size(), winners.size());
+        log.info("persisting majority failure reason for run {}: {} vote(s) for {} ({} ballot(s) tallied after off-roster "
+                        + "roles stripped, {} distinct, {} tied for first)",
+                runId, maxVotes, winner, tallied.size(), counts.size(), winners.size());
 
         Run run = runRepository.getReferenceById(runId);
         runFailureReasonRepository.deleteByRun_Id(runId);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
@@ -19,7 +19,8 @@ import { RoleBadge } from '../components/RoleBadge';
 import { RunLinkRow } from '../components/RunLinkRow';
 import { formatDate, formatDuration } from '../common/format';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
-import { ROLES } from '../common/roles';
+import { DEFAULT_MAP_ID, configHasRoles, defaultPartySize, mapSupportsGambling, rolesForConfig } from '../common/maps';
+import { MapSizePicker } from '../components/MapSizePicker';
 import styles from './LeaderboardPage.module.css';
 
 /**
@@ -30,8 +31,16 @@ import styles from './LeaderboardPage.module.css';
  */
 export function LeaderboardPage() {
   const { mapId } = useParams<{ mapId: string }>();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
   const from = timeWindowFrom(timeWindow);
+
+  // Party size for this board view — from ?partySize=, else the map's default. A map can now have
+  // more than one size (The Fissure of Woe: 2 and 8); the backend filters runs/PBs to this size.
+  const partySize = Number(searchParams.get('partySize')) || defaultPartySize(mapId ?? DEFAULT_MAP_ID) || 8;
+  // Appended to every board fetch below — party size first, then the time window (if any).
+  const sizeAndWindow = `partySize=${partySize}${from ? `&from=${encodeURIComponent(from)}` : ''}`;
   // Every ranked-run table on this page can collapse to just its #1 entry or expand to its top 5 via
   // ExpandToggle — data is already fetched (limit=10), just sliced client side, so toggling never
   // triggers a refetch. Both default open.
@@ -39,43 +48,43 @@ export function LeaderboardPage() {
   const [personalOverallExpanded, setPersonalOverallExpanded] = useState(true);
 
   const overallQuery = useQuery({
-    queryKey: ['leaderboard', 'overall', mapId, timeWindow],
-    queryFn: () => api.get<LeaderboardEntry[]>(`/leaderboards/maps/${mapId}/overall?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+    queryKey: ['leaderboard', 'overall', mapId, partySize, timeWindow],
+    queryFn: () => api.get<LeaderboardEntry[]>(`/leaderboards/maps/${mapId}/overall?limit=10&${sizeAndWindow}`),
     enabled: mapId != null,
   });
 
   const personalOverallTopQuery = useQuery({
-    queryKey: ['leaderboard', 'me', 'overall', 'top', mapId, timeWindow],
+    queryKey: ['leaderboard', 'me', 'overall', 'top', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<PersonalBestEntry[]>(`/leaderboards/me/maps/${mapId}/overall/top?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+      api.get<PersonalBestEntry[]>(`/leaderboards/me/maps/${mapId}/overall/top?limit=10&${sizeAndWindow}`),
     enabled: mapId != null,
   });
 
   const streakQuery = useQuery({
-    queryKey: ['leaderboard', 'streaks', 'completed', mapId, timeWindow],
+    queryKey: ['leaderboard', 'streaks', 'completed', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<UserStreak[]>(`/leaderboards/maps/${mapId}/streaks/completed?limit=10${from ? `&from=${encodeURIComponent(from)}` : ''}`),
+      api.get<UserStreak[]>(`/leaderboards/maps/${mapId}/streaks/completed?limit=10&${sizeAndWindow}`),
     enabled: mapId != null,
   });
 
   const roleMvpAwardsQuery = useQuery({
-    queryKey: ['leaderboard', 'role-mvp-awards', mapId, timeWindow],
+    queryKey: ['leaderboard', 'role-mvp-awards', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<RoleMvpAwardEntry[]>(`/leaderboards/maps/${mapId}/role-mvp-awards${from ? `?from=${encodeURIComponent(from)}` : ''}`),
-    enabled: mapId != null,
+      api.get<RoleMvpAwardEntry[]>(`/leaderboards/maps/${mapId}/role-mvp-awards?${sizeAndWindow}`),
+    enabled: mapId != null && configHasRoles(mapId, partySize),
   });
 
   const gamblersAnonymousQuery = useQuery({
-    queryKey: ['leaderboard', 'gamblers-anonymous', mapId, timeWindow],
+    queryKey: ['leaderboard', 'gamblers-anonymous', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<GamblingStoneLeader[]>(`/leaderboards/maps/${mapId}/gamblers-anonymous${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+      api.get<GamblingStoneLeader[]>(`/leaderboards/maps/${mapId}/gamblers-anonymous?${sizeAndWindow}`),
     enabled: mapId != null,
   });
 
   const luckiestPlayersQuery = useQuery({
-    queryKey: ['leaderboard', 'luckiest-players', mapId, timeWindow],
+    queryKey: ['leaderboard', 'luckiest-players', mapId, partySize, timeWindow],
     queryFn: () =>
-      api.get<ItemDropLeader[]>(`/leaderboards/maps/${mapId}/luckiest-players${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+      api.get<ItemDropLeader[]>(`/leaderboards/maps/${mapId}/luckiest-players?${sizeAndWindow}`),
     enabled: mapId != null,
   });
   // The set of tracked items isn't statically known on the frontend — derive it from the response's
@@ -99,6 +108,15 @@ export function LeaderboardPage() {
   return (
     <div>
       <h1>Leaderboards</h1>
+
+      <Panel className={styles.section}>
+        <MapSizePicker
+          mapId={mapId}
+          partySize={partySize}
+          onMapChange={(nextMapId, size) => navigate(`/leaderboards/${nextMapId}?partySize=${size}`)}
+          onSizeChange={(n) => setSearchParams({ partySize: String(n) })}
+        />
+      </Panel>
 
       <Panel className={styles.section}>
         <label>
@@ -220,7 +238,7 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <GlobalSectionRow key={name} mapId={mapId} objectiveName={name} from={from} />
+                  <GlobalSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} />
                 ))}
               </tbody>
             </table>
@@ -244,7 +262,7 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} />
+                  <YourSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} />
                 ))}
               </tbody>
             </table>
@@ -269,7 +287,7 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <GlobalSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="start" />
+                  <GlobalSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} metric="start" />
                 ))}
               </tbody>
             </table>
@@ -293,7 +311,7 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="start" />
+                  <YourSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} metric="start" />
                 ))}
               </tbody>
             </table>
@@ -318,7 +336,7 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <GlobalSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="finish" />
+                  <GlobalSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} metric="finish" />
                 ))}
               </tbody>
             </table>
@@ -342,7 +360,7 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {objectiveNames.map((name) => (
-                  <YourSectionRow key={name} mapId={mapId} objectiveName={name} from={from} metric="finish" />
+                  <YourSectionRow key={name} mapId={mapId} partySize={partySize} objectiveName={name} from={from} metric="finish" />
                 ))}
               </tbody>
             </table>
@@ -381,11 +399,13 @@ export function LeaderboardPage() {
           )}
         </Panel>
 
+        {/* FoW 8-man has no role composition (role_model = NULL) — a by-role board would be empty. */}
+        {configHasRoles(mapId, partySize) && (
         <Panel className={styles.section}>
           <h2>MVP By Role</h2>
           {roleMvpAwardsQuery.isLoading && <p>Loading…</p>}
           {roleMvpAwardsQuery.data &&
-            ROLES.map((role, index) => {
+            rolesForConfig(mapId, partySize).map((role, index) => {
               // Already sorted awards/run-desc by the backend; filtering preserves that relative order.
               const rows = roleMvpAwardsQuery.data.filter((r) => r.role === role);
               return (
@@ -421,7 +441,12 @@ export function LeaderboardPage() {
               );
             })}
         </Panel>
+        )}
 
+        {/* Gambling-stone data is only collected on the Underworld (post-Dhuum ritual) — hide these
+            two panels entirely on other maps rather than show them perpetually empty. */}
+        {mapSupportsGambling(mapId) && (
+          <>
         <Panel className={styles.section}>
           <h2>Gamblers Anonymous</h2>
           {gamblersAnonymousQuery.isLoading && <p>Loading…</p>}
@@ -491,6 +516,8 @@ export function LeaderboardPage() {
             );
           })}
         </Panel>
+          </>
+        )}
       </div>
     </div>
   );
@@ -503,11 +530,13 @@ export function LeaderboardPage() {
  * point. Same response shape either way (SectionEntryResponse), just a different ORDER BY server-side. */
 function GlobalSectionRow({
   mapId,
+  partySize,
   objectiveName,
   from,
   metric = 'duration',
 }: {
   mapId: string;
+  partySize: number;
   objectiveName: string;
   from: string | null;
   metric?: 'duration' | 'start' | 'finish';
@@ -515,10 +544,10 @@ function GlobalSectionRow({
   const [expanded, setExpanded] = useState(false);
   const suffix = metric === 'duration' ? '' : `/${metric}`;
   const overallQuery = useQuery({
-    queryKey: ['leaderboard', 'section', metric, mapId, objectiveName, from],
+    queryKey: ['leaderboard', 'section', metric, mapId, partySize, objectiveName, from],
     queryFn: () =>
       api.get<SectionEntry[]>(
-        `/leaderboards/maps/${mapId}/sections/${encodeURIComponent(objectiveName)}${suffix}${from ? `?from=${encodeURIComponent(from)}` : ''}`,
+        `/leaderboards/maps/${mapId}/sections/${encodeURIComponent(objectiveName)}${suffix}?partySize=${partySize}${from ? `&from=${encodeURIComponent(from)}` : ''}`,
       ),
   });
 
@@ -574,21 +603,23 @@ function GlobalSectionRow({
 
 function YourSectionRow({
   mapId,
+  partySize,
   objectiveName,
   from,
   metric = 'duration',
 }: {
   mapId: string;
+  partySize: number;
   objectiveName: string;
   from: string | null;
   metric?: 'duration' | 'start' | 'finish';
 }) {
   const suffix = metric === 'duration' ? '' : `/${metric}`;
   const personalQuery = useQuery({
-    queryKey: ['leaderboard', 'me', 'section', metric, mapId, objectiveName, from],
+    queryKey: ['leaderboard', 'me', 'section', metric, mapId, partySize, objectiveName, from],
     queryFn: () =>
       api.get<PersonalSectionBest | undefined>(
-        `/leaderboards/me/maps/${mapId}/sections/${encodeURIComponent(objectiveName)}${suffix}${from ? `?from=${encodeURIComponent(from)}` : ''}`,
+        `/leaderboards/me/maps/${mapId}/sections/${encodeURIComponent(objectiveName)}${suffix}?partySize=${partySize}${from ? `&from=${encodeURIComponent(from)}` : ''}`,
       ),
   });
 

@@ -32,8 +32,12 @@ class AdminRunIntegrationTest extends AbstractIntegrationTest {
     }
 
     private Run seedRun(GameMap map, RunParticipant... participants) {
+        return seedRun(map, 8, participants);
+    }
+
+    private Run seedRun(GameMap map, int partySize, RunParticipant... participants) {
         Instant now = Instant.now();
-        Run run = runRepository.save(new Run(map, now, 1000L, now, "victory", true, 10_000L));
+        Run run = runRepository.save(new Run(map, now, 1000L, now, "victory", true, 10_000L, partySize));
         runObjectiveRepository.save(new RunObjective(run, 0, "Chamber", 2, 0L, 1000L, 1000L, 0));
         for (RunParticipant blueprint : participants) {
             runParticipantRepository.save(new RunParticipant(run, blueprint.getCharacter(), blueprint.getRawName(),
@@ -133,6 +137,31 @@ class AdminRunIntegrationTest extends AbstractIntegrationTest {
         assertThat(runRepository.findById(registered.getId())).isPresent();
         assertThat(runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(registered.getId())).hasSize(4);
         assertThat(runObjectiveRepository.findByRun_IdOrderBySequenceAsc(registered.getId())).hasSize(1);
+    }
+
+    @Test
+    void thresholdIsHalfEachRunsOwnPartySize() throws Exception {
+        // A Fissure of Woe duo needs only 1 of 2 registered (party_size / 2). The old fixed "4"
+        // would have swept both of these up.
+        MockHttpSession session = adminSession();
+        seedFissureOfWoe();
+        GameMap fow = gameMapRepository.getReferenceById(FISSURE_OF_WOE_MAP_ID);
+        Profession ranger = professionRepository.findById(2).orElseThrow();
+        Person owner = personEntity("fowowner-" + System.nanoTime());
+
+        Run keptDuo = seedRun(fow, 2,
+                participant(character(owner, "duo-reg-" + System.nanoTime()), "duo-reg", ranger, 0),
+                participant(null, "duo-unreg", ranger, 1));
+        Run wipedDuo = seedRun(fow, 2,
+                participant(null, "duo-a", ranger, 0),
+                participant(null, "duo-b", ranger, 1));
+
+        mockMvc.perform(post("/api/admin/runs/wipe-unregistered").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted_count").value(1));
+
+        assertThat(runRepository.findById(keptDuo.getId())).isPresent();
+        assertThat(runRepository.findById(wipedDuo.getId())).isEmpty();
     }
 
     @Test

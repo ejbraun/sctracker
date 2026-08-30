@@ -7,6 +7,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { RoleBadge } from '../components/RoleBadge';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { formatDate, formatDuration } from '../common/format';
+import { sizeLabel } from '../common/maps';
 import styles from './RunDetail.module.css';
 
 /** specs/frontend/05-run-history.md — "/runs/:id". */
@@ -39,6 +40,7 @@ export function RunDetail() {
       <h1>{run.map_name ?? `Map #${run.map_id}`}</h1>
       <Panel className={styles.header}>
         <span>{formatDate(run.utc_start)}</span>
+        <span>{sizeLabel(run.party_size)}</span>
         <StatusBadge completed={run.completed} endReason={run.end_reason} />
         <span>{formatDuration(run.duration_ms)}</span>
       </Panel>

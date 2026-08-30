@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- "party_size" = the roster size the run was uploaded with (party_members.length), frozen at
+         run-creation time like every other run-level field. Until now every run was an 8-man UW run;
+         Fissure of Woe introduces 2-person duos, and party size becomes a filterable dimension
+         alongside map on every leaderboard / loserboard / history query (see
+         specs/features/fow-and-party-size.md). The DEFAULT 8 exists only so the ADD COLUMN succeeds
+         on existing rows; it's backfilled from the true participant count immediately below and then
+         dropped, so ingestion must always write it explicitly. -->
+    <changeSet id="036-add-runs-party-size" author="uwtracker">
+        <addColumn tableName="runs">
+            <column name="party_size" type="TINYINT UNSIGNED" defaultValueNumeric="8">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <sql>
+            UPDATE runs r
+            SET party_size = (SELECT COUNT(*) FROM run_participants rp WHERE rp.run_id = r.id)
+        </sql>
+
+        <dropDefaultValue tableName="runs" columnName="party_size" columnDataType="TINYINT UNSIGNED"/>
+
+        <!-- Backs the "fastest completed run for this map at this party size" ranked query
+             (LeaderboardQueryRepository). Superset of idx_runs_map_completed's leading columns;
+             keep both for now, revisit against slow-query logs (same posture as spec 01). -->
+        <createIndex indexName="idx_runs_map_size_completed" tableName="runs">
+            <column name="map_id"/>
+            <column name="party_size"/>
+            <column name="completed"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

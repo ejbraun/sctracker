@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Retroactively applies {@link UploadRunService}'s "at least MIN_REGISTERED_CHARACTERS registered
+ * Retroactively applies {@link UploadRunService}'s "at least half the party must be registered
  * characters" upload rule to runs ingested before that rule existed. Deleting a run cascades
  * (ON DELETE CASCADE, see the changelog) to run_objectives, run_participants,
  * run_participant_item_drops, and run_failure_reasons — nothing here deletes children explicitly.
@@ -38,12 +38,11 @@ public class AdminRunService {
     public long wipeUnregisteredRuns() {
         List<Long> ids = unregisteredRunIds();
         runRepository.deleteAllByIdInBatch(ids);
-        log.warn("admin wiped {} run(s) with fewer than {} registered characters",
-                ids.size(), UploadRunService.MIN_REGISTERED_CHARACTERS);
+        log.warn("admin wiped {} run(s) with fewer than half their party registered as characters", ids.size());
         return ids.size();
     }
 
     private List<Long> unregisteredRunIds() {
-        return runRepository.findIdsWithFewerThanNRegisteredCharacters(UploadRunService.MIN_REGISTERED_CHARACTERS);
+        return runRepository.findIdsWithFewerThanHalfPartyRegistered();
     }
 }

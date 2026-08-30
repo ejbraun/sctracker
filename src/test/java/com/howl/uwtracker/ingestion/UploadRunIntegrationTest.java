@@ -51,9 +51,9 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
     // Matches src/main/resources/static/SCTracker.version.json's "version" — must satisfy
     // PluginVersionMetadataLoader.requireCurrentVersion or every authenticated request here gets a
     // 426 before it even reaches the logic under test. Bump alongside that file if it ever changes.
-    private static final String CURRENT_PLUGIN_VERSION = "9";
+    private static final String CURRENT_PLUGIN_VERSION = "10";
 
-    // 5, not just MIN_REGISTERED_CHARACTERS's 4: resendWithinWindowButDifferentRosterCreatesASecondRunInstead
+    // 5, more than minRegisteredFor(8)'s 4: resendWithinWindowButDifferentRosterCreatesASecondRunInstead
     // swaps out one of these names ("T1") for an unregistered one to build a different roster, so
     // registering only the bare minimum would make that upload start failing this check instead of
     // exercising the dedup-mismatch behavior it's actually testing.
@@ -65,7 +65,7 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         // would have by the time it's actually uploading — otherwise every upload here would hit the
         // outdated-plugin silent-drop path (UploadRunService) instead of exercising ingestion itself.
         mockMvc.perform(post("/api/plugin/download").session(session)).andExpect(status().isOk());
-        // UploadRunService now rejects an upload with fewer than MIN_REGISTERED_CHARACTERS registered
+        // UploadRunService rejects an upload with fewer than minRegisteredFor(partySize) registered
         // party members — register enough of validParty()'s names up front so every test here clears
         // that bar by default, same as it already needs a current plugin version to clear the 426 gate.
         // character_name is unique table-wide (spec 04), so a test that calls issueMachineKey() more

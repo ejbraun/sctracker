@@ -1,6 +1,61 @@
-.mapPicker {
+.section {
+  margin-bottom: 2rem;
+}
+
+.intro {
+  opacity: 0.85;
+  margin-top: -0.25rem;
+}
+
+/* Numbered-step list, matching How to Use's "First-time setup" block. */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: step;
+}
+
+.step {
+  counter-increment: step;
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  max-width: 20rem;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--gw-parchment-dark);
+}
+
+.step:last-child {
+  border-bottom: none;
+}
+
+.step::before {
+  content: counter(step);
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid var(--gw-border-gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--gw-font-display);
+  font-size: 0.9rem;
+}
+
+.stepTitle {
+  margin: 0 0 0.25rem;
+  font-weight: bold;
+}
+
+.stepBody {
+  margin: 0;
+}
+
+.picker {
+  margin: 1rem 0 0.5rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
 }

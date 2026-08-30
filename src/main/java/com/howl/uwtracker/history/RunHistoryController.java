@@ -33,6 +33,7 @@ public class RunHistoryController {
             @RequestParam(required = false) Long character,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) Integer map,
+            @RequestParam(required = false) Integer partySize,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @RequestParam(required = false) Boolean completed,
@@ -40,7 +41,7 @@ public class RunHistoryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "" + DEFAULT_SIZE) int size) {
 
-        RunHistoryFilter filter = new RunHistoryFilter(person, character, role, map, from, to, completed, endReason);
+        RunHistoryFilter filter = new RunHistoryFilter(person, character, role, map, partySize, from, to, completed, endReason);
         // PageRequest.of(page, size) alone defaults to Sort.unsorted() — no ORDER BY at all, so rows
         // came back in whatever order MySQL happened to return them. Most-recent-first is what a
         // "history" list means.

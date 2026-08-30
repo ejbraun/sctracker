@@ -1,5 +1,7 @@
 package com.howl.uwtracker.loserboards;
 
+import com.howl.uwtracker.domain.MapConfig;
+import com.howl.uwtracker.domain.MapConfigId;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.history.RunSpecifications;
@@ -11,6 +13,7 @@ import com.howl.uwtracker.loserboards.dto.OutdatedUploadAttemptResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
+import com.howl.uwtracker.repository.MapConfigRepository;
 import com.howl.uwtracker.repository.RoleObjectiveRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
 import com.howl.uwtracker.repository.RunParticipantRepository;
@@ -27,14 +30,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * specs/frontend "Loserboards" — the mirror image of {@code LeaderboardService}, kept as its own
- * package/page rather than folded into the leaderboards one.
- *
- * <p>{@code worst} is {@code @Transactional(readOnly = true)} for the same reason
- * {@code LeaderboardService.overall} is: with {@code spring.jpa.open-in-view=false}, the Hibernate
- * session closes as soon as the repository call returns, and {@link ParticipantSummary#from}
- * touches the lazy {@code character}/{@code person} associations — that mapping has to happen
- * inside the same transaction as the query.
+ * specs/frontend "Loserboards" — the mirror of {@code LeaderboardService}, and it takes the same
+ * optional {@code partySize} dimension ({@code null} = all sizes for the map). See
+ * specs/features/fow-and-party-size.md.
  */
 @Service
 public class LoserboardService {
@@ -45,23 +43,27 @@ public class LoserboardService {
     private final RunObjectiveRepository runObjectiveRepository;
     private final RunParticipantRepository runParticipantRepository;
     private final RoleObjectiveRepository roleObjectiveRepository;
+    private final MapConfigRepository mapConfigRepository;
     private final LoserboardQueryRepository loserboardQueryRepository;
 
     public LoserboardService(RunRepository runRepository, RunObjectiveRepository runObjectiveRepository,
                               RunParticipantRepository runParticipantRepository,
                               RoleObjectiveRepository roleObjectiveRepository,
+                              MapConfigRepository mapConfigRepository,
                               LoserboardQueryRepository loserboardQueryRepository) {
         this.runRepository = runRepository;
         this.runObjectiveRepository = runObjectiveRepository;
         this.runParticipantRepository = runParticipantRepository;
         this.roleObjectiveRepository = roleObjectiveRepository;
+        this.mapConfigRepository = mapConfigRepository;
         this.loserboardQueryRepository = loserboardQueryRepository;
     }
 
-    /** The slowest completed runs — the mirror of {@code LeaderboardService.overall}, which is fastest-first. */
+    /** The slowest completed runs — the mirror of {@code LeaderboardService.overall}. */
     @Transactional(readOnly = true)
-    public List<LeaderboardEntryResponse> worst(Integer mapId, Integer limit, Instant from, Instant to) {
+    public List<LeaderboardEntryResponse> worst(Integer mapId, Integer partySize, Integer limit, Instant from, Instant to) {
         Specification<Run> spec = Specification.where(RunSpecifications.hasMap(mapId))
+                .and(RunSpecifications.hasPartySize(partySize))
                 .and(RunSpecifications.isCompleted(true))
                 .and(RunSpecifications.startedBetween(from, to));
         Sort slowestFirst = Sort.by(Sort.Direction.DESC, "durationMs");
@@ -78,16 +80,16 @@ public class LoserboardService {
                 .toList();
     }
 
-    public List<RoleUserDeathsResponse> roleDeaths(Integer mapId, Instant from, Instant to) {
-        return loserboardQueryRepository.findRoleDeaths(mapId, from, to);
+    public List<RoleUserDeathsResponse> roleDeaths(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return loserboardQueryRepository.findRoleDeaths(mapId, partySize, from, to);
     }
 
-    public List<UserResignResponse> globalFails(Integer mapId, Instant from, Instant to) {
-        return loserboardQueryRepository.findGlobalFails(mapId, from, to);
+    public List<UserResignResponse> globalFails(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return loserboardQueryRepository.findGlobalFails(mapId, partySize, from, to);
     }
 
-    public List<RoleFailureReasonResponse> roleFailureReasons(Integer mapId, Instant from, Instant to) {
-        return loserboardQueryRepository.findRoleFailureReasons(mapId, from, to);
+    public List<RoleFailureReasonResponse> roleFailureReasons(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return loserboardQueryRepository.findRoleFailureReasons(mapId, partySize, from, to);
     }
 
     /** Global ranking only, not map-scoped — see {@link LoserboardQueryRepository#findOutdatedUploadAttempts}. */
@@ -96,34 +98,48 @@ public class LoserboardService {
     }
 
     /** Global ranking only — no personal "Yours" counterpart for this stat. */
-    public List<UserStreakResponse> longestBadStreak(Integer mapId, Integer limit, Instant from, Instant to) {
-        return loserboardQueryRepository.findLongestBadStreak(mapId, limit == null ? DEFAULT_LIMIT : limit, from, to);
+    public List<UserStreakResponse> longestBadStreak(Integer mapId, Integer partySize, Integer limit, Instant from, Instant to) {
+        return loserboardQueryRepository.findLongestBadStreak(mapId, partySize, limit == null ? DEFAULT_LIMIT : limit, from, to);
     }
 
     /**
      * Slowest to reach this objective — the mirror of {@code LeaderboardService.sectionStart}.
-     * Role-gated the same way as the leaderboard version: credit (or blame, here) for reaching the
-     * objective belongs to whichever role is gated in for it, not the whole party.
+     * Gated by whichever roles are involved in that objective when the config has a role model;
+     * for a role-less config (FoW 8-man) the whole party is shown.
      */
     @Transactional(readOnly = true)
-    public List<SectionEntryResponse> sectionSlowestStart(Integer mapId, String objectiveName, Integer limit, Instant from, Instant to) {
+    public List<SectionEntryResponse> sectionSlowestStart(Integer mapId, Integer partySize, String objectiveName, Integer limit, Instant from, Instant to) {
         List<RunObjective> objectives = runObjectiveRepository.findSlowestStartForMapObjective(
-                mapId, objectiveName, from, to, PageRequest.of(0, limit == null ? DEFAULT_LIMIT : limit));
+                mapId, objectiveName, partySize, from, to, PageRequest.of(0, limit == null ? DEFAULT_LIMIT : limit));
 
-        Set<String> gatedRoles = roleObjectiveRepository.findById_MapIdAndId_ObjectiveName(mapId, objectiveName).stream()
-                .map(ro -> ro.getId().getRole())
-                .collect(Collectors.toSet());
+        boolean gated = isRoleGated(mapId, partySize);
+        Set<String> gatedRoles = gated
+                ? roleObjectiveRepository.findById_MapIdAndId_ObjectiveName(mapId, objectiveName).stream()
+                        .map(ro -> ro.getId().getRole())
+                        .collect(Collectors.toSet())
+                : Set.of();
 
         return objectives.stream()
                 .map(ro -> {
                     List<ParticipantSummary> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(ro.getRun().getId())
                             .stream()
-                            .filter(rp -> gatedRoles.contains(rp.getRole()))
+                            .filter(rp -> !gated || gatedRoles.contains(rp.getRole()))
                             .map(ParticipantSummary::from)
                             .toList();
                     return new SectionEntryResponse(ro.getRun().getId(), ro.getDurationMs(), ro.getRun().getUtcStart(),
                             ro.getStartMs(), ro.getDoneMs(), participants);
                 })
                 .toList();
+    }
+
+    /** Same rule as {@code LeaderboardService.isRoleGated}. */
+    private boolean isRoleGated(Integer mapId, Integer partySize) {
+        if (partySize != null) {
+            return mapConfigRepository.findById(new MapConfigId(mapId, partySize))
+                    .map(c -> c.getRoleModel() != null)
+                    .orElse(false);
+        }
+        List<MapConfig> configs = mapConfigRepository.findByIdMapIdOrderByIdPartySizeAsc(mapId);
+        return configs.size() == 1 && configs.get(0).getRoleModel() != null;
     }
 }

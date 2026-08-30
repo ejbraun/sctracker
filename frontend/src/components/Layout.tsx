@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { UpdateBanner } from './UpdateBanner';
+import { DEFAULT_MAP_ID } from '../common/maps';
 import styles from './Layout.module.css';
 
 /** Wraps every protected route — nav bar + logout, per specs/frontend/01-auth.md. */
@@ -31,7 +32,9 @@ export function Layout() {
     <div className={styles.shell}>
       <nav className={styles.nav}>
         <div className={styles.navBar}>
-          <span className={styles.brand}>gwsctracker</span>
+          <Link className={styles.brand} to="/" onClick={closeMenu}>
+            gwsctracker
+          </Link>
           <button
             type="button"
             className={styles.menuToggle}
@@ -43,10 +46,10 @@ export function Layout() {
           </button>
         </div>
         <div className={`${styles.links} ${menuOpen ? styles.linksOpen : ''}`}>
-          <Link className={styles.navLink} to="/" onClick={closeMenu}>
+          <Link className={styles.navLink} to={`/leaderboards/${DEFAULT_MAP_ID}`} onClick={closeMenu}>
             Leaderboards
           </Link>
-          <Link className={styles.navLink} to="/loserboards" onClick={closeMenu}>
+          <Link className={styles.navLink} to={`/loserboards/${DEFAULT_MAP_ID}`} onClick={closeMenu}>
             Loserboards
           </Link>
           <Link className={styles.navLink} to="/runs" onClick={closeMenu}>

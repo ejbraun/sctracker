@@ -1,9 +1,7 @@
 package com.howl.uwtracker.failurereports;
 
-import com.howl.uwtracker.web.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -12,8 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In-memory ballot box for run failure reports: votes for a run accumulate here for
- * {@link #VOTING_WINDOW_SECONDS} after the run's upload ({@code Run.createdAt}), then the window
- * closes and hands off to {@link FailureReportPersister} to write the majority reason. Deliberately
+ * {@link #VOTING_WINDOW_SECONDS} after the first vote lands (hard-capped at
+ * {@link #WINDOW_HARD_CAP_SECONDS} past {@code Run.createdAt} — see {@link #openWindow}), then the
+ * window closes and hands off to {@link FailureReportPersister} to write the majority reason. Deliberately
  * in-process, not backed by a table — same "fine at this traffic volume" tradeoff already accepted
  * by {@code MapDedupLock}. A server restart mid-window silently drops any votes still pending for
  * runs currently in flight; every prior vote is only ever held in memory, never durable until the
@@ -24,6 +23,11 @@ public class FailureReportVotingRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(FailureReportVotingRegistry.class);
     private static final long VOTING_WINDOW_SECONDS = 60;
+    // Absolute ceiling on how long after the run row was created its window can still be open —
+    // guards against a stuck or replayed deferred submit reopening voting on a long-finished run and
+    // overwriting its result. Comfortably longer than any real gap between a party's staggered
+    // zone-outs. See openWindow.
+    private static final long WINDOW_HARD_CAP_SECONDS = 600;
 
     private final TaskScheduler taskScheduler;
     private final FailureReportPersister persister;
@@ -36,27 +40,38 @@ public class FailureReportVotingRegistry {
 
     /**
      * Registers {@code reporter}'s ballot for {@code runId}, opening the run's voting window on its
-     * first vote. A later vote from the same reporter overwrites their earlier one (plain map
-     * {@code put}, keyed by person id) — same "latest submission wins" intent the old wholesale-
-     * replace endpoint had. Throws a 409 {@link ApiException} once {@code runCreatedAt + 60s} has
-     * passed: the queue is closed and the majority (if any votes arrived at all) has already been,
-     * or is about to be, persisted by the window's own close task.
+     * first vote (see {@link #openWindow} for why the window is measured from that first vote, not
+     * from {@code runCreatedAt}). A later vote from the same reporter overwrites their earlier one
+     * (plain map {@code put}, keyed by person id) — same "latest submission wins" intent the old
+     * wholesale-replace endpoint had. Once the window has closed the vote is silently dropped
+     * (WARN, no exception): the queue is closed and the majority (if any votes arrived at all) has
+     * already been, or is about to be, persisted by the window's own close task, and the plugin's
+     * deferred submit shouldn't see a vote bounced back at it.
      */
     public void submitVote(Long runId, Instant runCreatedAt, Long reporterPersonId, Ballot ballot) {
         VotingWindow window = windows.computeIfAbsent(runId, id -> openWindow(id, runCreatedAt));
 
         if (!Instant.now().isBefore(window.closesAt())) {
-            throw new ApiException(HttpStatus.CONFLICT, "voting closed for run " + runId);
+            log.info("dropping failure vote for run {} from person {}: voting window already closed", runId, reporterPersonId);
+            return;
         }
         window.ballots().put(reporterPersonId, ballot);
     }
 
     private VotingWindow openWindow(Long runId, Instant runCreatedAt) {
-        Instant closesAt = runCreatedAt.plusSeconds(VOTING_WINDOW_SECONDS);
+        // Measure the window from the first vote (now), NOT from runCreatedAt. runCreatedAt is
+        // stamped by whichever party member's client publishes the run first; with staggered
+        // zone-outs a later voter's deferred submit can land well past runCreatedAt + 60s through no
+        // fault of their own. Anchoring to the first vote gives every reporter a full
+        // VOTING_WINDOW_SECONDS from when voting actually starts. Still hard-capped relative to
+        // runCreatedAt so a stuck/replayed submit can't reopen a long-finished run's vote.
+        Instant firstVoteWindow = Instant.now().plusSeconds(VOTING_WINDOW_SECONDS);
+        Instant hardCap = runCreatedAt.plusSeconds(WINDOW_HARD_CAP_SECONDS);
+        Instant closesAt = firstVoteWindow.isBefore(hardCap) ? firstVoteWindow : hardCap;
         VotingWindow window = new VotingWindow(closesAt);
-        // A closesAt already in the past (e.g. this is the very first vote and it arrived well after
-        // the window would have elapsed) still schedules validly — Spring runs a past-due Instant
-        // immediately, which promptly closes this now-empty window right back out again.
+        // A closesAt already in the past (first vote arrived after the hard cap) still schedules
+        // validly — Spring runs a past-due Instant immediately, promptly closing this now-empty
+        // window right back out; the vote that opened it is dropped by submitVote's own check.
         taskScheduler.schedule(() -> closeWindow(runId), closesAt);
         return window;
     }

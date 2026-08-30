@@ -11,10 +11,10 @@ test.describe('auth', () => {
   test('signup creates an account, logs in, and lands on the dashboard', async ({ page }) => {
     const username = uniqueName('signup');
     await signUp(page, username);
-    // "/" (Dashboard) is transient — it auto-forwards to the sole map's leaderboard (see
-    // dashboard.spec.ts) — so assert the settled state, not a snapshot mid-redirect.
-    await expect(page).toHaveURL(/\/leaderboards\/\d+$/);
-    await expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible();
+    // Lands on "/" — the Dashboard is a map/party-size chooser now (specs/features/
+    // fow-and-party-size.md), no longer an auto-forward to the sole map's leaderboard.
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByLabel('Map')).toBeVisible();
   });
 
   test('signup rejects a mismatched confirm-password client-side, before hitting the API', async ({ page }) => {
@@ -63,9 +63,9 @@ test.describe('auth', () => {
     await page.getByLabel('Password').fill('password123');
     await page.getByRole('button', { name: 'Login' }).click();
 
-    // "/" (Dashboard) is transient — it auto-forwards to the sole map's leaderboard (see
-    // dashboard.spec.ts) — so assert the settled state, not a snapshot mid-redirect.
-    await expect(page).toHaveURL(/\/leaderboards\/\d+$/);
-    await expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible();
+    // Lands on "/" — the Dashboard is a map/party-size chooser now (specs/features/
+    // fow-and-party-size.md), no longer an auto-forward to the sole map's leaderboard.
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByLabel('Map')).toBeVisible();
   });
 });

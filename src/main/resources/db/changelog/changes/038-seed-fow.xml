@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- The Fissure of Woe as a second supported map. map_id 34 confirmed against GWCA's MapID enum
+         (sequential from None=0; The_Underworld is 72). Two configurations ship together:
+           - (34, 2): the duo. role_model = "primary_profession" (Ranger-primary -> Ranger,
+             Dervish-primary -> Derv).
+           - (34, 8): the full 8-man. role_model = NULL — FoW 8-man has no fixed role composition
+             (unlike UW's trapper team), so run_participants.role stays NULL for these runs and the
+             personal section-best query is not role-gated. Both are 8 real players / 2 real players,
+             no heroes.
+         See specs/features/fow-and-party-size.md. -->
+    <changeSet id="038-seed-fow" author="uwtracker">
+        <insert tableName="maps">
+            <column name="id" valueNumeric="34"/>
+            <column name="name" value="The Fissure of Woe"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="2"/>
+            <column name="role_model" value="primary_profession"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="8"/>
+            <!-- role_model deliberately omitted -> NULL -->
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

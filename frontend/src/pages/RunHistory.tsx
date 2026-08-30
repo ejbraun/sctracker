@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { CharacterSummary, GameMap, PageResponse, PersonSummary, RunSummary } from '../api/types';
 import { ROLES } from '../common/roles';
-import { DEFAULT_MAP_ID } from '../common/maps';
+import { DEFAULT_MAP_ID, MAPS, mapById, sizeLabel } from '../common/maps';
 import { TIME_WINDOWS, TIME_WINDOW_LABELS, timeWindowFrom, type TimeWindow } from '../common/timeWindows';
 import { formatDate, formatDuration } from '../common/format';
 import { Panel } from '../components/Panel';
@@ -27,6 +27,7 @@ type Result = '' | 'completed' | 'resign' | 'wipe';
 
 interface Filters {
   map: string;
+  partySize: string;
   role: string;
   person: string;
   character: string;
@@ -34,11 +35,12 @@ interface Filters {
   result: Result;
 }
 
-const EMPTY_FILTERS: Filters = { map: DEFAULT_MAP_ID, role: '', person: '', character: '', window: 'all', result: '' };
+const EMPTY_FILTERS: Filters = { map: DEFAULT_MAP_ID, partySize: '', role: '', person: '', character: '', window: 'all', result: '' };
 
 function buildQuery(filters: Filters, page: number, size: number): string {
   const params = new URLSearchParams();
   if (filters.map) params.set('map', filters.map);
+  if (filters.partySize) params.set('partySize', filters.partySize);
   if (filters.role) params.set('role', filters.role);
   if (filters.person) params.set('person', filters.person);
   if (filters.character) params.set('character', filters.character);
@@ -53,8 +55,22 @@ function buildQuery(filters: Filters, page: number, size: number): string {
 
 /** specs/frontend/05-run-history.md, plus a duration-over-time chart above the table. */
 export function RunHistory() {
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  // Seed the map / party-size filters from the query string when present (e.g. the Dashboard links
+  // to /runs?map=34&partySize=2). Read once on mount; the controls own the state after that.
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<Filters>(() => ({
+    ...EMPTY_FILTERS,
+    map: searchParams.get('map') ?? EMPTY_FILTERS.map,
+    partySize: searchParams.get('partySize') ?? EMPTY_FILTERS.partySize,
+  }));
   const [page, setPage] = useState(0);
+
+  // Party-size options for the selected map — its own configured sizes, or every known size when
+  // "Any" map is selected.
+  const sizeOptions = useMemo(() => {
+    if (filters.map) return mapById(filters.map)?.partySizes ?? [];
+    return Array.from(new Set(MAPS.flatMap((m) => m.partySizes))).sort((a, b) => a - b);
+  }, [filters.map]);
 
   const mapsQuery = useQuery({ queryKey: ['maps'], queryFn: () => api.get<GameMap[]>('/maps') });
   const peopleQuery = useQuery({ queryKey: ['people'], queryFn: () => api.get<PersonSummary[]>('/people') });
@@ -75,6 +91,17 @@ export function RunHistory() {
 
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
     setFilters((f) => ({ ...f, [key]: value }));
+    setPage(0);
+  }
+
+  // Changing the map can invalidate the current party-size selection (e.g. "Duo" while switching to
+  // Underworld) — drop it back to "Any" when it's not an option for the newly-chosen map.
+  function updateMapFilter(nextMapId: string) {
+    setFilters((f) => {
+      const allowed = nextMapId ? (mapById(nextMapId)?.partySizes ?? []) : MAPS.flatMap((m) => m.partySizes);
+      const partySize = f.partySize && allowed.includes(Number(f.partySize)) ? f.partySize : '';
+      return { ...f, map: nextMapId, partySize };
+    });
     setPage(0);
   }
 
@@ -115,7 +142,7 @@ export function RunHistory() {
         <div className={styles.filterBar}>
           <label>
             Map
-            <select value={filters.map} onChange={(e) => updateFilter('map', e.target.value)}>
+            <select value={filters.map} onChange={(e) => updateMapFilter(e.target.value)}>
               <option value="">Any</option>
               {mapsQuery.data?.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -125,13 +152,14 @@ export function RunHistory() {
             </select>
           </label>
           <label>
-            Size
-            {/* Not a real filter — specs/backend/02: /upload-run rejects any party that isn't
-                exactly 8, so every run in the table is always full. Shown for consistency with the
-                other dropdowns, fixed rather than wired to a query param since there's nothing else
-                it could ever show. */}
-            <select value="full" disabled>
-              <option value="full">Full (8 participants)</option>
+            Party Size
+            <select value={filters.partySize} onChange={(e) => updateFilter('partySize', e.target.value)}>
+              <option value="">Any</option>
+              {sizeOptions.map((n) => (
+                <option key={n} value={n}>
+                  {sizeLabel(n)}
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -195,6 +223,7 @@ export function RunHistory() {
               <thead>
                 <tr>
                   <th>Map</th>
+                  <th>Size</th>
                   <th>Date</th>
                   <th>Status</th>
                   <th>Duration</th>
@@ -208,6 +237,7 @@ export function RunHistory() {
                         {run.map_name ?? `Map #${run.map_id}`}
                       </Link>
                     </td>
+                    <td>{sizeLabel(run.party_size)}</td>
                     <td>{formatDate(run.utc_start)}</td>
                     <td>
                       <StatusBadge completed={run.completed} endReason={run.end_reason} />
