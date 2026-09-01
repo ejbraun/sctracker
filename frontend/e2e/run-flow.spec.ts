@@ -29,7 +29,7 @@ test('an uploaded run surfaces in run history (by alias/character lookup), run d
 
   // Generate a machine key via the real Account UI flow.
   await page.getByRole('button', { name: 'Generate new key' }).click();
-  const rawKey = (await page.locator('code').first().textContent())!.trim();
+  const rawKey = (await page.getByTestId('raw-machine-key').textContent())!.trim();
   await page.getByRole('button', { name: 'Dismiss' }).click();
 
   const uploadBody = await uploadRun(page, rawKey, heroName, utcStartSeconds);
@@ -74,13 +74,15 @@ test('an uploaded run surfaces in run history (by alias/character lookup), run d
   await expect(page).toHaveURL(new RegExp(`/runs/${runId}$`));
   await page.goBack();
 
-  // Leaderboard: the Dashboard defaults its map picker to Underworld, so "View Leaderboards" goes
-  // straight to that map's board. The "Your Fastest Completions" panel reflects this account's
-  // personal best — which didn't exist until the character was linked — and, unlike the ranked
-  // "Fastest To Complete Instance" board, isn't affected by however many other runs other e2e
-  // executions have piled onto the shared Underworld map (see FRONTEND_IMPLEMENTATION_PROGRESS.md).
+  // Leaderboard: the Dashboard defaults its map picker to Underworld (8-man, its only size), so
+  // "View Leaderboards" goes straight to that map's board. The "Your Fastest Completions" panel
+  // reflects this account's personal best — which didn't exist until the character was linked —
+  // and, unlike the ranked "Fastest To Complete Instance" board, isn't affected by however many
+  // other runs other e2e executions have piled onto the shared Underworld map (see
+  // FRONTEND_IMPLEMENTATION_PROGRESS.md).
+  await page.goto('/');
   await page.getByRole('link', { name: 'View Leaderboards' }).click();
-  await expect(page).toHaveURL(new RegExp(`/leaderboards/${UNDERWORLD_MAP_ID}$`));
+  await expect(page).toHaveURL(new RegExp(`/leaderboards/${UNDERWORLD_MAP_ID}\\?partySize=8$`));
 
   // Global and "Yours" are separate panels — "Your Fastest Completions" heading text is unique on
   // the page, so no scoping needed to disambiguate it from the objective sections' own personal

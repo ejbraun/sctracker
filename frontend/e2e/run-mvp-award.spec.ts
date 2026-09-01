@@ -14,7 +14,7 @@ async function uploadAndGenerateKey(page: Page, username: string): Promise<numbe
 
   await goToAccount(page);
   await page.getByRole('button', { name: 'Generate new key' }).click();
-  const rawKey = (await page.locator('code').first().textContent())!.trim();
+  const rawKey = (await page.getByTestId('raw-machine-key').textContent())!.trim();
   await page.getByRole('button', { name: 'Dismiss' }).click();
 
   const heroName = uniqueName('MvpHero');

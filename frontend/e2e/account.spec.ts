@@ -15,7 +15,7 @@ test.describe('account', () => {
     await page.getByRole('button', { name: 'Generate new key' }).click();
 
     await expect(page.getByText("This key won't be shown again")).toBeVisible();
-    const rawKey = await page.locator('code').first().textContent();
+    const rawKey = await page.getByTestId('raw-machine-key').textContent();
     expect(rawKey).toBeTruthy();
     expect(rawKey!.length).toBeGreaterThan(10);
 

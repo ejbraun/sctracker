@@ -123,7 +123,7 @@ export function Account() {
             <p className={styles.warning}>
               This key won't be shown again — store it in the GW1 plugin config now.
             </p>
-            <code className={styles.rawKey}>{revealed.key}</code>
+            <code className={styles.rawKey} data-testid="raw-machine-key">{revealed.key}</code>
             <button onClick={() => navigator.clipboard?.writeText(revealed.key)}>Copy to clipboard</button>
             <button onClick={() => setRevealed(null)}>Dismiss</button>
           </div>
