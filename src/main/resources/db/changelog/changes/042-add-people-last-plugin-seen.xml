@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Stamped on every machine-key authentication (MachineKeyAuthenticationService), from the
+         X-Machine-Key -> person and the X-Plugin-Version header. Backs the reworked
+         "Players On An Outdated Plugin" Loserboards widget: an outdated plugin no longer attempts
+         uploads (so outdated_upload_attempts stops growing), but it still calls
+         /can-report-run-failure once per load with both headers.
+
+         last_plugin_seen_at NULL  = no plugin has ever authenticated for this person.
+         last_seen_plugin_version NULL, seen_at set = a client too old to send X-Plugin-Version
+                                   (also counts as outdated). -->
+    <changeSet id="042-add-people-last-plugin-seen" author="uwtracker">
+        <addColumn tableName="people">
+            <column name="last_plugin_seen_at" type="DATETIME(6)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_seen_plugin_version" type="INT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <createIndex indexName="idx_people_last_plugin_seen_at" tableName="people">
+            <column name="last_plugin_seen_at"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

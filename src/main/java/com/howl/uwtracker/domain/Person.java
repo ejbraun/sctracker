@@ -43,6 +43,17 @@ public class Person {
     @Column(name = "can_report_failures", nullable = false)
     private boolean canReportFailures;
 
+    // Stamped by MachineKeyAuthenticationService on every machine-key request — the timestamp and
+    // the X-Plugin-Version the plugin reported. Distinct from lastPluginDownloadAt (a website
+    // click): this is the plugin actually talking to the backend. Written via
+    // PersonRepository.recordPluginSeen (a bulk UPDATE by id), so there are no setters. A non-null
+    // lastPluginSeenAt with a null lastSeenPluginVersion is a client too old to send the header.
+    @Column(name = "last_plugin_seen_at")
+    private Instant lastPluginSeenAt;
+
+    @Column(name = "last_seen_plugin_version")
+    private Integer lastSeenPluginVersion;
+
     protected Person() {
     }
 
@@ -93,5 +104,13 @@ public class Person {
 
     public void setCanReportFailures(boolean canReportFailures) {
         this.canReportFailures = canReportFailures;
+    }
+
+    public Instant getLastPluginSeenAt() {
+        return lastPluginSeenAt;
+    }
+
+    public Integer getLastSeenPluginVersion() {
+        return lastSeenPluginVersion;
     }
 }

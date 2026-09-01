@@ -46,5 +46,6 @@
     <include file="db/changelog/changes/039-seed-fow-duo-role-objectives.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/040-create-spring-session.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/041-seed-fow-all-party-sizes.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/042-add-people-last-plugin-seen.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

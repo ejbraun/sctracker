@@ -156,12 +156,14 @@ export interface RoleMvpAwardEntry {
   avg_awards: number;
 }
 
-// "Loserboards" — per-user count of /upload-run attempts rejected with 426 Upgrade Required (an
-// outdated plugin build). Not map-scoped — the version check happens before the request body (and
-// its map_id) is ever read.
-export interface OutdatedUploadAttempt {
+// "Loserboards" — a user whose plugin last authenticated (any machine-key call, most reliably the
+// once-per-launch /can-report-run-failure) on a version below the current minimum, within the
+// selected time window. plugin_version is null for a client too old to send X-Plugin-Version. Not
+// map-scoped — nothing about a run is involved.
+export interface OutdatedPlugin {
   user: string;
-  attempts: number;
+  plugin_version: number | null;
+  last_seen: string;
 }
 
 // One user's single best-ever consecutive-run streak on a map — reused by both the Leaderboards

@@ -9,10 +9,12 @@ import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
-import com.howl.uwtracker.loserboards.dto.OutdatedUploadAttemptResponse;
+import com.howl.uwtracker.loserboards.dto.OutdatedPluginResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
+import com.howl.uwtracker.plugin.PluginVersionMetadata;
+import com.howl.uwtracker.plugin.PluginVersionMetadataLoader;
 import com.howl.uwtracker.repository.MapConfigRepository;
 import com.howl.uwtracker.repository.RoleObjectiveRepository;
 import com.howl.uwtracker.repository.RunObjectiveRepository;
@@ -45,18 +47,21 @@ public class LoserboardService {
     private final RoleObjectiveRepository roleObjectiveRepository;
     private final MapConfigRepository mapConfigRepository;
     private final LoserboardQueryRepository loserboardQueryRepository;
+    private final PluginVersionMetadataLoader pluginVersionMetadataLoader;
 
     public LoserboardService(RunRepository runRepository, RunObjectiveRepository runObjectiveRepository,
                               RunParticipantRepository runParticipantRepository,
                               RoleObjectiveRepository roleObjectiveRepository,
                               MapConfigRepository mapConfigRepository,
-                              LoserboardQueryRepository loserboardQueryRepository) {
+                              LoserboardQueryRepository loserboardQueryRepository,
+                              PluginVersionMetadataLoader pluginVersionMetadataLoader) {
         this.runRepository = runRepository;
         this.runObjectiveRepository = runObjectiveRepository;
         this.runParticipantRepository = runParticipantRepository;
         this.roleObjectiveRepository = roleObjectiveRepository;
         this.mapConfigRepository = mapConfigRepository;
         this.loserboardQueryRepository = loserboardQueryRepository;
+        this.pluginVersionMetadataLoader = pluginVersionMetadataLoader;
     }
 
     /** The slowest completed runs — the mirror of {@code LeaderboardService.overall}. */
@@ -92,9 +97,19 @@ public class LoserboardService {
         return loserboardQueryRepository.findRoleFailureReasons(mapId, partySize, from, to);
     }
 
-    /** Global ranking only, not map-scoped — see {@link LoserboardQueryRepository#findOutdatedUploadAttempts}. */
-    public List<OutdatedUploadAttemptResponse> outdatedUploadAttempts(Instant from, Instant to) {
-        return loserboardQueryRepository.findOutdatedUploadAttempts(from, to);
+    /**
+     * Active users whose plugin is behind the current minimum version — not map-scoped, see
+     * {@link LoserboardQueryRepository#findOutdatedActivePlugins}. Empty when the plugin manifest
+     * hasn't loaded (no {@code PLUGIN_STORAGE_BUCKET}, or unreachable): with no known current
+     * version there's nothing to compare against, so nobody can be classified as outdated — the
+     * same "fails open" posture as {@code PluginVersionMetadataLoader.requireCurrentVersion}.
+     */
+    public List<OutdatedPluginResponse> outdatedPlugins(Instant from, Instant to) {
+        PluginVersionMetadata current = pluginVersionMetadataLoader.getCurrent();
+        if (current == null) {
+            return List.of();
+        }
+        return loserboardQueryRepository.findOutdatedActivePlugins(from, to, current.version());
     }
 
     /** Global ranking only — no personal "Yours" counterpart for this stat. */

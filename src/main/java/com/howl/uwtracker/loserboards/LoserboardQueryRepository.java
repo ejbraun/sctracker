@@ -1,7 +1,7 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
-import com.howl.uwtracker.loserboards.dto.OutdatedUploadAttemptResponse;
+import com.howl.uwtracker.loserboards.dto.OutdatedPluginResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
 import com.howl.uwtracker.loserboards.dto.UserResignResponse;
@@ -155,22 +155,30 @@ public class LoserboardQueryRepository {
     }
 
     /**
-     * One row per user with at least one /upload-run attempt rejected with 426 Upgrade Required —
-     * not map-scoped, unlike every other query here, since the version check (and thus the
-     * rejection) happens before the request body's map_id is ever read. {@code user} falls back to
-     * {@code username} rather than a character's {@code raw_name} — this happens before any
-     * character/party data is parsed, so a run participant's raw name isn't available here.
+     * Users whose plugin last authenticated (MachineKeyAuthenticationService stamps
+     * {@code people.last_plugin_seen_at} / {@code last_seen_plugin_version} on every machine-key
+     * request) within [{@code from}, {@code to}] on a version below {@code currentVersion} — the
+     * "Players On An Outdated Plugin" widget. A null {@code last_seen_plugin_version} (client too
+     * old to send {@code X-Plugin-Version}) also counts as outdated. Not map-scoped, unlike every
+     * other query here — nothing about a run is involved. {@code user} falls back to
+     * {@code username} since these people may have no runs / no alias.
      */
-    public List<OutdatedUploadAttemptResponse> findOutdatedUploadAttempts(Instant from, Instant to) {
+    public List<OutdatedPluginResponse> findOutdatedActivePlugins(Instant from, Instant to, int currentVersion) {
         return jdbcTemplate.query(
-                "SELECT COALESCE(p.alias, p.username) AS user, COUNT(*) AS attempts " +
-                        "FROM outdated_upload_attempts oa " +
-                        "JOIN people p ON p.id = oa.person_id " +
-                        "WHERE (? IS NULL OR oa.attempted_at >= ?) AND (? IS NULL OR oa.attempted_at <= ?) " +
-                        "GROUP BY COALESCE(p.alias, p.username) " +
-                        "ORDER BY attempts DESC",
-                (rs, rowNum) -> new OutdatedUploadAttemptResponse(rs.getString("user"), rs.getLong("attempts")),
-                toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+                "SELECT COALESCE(p.alias, p.username) AS user, " +
+                        "p.last_seen_plugin_version AS version, " +
+                        "p.last_plugin_seen_at AS last_seen " +
+                        "FROM people p " +
+                        "WHERE p.last_plugin_seen_at IS NOT NULL " +
+                        "AND (? IS NULL OR p.last_plugin_seen_at >= ?) " +
+                        "AND (? IS NULL OR p.last_plugin_seen_at <= ?) " +
+                        "AND (p.last_seen_plugin_version IS NULL OR p.last_seen_plugin_version < ?) " +
+                        "ORDER BY p.last_plugin_seen_at DESC",
+                (rs, rowNum) -> new OutdatedPluginResponse(
+                        rs.getString("user"),
+                        (Integer) rs.getObject("version"),
+                        rs.getTimestamp("last_seen").toInstant()),
+                toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to), currentVersion);
     }
 
     /** {@code java.time.Instant} isn't one of JDBC 4.2's mandated {@code setObject} conversions; convert explicitly. */

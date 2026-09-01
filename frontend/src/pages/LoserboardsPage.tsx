@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import type {
   FailureReasonEntry,
   LeaderboardEntry,
-  OutdatedUploadAttempt,
+  OutdatedPlugin,
   RoleUserDeaths,
   RunDetail,
   SectionEntry,
@@ -73,12 +73,12 @@ export function LoserboardsPage() {
       api.get<UserStreak[]>(`/loserboards/maps/${mapId}/streaks/bad?limit=10&${sizeAndWindow}`),
   });
 
-  // Not map-scoped, unlike every other query here — the version check happens before the request
-  // body (and its map_id) is ever read, so an outdated-plugin attempt can't be attributed to a map.
-  const outdatedUploadAttemptsQuery = useQuery({
-    queryKey: ['loserboard', 'outdated-upload-attempts', timeWindow],
+  // Not map-scoped, unlike every other query here — this is per-person plugin-version state, nothing
+  // about a run. "Active within the selected time window AND behind the current minimum version."
+  const outdatedPluginsQuery = useQuery({
+    queryKey: ['loserboard', 'outdated-plugins', timeWindow],
     queryFn: () =>
-      api.get<OutdatedUploadAttempt[]>(`/loserboards/outdated-upload-attempts${from ? `?from=${encodeURIComponent(from)}` : ''}`),
+      api.get<OutdatedPlugin[]>(`/loserboards/outdated-plugins${from ? `?from=${encodeURIComponent(from)}` : ''}`),
   });
 
   // The set of objective names isn't statically known — pull them from the slowest completed
@@ -313,26 +313,26 @@ export function LoserboardsPage() {
         </Panel>
 
         <Panel className={styles.section}>
-          <h2>Most Outdated-Plugin Upload Attempts</h2>
-          {outdatedUploadAttemptsQuery.isLoading && <p>Loading…</p>}
-          {outdatedUploadAttemptsQuery.data && outdatedUploadAttemptsQuery.data.length === 0 && (
-            <p className={styles.emptyState}>No rejected upload attempts recorded yet.</p>
+          <h2>Players On An Outdated Plugin</h2>
+          {outdatedPluginsQuery.isLoading && <p>Loading…</p>}
+          {outdatedPluginsQuery.data && outdatedPluginsQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No active players are behind on the plugin.</p>
           )}
-          {outdatedUploadAttemptsQuery.data && outdatedUploadAttemptsQuery.data.length > 0 && (
+          {outdatedPluginsQuery.data && outdatedPluginsQuery.data.length > 0 && (
             <table>
               <thead>
                 <tr>
-                  <th>Rank</th>
                   <th>User</th>
-                  <th>Attempts</th>
+                  <th>Plugin version</th>
+                  <th>Last seen</th>
                 </tr>
               </thead>
               <tbody>
-                {outdatedUploadAttemptsQuery.data.map((entry, index) => (
+                {outdatedPluginsQuery.data.map((entry) => (
                   <tr key={entry.user}>
-                    <td className={styles.rank}>{index + 1}</td>
                     <td>{entry.user}</td>
-                    <td>{entry.attempts}</td>
+                    <td>{entry.plugin_version ?? 'unknown (very old)'}</td>
+                    <td>{formatDate(entry.last_seen)}</td>
                   </tr>
                 ))}
               </tbody>

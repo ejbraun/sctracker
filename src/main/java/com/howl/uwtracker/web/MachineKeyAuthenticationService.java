@@ -10,6 +10,8 @@ import com.howl.uwtracker.repository.PersonRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 /**
  * Shared X-Machine-Key authentication for every machine-key-authenticated endpoint (currently
  * /upload-run, /report-run-failure, /can-report-run-failure, /report-run-mvp) — kept in com.howl.uwtracker.web
@@ -42,6 +44,7 @@ public class MachineKeyAuthenticationService {
      */
     public Person authenticate(String rawMachineKey, Integer pluginVersion) {
         MachineKey machineKey = lookupMachineKey(rawMachineKey);
+        recordPluginSeen(machineKey, pluginVersion);
         pluginVersionMetadataLoader.requireCurrentVersion(pluginVersion);
         return loadPerson(machineKey);
     }
@@ -55,6 +58,7 @@ public class MachineKeyAuthenticationService {
      */
     public Person authenticateForUpload(String rawMachineKey, Integer pluginVersion) {
         MachineKey machineKey = lookupMachineKey(rawMachineKey);
+        recordPluginSeen(machineKey, pluginVersion);
         try {
             pluginVersionMetadataLoader.requireCurrentVersion(pluginVersion);
         } catch (ApiException e) {
@@ -62,6 +66,15 @@ public class MachineKeyAuthenticationService {
             throw e;
         }
         return loadPerson(machineKey);
+    }
+
+    // Stamped for every machine-key request (all four endpoints), before the version check so an
+    // already-outdated caller that's about to 426 still registers as active. machineKey.getPerson()
+    // is a lazy proxy but .getId() resolves without a DB hit. Backs the "Players On An Outdated
+    // Plugin" Loserboards widget — the only per-user signal an outdated plugin still emits is its
+    // once-per-load GET /can-report-run-failure, which carries both the key and X-Plugin-Version.
+    private void recordPluginSeen(MachineKey machineKey, Integer pluginVersion) {
+        personRepository.recordPluginSeen(machineKey.getPerson().getId(), Instant.now(), pluginVersion);
     }
 
     private MachineKey lookupMachineKey(String rawMachineKey) {
