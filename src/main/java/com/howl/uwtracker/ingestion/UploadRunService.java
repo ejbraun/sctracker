@@ -40,14 +40,15 @@ public class UploadRunService {
     }
 
     /**
-     * The registered-character floor for a party of {@code partySize} — 50% of the roster, rounded
-     * down (Underworld 8-man → 4, Fissure of Woe duo → 1). Keeps pug/scrub groups out while still
-     * allowing unregistered slots (a guildmate who just hasn't registered yet). The admin
-     * retroactive-wipe cleanup applies the same "half the party" bar per run (see
+     * The registered-character floor for a party of {@code partySize} — 50% of the roster rounded
+     * down, but never below 1 (Underworld 8-man → 4, Fissure of Woe duo → 1, a FoW solo run → 1:
+     * whoever ran it must be a registered character, otherwise the run attributes to nobody). Keeps
+     * pug/scrub groups out while still allowing unregistered slots (a guildmate who just hasn't
+     * registered yet). The admin retroactive-wipe cleanup applies the same bar per run (see
      * RunRepository.findIdsWithFewerThanHalfPartyRegistered). See specs/features/fow-and-party-size.md.
      */
     public static int minRegisteredFor(int partySize) {
-        return partySize / 2;
+        return Math.max(1, partySize / 2);
     }
 
     // pluginVersion (X-Plugin-Version) is enforced inside authenticate() itself — an outdated

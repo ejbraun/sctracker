@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Open the Fissure of Woe (map 34) to the full 1-8 party-size range. 038-seed-fow seeded
+         only (34, 2) and (34, 8); this fills in 1, 3, 4, 5, 6 and 7. All six are role-less
+         (role_model = NULL) exactly like the 8-man config: no fixed composition, so
+         run_participants.role stays NULL, RoleDerivation.resolveRoles returns all-nulls (no new
+         branch needed), the personal section-best query is the un-gated MIN(duration_ms) path,
+         and no role_objectives rows are required. Only the size-2 duo keeps a role model
+         (primary_profession -> Ranger/Derv, from 038/039).
+
+         The upload gate is a single map_configs lookup (UploadRunService), so these rows are all
+         it takes for FoW runs of any size to be accepted; every leaderboard/loserboard/history
+         query is already parameterised by party_size. See specs/features/fow-and-party-size.md. -->
+    <changeSet id="041-seed-fow-all-party-sizes" author="uwtracker">
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="1"/>
+            <!-- role_model omitted -> NULL -->
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="3"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="4"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="5"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="6"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="34"/>
+            <column name="party_size" valueNumeric="7"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -34,6 +34,9 @@ export function RunDetail() {
   }
 
   const run = runQuery.data;
+  // Role-less configs (every FoW size except the duo) carry no role for anyone — drop the column
+  // rather than show a table full of "unresolved" placeholders.
+  const showRoles = run.participants.some((p) => p.role != null);
 
   return (
     <div>
@@ -111,8 +114,8 @@ export function RunDetail() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Profession</th>
-              <th>Role</th>
+              <th>Professions</th>
+              {showRoles && <th>Role</th>}
               <th>Deaths</th>
             </tr>
           </thead>
@@ -125,10 +128,15 @@ export function RunDetail() {
                 >
                   {participant.character_name ?? participant.raw_name}
                 </td>
-                <td>{participant.primary_profession}</td>
                 <td>
-                  <RoleBadge role={participant.role} />
+                  {participant.primary_profession}
+                  {participant.secondary_profession ? ` / ${participant.secondary_profession}` : ''}
                 </td>
+                {showRoles && (
+                  <td>
+                    <RoleBadge role={participant.role} />
+                  </td>
+                )}
                 <td>{participant.deaths}</td>
               </tr>
             ))}

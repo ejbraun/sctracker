@@ -635,3 +635,57 @@ the panels (§9.3).
 8-man, add it as: popup lists the 8 character names, `FailureReportService` / `MvpReportService`
 match the vote against `run_participants.raw_name` instead of `role` (both already attach the row
 to a `run_participant`). No schema change.
+
+---
+
+## 10. Expansion: FoW at every party size 1–8
+
+Follow-up to §9. The Fissure of Woe now has a `map_configs` row for **every** party size 1
+through 8, not just 2 and 8. This is purely additive — the extension pattern from §2/§3.2 ("one
+new row plus, if it has a model, its `RoleDerivation` branch and `role_objectives` rows — no
+schema change").
+
+### 10.1 Backend
+
+- **Changeset `041-seed-fow-all-party-sizes.xml`** — `INSERT INTO map_configs (34, n, NULL)` for
+  `n ∈ {1, 3, 4, 5, 6, 7}`. All **role-less**, exactly like the 8-man config. The size-2 duo
+  keeps `primary_profession`; size 8 stays `NULL`.
+- No `RoleDerivation` branch and no `role_objectives` rows: `resolveRoles(members, null)` already
+  returns all-`null` at any size, and the role-less sizes use the un-gated
+  `MIN(duration_ms)` personal-section query (§9.2).
+- **Registered-character floor** is now `minRegisteredFor(size) = max(1, floor(size/2))` — every
+  run needs at least one registered character. Only the new solo case is affected (was 0, now 1):
+  a solo run whose runner isn't registered attributes to nobody, so it's rejected. Sizes 2–8 are
+  unchanged. `RunRepository.findIdsWithFewerThanHalfPartyRegistered` (the retroactive admin wipe)
+  mirrors this as `HAVING COUNT(...) < GREATEST(1, r.party_size DIV 2)`.
+- Every leaderboard / loserboard / history / section query is already parameterised by
+  `party_size`; no query changes. An un-sized `/me/.../sections/...` call for FoW still 400s
+  (multi-config map) — unchanged behaviour.
+
+### 10.2 Plugin (`SCTracker`) — version `11`
+
+- `IsAcceptablePartySize` FoW case: `real_player_count >= 1 && real_player_count <= 8` (was
+  `== 2 || == 8`). This is the only behavioural change — the upload payload carries no
+  `party_size`; the backend counts `party_members[].is_player`.
+- `MapSizeHasRoles` unchanged (`FoW → real_player_count == 2`): only the duo opens a post-run
+  failure/MVP vote; sizes 1 and 3–8 get none, same as the 8-man.
+- Version bumped `10 → 11` (`SCTRACKER_PLUGIN_VERSION`) so older clients get the "outdated" nudge.
+  The backend's enforced minimum is **not** raised — older plugins already drop non-{2,8} FoW
+  runs client-side, so there's nothing to hard-block.
+
+### 10.3 Frontend
+
+- `common/maps.ts`: FoW `partySizes: [1, 2, 3, 4, 5, 6, 7, 8]`, plus a `defaultSize: 2` field on
+  the map entry (consumed by `defaultPartySize`) so FoW still defaults to the duo while the
+  picker lists the full range. `ROLE_MODEL` gains explicit `'34:1' … '34:7': null` entries.
+  `sizeLabel` gains a `Solo` case for `n === 1`.
+- `MapSizePicker` / `LeaderboardPage` / `LoserboardsPage` need no logic change — the `<select>`
+  renders whatever `partySizes` holds, and `configHasRoles` already returns false for the
+  role-less sizes so the by-role panels auto-hide.
+
+### 10.4 Run-detail page
+
+Role-less FoW runs show `role` = `null` for every participant, so the run-detail page now
+displays **primary / secondary profession** per participant (both have been persisted on
+`run_participants` and returned by `GET /api/runs/{id}` since changeset 008 — this is a
+render-only change), and hides the **Role** column entirely when no participant has a role.

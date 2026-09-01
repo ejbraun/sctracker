@@ -31,7 +31,7 @@ export function Dashboard() {
             <div>
               <p className={styles.stepTitle}>Choose a party size</p>
               <p className={styles.stepBody}>
-                8-Man for the Underworld; Duo or 8-Man for the Fissure of Woe.
+                8-Man for the Underworld; anything from Solo to 8-Man for the Fissure of Woe.
               </p>
             </div>
           </li>

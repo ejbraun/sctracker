@@ -56,9 +56,20 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     private static List<PartyMemberDto> duo() {
-        return new ArrayList<>(List.of(
-                new PartyMemberDto("FoW Ranger", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null),
-                new PartyMemberDto("FoW Derv", DERVISH, MONK, true, false, false, 0, null, List.of(), null)));
+        return party(2);
+    }
+
+    /** A FoW party of {@code size} real players. Member 0 is "FoW Ranger" (the uploader). */
+    private static List<PartyMemberDto> party(int size) {
+        List<PartyMemberDto> members = new ArrayList<>();
+        members.add(new PartyMemberDto("FoW Ranger", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        if (size >= 2) {
+            members.add(new PartyMemberDto("FoW Derv", DERVISH, MONK, true, false, false, 0, null, List.of(), null));
+        }
+        for (int i = 2; i < size; i++) {
+            members.add(new PartyMemberDto("FoW Member " + i, RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        }
+        return members;
     }
 
     private static UploadRunRequest request(long utcStartSeconds, List<PartyMemberDto> members) {
@@ -107,14 +118,47 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsAPartySizeWithNoConfigForThisMap() throws Exception {
-        // FoW has (34, 2) and (34, 8) configs — a 3-person party matches neither.
-        String key = issueMachineKey("FoW Ranger");
-        List<PartyMemberDto> three = duo();
-        three.add(new PartyMemberDto("Third Wheel", RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+    void midSizeFowUploadCreatesRolelessRun() throws Exception {
+        // FoW now has a config for every size 1-8; every size other than the duo is role-less.
+        String key = issueMachineKey("FoW Ranger", "FoW Derv");
 
-        upload(key, request(UTC_START_SECONDS, three), 400);
+        mockMvc.perform(post("/upload-run")
+                        .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request(UTC_START_SECONDS, party(3)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created").value(true));
+
+        Run run = runRepository.findAll().get(0);
+        assertThat(run.getMap().getId()).isEqualTo(FISSURE_OF_WOE_MAP_ID);
+        assertThat(run.getPartySize()).isEqualTo(3);
+        assertThat(run.isCompleted()).isTrue();
+
+        List<RunParticipant> participants = runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId());
+        assertThat(participants).hasSize(3);
+        assertThat(participants).allSatisfy(p -> assertThat(p.getRole()).isNull());
+    }
+
+    @Test
+    void rejectsASoloFowRunWhoseRunnerIsNotRegistered() throws Exception {
+        // minRegisteredFor(1) = 1 — a solo run whose one member isn't a registered character
+        // attributes to nobody, so it's rejected.
+        String key = issueMachineKey();
+        upload(key, request(UTC_START_SECONDS, party(1)), 400);
         assertThat(runRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void acceptsASoloFowRunWithItsOneCharacterRegistered() throws Exception {
+        String key = issueMachineKey("FoW Ranger");
+
+        upload(key, request(UTC_START_SECONDS, party(1)), 200);
+
+        Run run = runRepository.findAll().get(0);
+        assertThat(run.getPartySize()).isEqualTo(1);
+        assertThat(runParticipantRepository.findByRun_IdOrderByPartyIndexAsc(run.getId()))
+                .singleElement().satisfies(p -> assertThat(p.getRole()).isNull());
     }
 
     @Test

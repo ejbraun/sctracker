@@ -11,22 +11,37 @@ export interface MapChoice {
   /** Short label for compact UI — "UW", "FoW". */
   short: string;
   name: string;
-  /** Party sizes this map supports, ascending. [0] is the default. Mirrors map_configs rows. */
+  /** Party sizes this map supports, ascending. Mirrors map_configs rows. */
   partySizes: number[];
+  /** Preselected size for pages that need one before the user picks. Defaults to partySizes[0]. */
+  defaultSize?: number;
 }
 
 export const MAPS: MapChoice[] = [
   { id: '72', short: 'UW', name: 'The Underworld', partySizes: [8] },
-  { id: '34', short: 'FoW', name: 'The Fissure of Woe', partySizes: [2, 8] },
+  {
+    id: '34',
+    short: 'FoW',
+    name: 'The Fissure of Woe',
+    partySizes: [1, 2, 3, 4, 5, 6, 7, 8],
+    // The duo is the canonical FoW speed clear — default to it even though it isn't partySizes[0].
+    defaultSize: 2,
+  },
 ];
 
 // Role model per (map, party_size), mirroring the backend's map_configs.role_model. `null` = the
-// config has no role model (The Fissure of Woe 8-man has no fixed composition), which hides the
-// by-role panels and makes personal section bests un-gated. Kept static for first paint; the
-// authoritative source is GameMap.configs from /api/maps.
+// config has no role model (every Fissure of Woe size except the duo has no fixed composition),
+// which hides the by-role panels and makes personal section bests un-gated. Kept static for first
+// paint; the authoritative source is GameMap.configs from /api/maps.
 const ROLE_MODEL: Record<string, string | null> = {
   '72:8': 'trapper',
+  '34:1': null,
   '34:2': 'primary_profession',
+  '34:3': null,
+  '34:4': null,
+  '34:5': null,
+  '34:6': null,
+  '34:7': null,
   '34:8': null,
 };
 
@@ -55,10 +70,13 @@ export const DEFAULT_MAP_ID = '72';
 
 export const mapById = (id: string): MapChoice | undefined => MAPS.find((m) => m.id === id);
 
-export const defaultPartySize = (mapId: string): number | undefined => mapById(mapId)?.partySizes[0];
+export const defaultPartySize = (mapId: string): number | undefined => {
+  const map = mapById(mapId);
+  return map?.defaultSize ?? map?.partySizes[0];
+};
 
-/** "Duo" for a 2-person party, otherwise "N-Man". */
-export const sizeLabel = (n: number): string => (n <= 2 ? 'Duo' : `${n}-Man`);
+/** "Solo" for 1, "Duo" for 2, otherwise "N-Man". */
+export const sizeLabel = (n: number): string => (n === 1 ? 'Solo' : n === 2 ? 'Duo' : `${n}-Man`);
 
 // Gambling-stone / ecto data is only collected on the Underworld (the post-Dhuum gambling ritual),
 // so the "Gamblers Anonymous" / "Luckiest Players" panels are hidden for other maps rather than

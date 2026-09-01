@@ -44,12 +44,15 @@ class MapIntegrationTest extends AbstractIntegrationTest {
         assertThat(maps).hasSize(2);
         MapResponse fow = maps.stream().filter(m -> m.id() == FISSURE_OF_WOE_MAP_ID).findFirst().orElseThrow();
         assertThat(fow.name()).isEqualTo(FISSURE_OF_WOE_MAP_NAME);
-        // Ascending by party size: the role-gated duo, then the role-less 8-man.
-        assertThat(fow.configs()).hasSize(2);
-        assertThat(fow.configs().get(0).partySize()).isEqualTo(2);
-        assertThat(fow.configs().get(0).roleModel()).isEqualTo("primary_profession");
-        assertThat(fow.configs().get(1).partySize()).isEqualTo(8);
-        assertThat(fow.configs().get(1).roleModel()).isNull();
+        // The full 1-8 range, ascending by party size. Only the size-2 duo is role-gated; every
+        // other size is role-less (role_model = NULL).
+        assertThat(fow.configs()).extracting(c -> c.partySize())
+                .containsExactly(1, 2, 3, 4, 5, 6, 7, 8);
+        assertThat(fow.configs()).filteredOn(c -> c.roleModel() != null)
+                .singleElement().satisfies(c -> {
+                    assertThat(c.partySize()).isEqualTo(2);
+                    assertThat(c.roleModel()).isEqualTo("primary_profession");
+                });
     }
 
     private List<MapResponse> fetchMaps(MockHttpSession session) throws Exception {

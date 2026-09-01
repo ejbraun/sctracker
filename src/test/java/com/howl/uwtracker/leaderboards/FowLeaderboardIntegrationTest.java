@@ -20,7 +20,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * The party-size dimension on the leaderboards for a multi-config map (The Fissure of Woe: a
- * role-gated duo and a role-less 8-man). See specs/features/fow-and-party-size.md §9.
+ * role-gated duo plus role-less configs for every other size 1-8). See
+ * specs/features/fow-and-party-size.md §9.
  */
 class FowLeaderboardIntegrationTest extends AbstractIntegrationTest {
 
@@ -54,12 +55,18 @@ class FowLeaderboardIntegrationTest extends AbstractIntegrationTest {
         GameMap map = fow();
 
         seedFowRun(map, person, 2, 10_000L, 3_000L, "Ranger");   // duo
+        seedFowRun(map, person, 3, 18_000L, 4_500L, null);       // trio, role-less (new config)
         seedFowRun(map, person, 8, 25_000L, 6_000L, null);       // 8-man, no roles
 
         mockMvc.perform(get("/api/leaderboards/maps/" + FISSURE_OF_WOE_MAP_ID + "/overall").session(session).param("partySize", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].duration_ms").value(10_000));
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + FISSURE_OF_WOE_MAP_ID + "/overall").session(session).param("partySize", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].duration_ms").value(18_000));
 
         mockMvc.perform(get("/api/leaderboards/maps/" + FISSURE_OF_WOE_MAP_ID + "/overall").session(session).param("partySize", "8"))
                 .andExpect(status().isOk())

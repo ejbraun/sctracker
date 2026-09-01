@@ -163,17 +163,21 @@ public abstract class AbstractIntegrationTest {
     }
 
     /**
-     * Seeds The Fissure of Woe (map + its 2-person, primary_profession {@code map_configs} row +
-     * the duo role_objectives rows changeset 039 provides), for tests that exercise the FoW path.
-     * Not part of {@link #cleanDatabase()} since most tests don't need it.
+     * Seeds The Fissure of Woe (map + its {@code map_configs} rows for the full 1-8 party-size
+     * range + the duo role_objectives rows changeset 039 provides), for tests that exercise the
+     * FoW path. Mirrors changesets 038 + 041: only the 2-person duo has a role model
+     * (primary_profession); sizes 1 and 3-8 are role-less. Not part of {@link #cleanDatabase()}
+     * since most tests don't need it.
      */
     protected void seedFissureOfWoe() {
         jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", FISSURE_OF_WOE_MAP_ID, FISSURE_OF_WOE_MAP_NAME);
         jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 2, 'primary_profession')",
                 FISSURE_OF_WOE_MAP_ID);
-        // The 8-man config has no role model (FoW 8-man has no fixed composition).
-        jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 8, NULL)",
-                FISSURE_OF_WOE_MAP_ID);
+        // Every FoW size other than the duo is role-less (no fixed composition).
+        for (int partySize : List.of(1, 3, 4, 5, 6, 7, 8)) {
+            jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, ?, NULL)",
+                    FISSURE_OF_WOE_MAP_ID, partySize);
+        }
         for (String objective : List.of("ToC", "Wailing Lord", "Griffons", "Defend", "Forge", "Menzies",
                 "Restore", "Khobay", "ToS", "Burning Forest", "The Hunt")) {
             jdbcTemplate.update("INSERT INTO role_objectives (map_id, objective_name, role) VALUES (?, ?, 'Ranger')",
