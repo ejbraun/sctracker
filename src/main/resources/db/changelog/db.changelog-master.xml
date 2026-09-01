@@ -44,5 +44,6 @@
     <include file="db/changelog/changes/037-create-map-configs.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/038-seed-fow.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/039-seed-fow-duo-role-objectives.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/040-create-spring-session.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

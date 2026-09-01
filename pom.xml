@@ -54,6 +54,14 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
+        <!-- Persists HttpSession rows in MySQL so a redeploy / node restart doesn't log everyone
+             out, and so sessions still work if Cloud Run ever runs more than one instance. Schema
+             is owned by Liquibase (changeset 040), not Spring's schema initializer
+             (spring.session.jdbc.initialize-schema=never). Version managed by spring-boot-parent. -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>

@@ -60,7 +60,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Starting it ourselves, once, with no {@code @Container} annotation for the extension to manage,
  * avoids this entirely; Ryuk still reaps the container at JVM exit either way.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+// Spring Session JDBC is excluded here on purpose. In prod it persists sessions to MySQL
+// (spring-session-jdbc + changeset 040) so a restart doesn't sign everyone out; but its
+// SessionRepositoryFilter resolves the session from a cookie/DB lookup and ignores the
+// MockHttpSession that every test below injects via .session(...), which would break auth on
+// essentially the whole suite. Excluding the auto-config leaves MockMvc on the plain
+// servlet-session path these tests were written against. The 040 schema still gets created in the
+// test database (harmlessly unused). Spring Session's own persistence isn't integration-tested.
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK,
+        properties = "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.session.SessionAutoConfiguration")
 @AutoConfigureMockMvc
 @Import(FakePluginStorageConfig.class)
 public abstract class AbstractIntegrationTest {
