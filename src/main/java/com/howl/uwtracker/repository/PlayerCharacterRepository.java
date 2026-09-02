@@ -10,6 +10,8 @@ public interface PlayerCharacterRepository extends JpaRepository<PlayerCharacter
 
     List<PlayerCharacter> findByPerson_Id(Long personId);
 
+    List<PlayerCharacter> findByPerson_IdOrderByCharacterNameAsc(Long personId);
+
     Optional<PlayerCharacter> findByCharacterName(String characterName);
 
     boolean existsByCharacterName(String characterName);

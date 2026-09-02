@@ -38,9 +38,10 @@ public class CharacterService {
         this.runParticipantRepository = runParticipantRepository;
     }
 
+    /** Every character owned by {@code personId}, name-sorted. Same view the owner and an admin see. */
     @Transactional(readOnly = true)
-    public List<CharacterResponse> listMine(Long personId) {
-        return characterRepository.findByPerson_Id(personId).stream()
+    public List<CharacterResponse> listForPerson(Long personId) {
+        return characterRepository.findByPerson_IdOrderByCharacterNameAsc(personId).stream()
                 .map(CharacterResponse::from)
                 .toList();
     }

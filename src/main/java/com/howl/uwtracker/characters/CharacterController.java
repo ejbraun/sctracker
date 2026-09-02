@@ -29,7 +29,7 @@ public class CharacterController {
 
     @GetMapping
     public ResponseEntity<List<CharacterResponse>> list(@CurrentPersonId Long personId) {
-        return ResponseEntity.ok(characterService.listMine(personId));
+        return ResponseEntity.ok(characterService.listForPerson(personId));
     }
 
     /** Backs the Run History "character" filter dropdown — every character system-wide, not just the caller's. */
