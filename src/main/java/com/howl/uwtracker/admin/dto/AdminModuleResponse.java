@@ -1,6 +1,7 @@
 package com.howl.uwtracker.admin.dto;
 
 import com.howl.uwtracker.domain.Module;
+import com.howl.uwtracker.domain.ModuleType;
 
 import java.time.Instant;
 
@@ -9,6 +10,7 @@ public record AdminModuleResponse(
         Long id,
         String moduleKey,
         String displayName,
+        ModuleType type,
         boolean isPublic,
         boolean enabled,
         String bucketPrefix,
@@ -21,7 +23,7 @@ public record AdminModuleResponse(
         int sortOrder) {
 
     public static AdminModuleResponse from(Module m) {
-        return new AdminModuleResponse(m.getId(), m.getModuleKey(), m.getDisplayName(), m.isPublicAccess(),
+        return new AdminModuleResponse(m.getId(), m.getModuleKey(), m.getDisplayName(), m.getType(), m.isPublicAccess(),
                 m.isEnabled(), m.getBucketPrefix(), m.getArtifactObject(), m.getManifestObject(), m.getContentType(),
                 m.getCurrentVersion(), m.getCurrentSha256(), m.getVersionDetectedAt(), m.getSortOrder());
     }

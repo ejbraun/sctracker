@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Classifies each module so a consumer can fetch just its kind: 'plugin' = a GWToolbox++
+         plugin DLL (SCTracker, and PP features that run inside the toolbox); 'module' = a
+         ProjectPotato launcher module loaded by PP itself. Everything that exists today is a
+         plugin, hence the default. App-validated (com.howl.uwtracker.domain.ModuleType), not a DB
+         enum — same posture as map_configs.role_model. -->
+    <changeSet id="048-add-modules-type" author="uwtracker">
+        <addColumn tableName="modules">
+            <column name="type" type="VARCHAR(16)" defaultValue="plugin">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

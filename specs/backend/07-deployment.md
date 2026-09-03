@@ -41,15 +41,15 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 
 ## Module artifacts (GCS bucket)
 
-The registry-driven module artifacts (SCTracker and PP's per-feature DLLs) are hosted the same way as the bundled SCTracker plugin above — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One object-layout rule:**
+The registry-driven module artifacts (SCTracker and the GWToolbox++ plugins PP manages) are hosted the same way as the bundled SCTracker plugin above — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One object-layout rule:**
 
 - `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per artifact, e.g. `plugins/SCTracker/…`, `plugins/PP-Vanquish/…`.
 
-> Where PP's **base launcher** (`PP.exe` / `PP.dll`) is hosted is not decided yet — gwsctracker currently serves only the feature modules. If it lands in this bucket later it follows the same `plugins/<Name>/` rule.
+> Where PP's **base launcher** (`PP.exe` / `PP.dll`) is hosted is not decided yet — gwsctracker currently serves only Toolbox plugins. If it lands in this bucket later it follows the same `plugins/<Name>/` rule.
 
 `ModuleManifestCache` reads each `*.version.json` (`plugin.storage.module-cache-ttl`, default 15m) and streams the artifact bytes per request at `GET /modules/{key}/download` — bytes are never held in memory. Optional overrides: `plugin.storage.module-cache-ttl`, `plugin.storage.max-module-download-bytes` (default 64 MiB).
 
-- **Publishers**: GWToolboxpp `cmake.yml` — one loop over every staged plugin `.dll`, each to `gs://<bucket>/plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`. Any other pipeline building a feature DLL follows the same path + IAM. An admin then registers each as a module — or hits **Scan bucket** on the Modules page, which lists unregistered `plugins/<Name>/` folders for one-click import.
+- **Publishers**: GWToolboxpp `cmake.yml` — one loop over every staged plugin `.dll`, each to `gs://<bucket>/plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`. Any other pipeline building a plugin DLL follows the same path + IAM. An admin then registers each as a module — or hits **Scan bucket** on the Modules page, which lists unregistered `plugins/<Name>/` folders for one-click import.
 - The backend tolerates a missing object (503 on that one download) so publishing is decoupled from any backend deploy.
 
 ### One-time SCTracker `sctracker/` → `plugins/SCTracker/` migration

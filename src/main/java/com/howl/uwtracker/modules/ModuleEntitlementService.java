@@ -1,6 +1,7 @@
 package com.howl.uwtracker.modules;
 
 import com.howl.uwtracker.domain.Module;
+import com.howl.uwtracker.domain.ModuleType;
 import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.modules.dto.ModuleEntitlementsResponse;
 import com.howl.uwtracker.modules.dto.ModuleEntitlementsResponse.Entry;
@@ -35,12 +36,14 @@ public class ModuleEntitlementService {
         this.manifestResolver = manifestResolver;
     }
 
-    public ModuleEntitlementsResponse forMachineKey(String rawMachineKey) {
+    /** @param type optional filter — {@code null} returns every entitled module regardless of kind. */
+    public ModuleEntitlementsResponse forMachineKey(String rawMachineKey, ModuleType type) {
         Person person = machineKeyAuth.authenticateWithoutVersionCheck(rawMachineKey); // 401
         Set<Long> granted = grantRepository.findModuleIdsByPersonId(person.getId());
 
         List<Entry> modules = moduleRepository.findByEnabledTrueOrderBySortOrderAscModuleKeyAsc().stream()
                 .filter(module -> module.isPublicAccess() || granted.contains(module.getId()))
+                .filter(module -> type == null || module.getType() == type)
                 .map(this::toEntry)
                 .toList();
         return new ModuleEntitlementsResponse(modules);
@@ -51,6 +54,7 @@ public class ModuleEntitlementService {
         return new Entry(
                 module.getModuleKey(),
                 module.getDisplayName(),
+                module.getType(),
                 module.isPublicAccess(),
                 manifest != null ? manifest.version() : module.getCurrentVersion(),
                 manifest != null ? manifest.sha256() : module.getCurrentSha256(),
