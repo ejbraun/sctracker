@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { AdminUser, AdminUserModule, CharacterSummary } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
@@ -11,6 +12,7 @@ import { ErrorBanner } from '../components/ErrorBanner';
  */
 export function AdminUsers() {
   const queryClient = useQueryClient();
+  const { person } = useAuth();
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const usersQuery = useQuery({
@@ -24,13 +26,20 @@ export function AdminUsers() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 
+  const setAdminMutation = useMutation({
+    mutationFn: ({ id, isAdmin }: { id: number; isAdmin: boolean }) =>
+      api.patch<AdminUser>(`/admin/users/${id}/admin`, { is_admin: isAdmin }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  });
+
   return (
     <div>
       <h1>User Management</h1>
       <Panel>
-        <p>Grant or revoke permission to report run failures via the plugin. Admin status itself isn't managed here.</p>
+        <p>Grant or revoke admin access and permission to report run failures via the plugin. You can't remove your own admin access.</p>
 
         <ErrorBanner error={setCanReportFailuresMutation.error} />
+        <ErrorBanner error={setAdminMutation.error} />
 
         {usersQuery.isLoading && <p>Loading…</p>}
         {usersQuery.data && (
@@ -51,7 +60,16 @@ export function AdminUsers() {
                   <tr>
                     <td>{user.username}</td>
                     <td>{user.alias ?? '—'}</td>
-                    <td>{user.is_admin ? 'Yes' : '—'}</td>
+                    <td>
+                      {user.is_admin ? 'Yes' : '—'}{' '}
+                      <button
+                        onClick={() => setAdminMutation.mutate({ id: user.id, isAdmin: !user.is_admin })}
+                        disabled={setAdminMutation.isPending || user.id === person?.id}
+                        title={user.id === person?.id ? "You can't change your own admin access" : undefined}
+                      >
+                        {user.is_admin ? 'Revoke' : 'Grant'}
+                      </button>
+                    </td>
                     <td>{user.can_report_failures ? 'Yes' : 'No'}</td>
                     <td>
                       <button onClick={() => setExpandedId((cur) => (cur === user.id ? null : user.id))}>

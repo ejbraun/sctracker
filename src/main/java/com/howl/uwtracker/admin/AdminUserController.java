@@ -2,6 +2,7 @@ package com.howl.uwtracker.admin;
 
 import com.howl.uwtracker.admin.dto.AdminUserModuleResponse;
 import com.howl.uwtracker.admin.dto.AdminUserResponse;
+import com.howl.uwtracker.admin.dto.SetAdminRequest;
 import com.howl.uwtracker.admin.dto.SetCanReportFailuresRequest;
 import com.howl.uwtracker.auth.CurrentPersonId;
 import com.howl.uwtracker.characters.dto.CharacterResponse;
@@ -40,6 +41,13 @@ public class AdminUserController {
     public ResponseEntity<AdminUserResponse> setCanReportFailures(@PathVariable Long personId,
                                                                     @RequestBody SetCanReportFailuresRequest request) {
         return ResponseEntity.ok(adminUserService.setCanReportFailures(personId, request.canReportFailures()));
+    }
+
+    @PatchMapping("/{personId}/admin")
+    public ResponseEntity<AdminUserResponse> setAdmin(@CurrentPersonId Long actingAdminPersonId,
+                                                      @PathVariable Long personId,
+                                                      @RequestBody SetAdminRequest request) {
+        return ResponseEntity.ok(adminUserService.setAdmin(personId, request.isAdmin(), actingAdminPersonId));
     }
 
     @GetMapping("/{personId}/characters")
