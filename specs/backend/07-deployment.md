@@ -39,17 +39,17 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 - **IAM**: the Cloud Run runtime service account needs `roles/storage.objectViewer` on the bucket (a 403 in the logs = this is missing). Auth is ADC via the metadata server — no key file.
 - **Publisher**: GWToolboxpp CI (`cmake.yml`) uploads to `gs://<bucket>/plugins/SCTracker/` on every `master` build, authenticated with a dedicated SA JSON key (`GCP_SA_KEY` repo secret) that has `roles/storage.objectAdmin` on the bucket only. (SCTracker used the flat `gs://<bucket>/sctracker/` path before the `plugins/<Name>/` migration — see below.)
 
-## Module & launcher artifacts (GCS bucket)
+## Module artifacts (GCS bucket)
 
-The ProjectPotato launcher's artifacts are hosted the same way — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One uniform object layout for every artifact — no `launcher/` special case:**
+The registry-driven module artifacts (SCTracker and PP's per-feature DLLs) are hosted the same way as the bundled SCTracker plugin above — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One object-layout rule:**
 
-- `plugins/<Name>/<Name>.<ext>` + `plugins/<Name>/<Name>.version.json` — one prefix per artifact: each GWToolboxpp plugin (`plugins/SCTracker/…`), and every ProjectPotato launcher/feature artifact (`plugins/PP/PP.exe`, `plugins/PP/PP.dll`, …).
+- `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per artifact, e.g. `plugins/SCTracker/…`, `plugins/PP-Vanquish/…`.
+
+> Where PP's **base launcher** (`PP.exe` / `PP.dll`) is hosted is not decided yet — gwsctracker currently serves only the feature modules. If it lands in this bucket later it follows the same `plugins/<Name>/` rule.
 
 `ModuleManifestCache` reads each `*.version.json` (`plugin.storage.module-cache-ttl`, default 15m) and streams the artifact bytes per request at `GET /modules/{key}/download` — bytes are never held in memory. Optional overrides: `plugin.storage.module-cache-ttl`, `plugin.storage.max-module-download-bytes` (default 64 MiB).
 
-- **Publishers**:
-  - GWToolboxpp `cmake.yml` — one loop over every staged plugin `.dll`, each to `gs://<bucket>/plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`.
-  - The ProjectPotato launcher repo publishes its artifacts to `gs://<bucket>/plugins/<Name>/` (+ a `PluginVersionMetadata`-shaped `<Name>.version.json`) with its own CI step or a one-off `gcloud storage cp`; its SA needs `roles/storage.objectAdmin` on the bucket (or reuse `GCP_SA_KEY`). An admin then registers each as a module (public) — or hits **Scan bucket** on the Modules page, which lists unregistered `plugins/<Name>/` folders for one-click import.
+- **Publishers**: GWToolboxpp `cmake.yml` — one loop over every staged plugin `.dll`, each to `gs://<bucket>/plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`. Any other pipeline building a feature DLL follows the same path + IAM. An admin then registers each as a module — or hits **Scan bucket** on the Modules page, which lists unregistered `plugins/<Name>/` folders for one-click import.
 - The backend tolerates a missing object (503 on that one download) so publishing is decoupled from any backend deploy.
 
 ### One-time SCTracker `sctracker/` → `plugins/SCTracker/` migration

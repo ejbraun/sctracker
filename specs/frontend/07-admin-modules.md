@@ -5,8 +5,8 @@ Admin-only. Pairs with `specs/backend/08-module-entitlements.md`. Gated by `Admi
 
 ## Modules page (`/admin/modules`)
 
-`AdminModules.tsx` — the `modules` registry (the artifacts gwsctracker hosts for the ProjectPotato
-launcher). Per-user access lives on the User Management page, not here.
+`AdminModules.tsx` — the `modules` registry (the feature-DLL artifacts gwsctracker hosts for
+ProjectPotato, plus SCTracker). Per-user access lives on the User Management page, not here.
 
 - **Scan bucket for new modules** button → `GET /api/admin/modules/discover` (lazy — only fetched
   after the first click). Lists each unregistered `plugins/<Folder>/` as a row with an editable

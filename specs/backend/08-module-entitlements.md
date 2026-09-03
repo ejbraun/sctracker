@@ -1,13 +1,13 @@
 # 08 — Module entitlements & artifact hosting
 
-gwsctracker hosts the downloadable artifacts for **ProjectPotato (PP)**, a separate C#/.NET
-launcher, and gates its per-feature DLL "modules" per user. The launcher/base artifacts (`PP.exe`,
-`PP.dll`) are registered as public modules; feature modules require a grant. Every artifact lives
-under one `plugins/<Name>/` bucket prefix — there is no `launcher/` special case and no hardcoded
-`pp-*` keys, they're registered like any other module (or discovered, see below). The existing
-single-artifact SCTracker path ([07-deployment](07-deployment.md), "Plugin artifacts") is untouched
-— this is an additive `com.howl.uwtracker.modules` package that reuses the same GCS bucket and the
-`PluginVersionMetadata` manifest record.
+gwsctracker hosts and gates the per-feature DLL "modules" for **ProjectPotato (PP)**, a separate
+C#/.NET launcher — a user can download a module only if an admin granted it. Every artifact lives
+under one `plugins/<Name>/` bucket prefix; there are no hardcoded keys — modules are registered
+through the admin API, or discovered (see below). The existing single-artifact SCTracker path
+([07-deployment](07-deployment.md), "Plugin artifacts") is untouched — this is an additive
+`com.howl.uwtracker.modules` package that reuses the same GCS bucket and the `PluginVersionMetadata`
+manifest record. (Where PP's base launcher `PP.exe`/`PP.dll` is hosted and how it self-updates is a
+separate open question — see specs/integrations/projectpotato.md §7.)
 
 ## Data model
 
@@ -19,9 +19,9 @@ single-artifact SCTracker path ([07-deployment](07-deployment.md), "Plugin artif
 Changeset 045 seeds one durable public row: `sctracker` (metadata-only — its bytes still come from
 `GET /SCTracker.dll` / `PluginArtifactCache`, not the generic download path). Changeset 046 moves
 it onto the uniform `plugins/SCTracker/` layout; changeset 047 drops the `pp-exe` / `pp-base`
-placeholders that 045 also seeded. Every other row — launcher artifacts included — is created
-through the admin API (or **Scan bucket** → import), same posture as the `admins` table being
-populated by hand. `sctracker` is the only key the backend special-cases.
+placeholders that 045 also seeded. Every other row is created through the admin API (or
+**Scan bucket** → import), same posture as the `admins` table being populated by hand. `sctracker`
+is the only key the backend special-cases.
 
 ## Manifest cache
 
@@ -41,7 +41,7 @@ All top-level (not under `/api/**`), per the plugin-facing convention in [00-ove
 |---|---|---|
 | `GET /artifacts` | none | Public list of every enabled module: `{ artifacts: [{ key, display_name, is_public, version, compiled_at, sha256, download_url }] }`. `download_url` is app-relative — `/SCTracker.dll` for `sctracker`, `/modules/{key}/download` otherwise. Models `GET /plugin-version`. |
 | `GET /modules/{key}/download` | `X-Machine-Key` **iff** the module is not public | 404 unknown/disabled; for a gated module 401 (missing/invalid/revoked key) then 403 (key without a grant); 200 streams the bytes from the bucket (`Content-Disposition: attachment`, `ETag` = `current_sha256` when known, `Cache-Control: no-cache`), 503 if the object is unavailable or over `plugin.storage.max-module-download-bytes` (default 64 MiB). No caching — a revoke bites on the next request. |
-| `GET /module-entitlements` | `X-Machine-Key` | The launcher polls this on start/update. Returns every enabled module that is public or granted to the key's person: `{ modules: [{ key, display_name, is_public, version, sha256, download_url }] }`. Closest sibling: `GET /can-report-run-failure`. |
+| `GET /module-entitlements` | `X-Machine-Key` | PP polls this on start/update. Returns every enabled module that is public or granted to the key's person: `{ modules: [{ key, display_name, is_public, version, sha256, download_url }] }`. Closest sibling: `GET /can-report-run-failure`. |
 
 `MachineKeyAuthenticationService.authenticateWithoutVersionCheck` is the auth used by the gated
 download and the edge endpoint: key-only, **no** `recordPluginSeen` (PP sends no
@@ -68,5 +68,5 @@ admin's session via `@CurrentPersonId`.
 
 ## CI / hosting
 
-See [07-deployment](07-deployment.md) "Module & launcher artifacts". Same bucket, one prefix
+See [07-deployment](07-deployment.md) "Module artifacts". Same bucket, one prefix
 (`plugins/<Name>/`) for every artifact; no new env var or IAM.
