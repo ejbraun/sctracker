@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Put SCTracker on the same gs://<bucket>/plugins/<Name>/ layout as every other plugin, so
+         there's one bucket rule everywhere (CI publish loop, the modules registry, and
+         PluginStorageProperties' defaults all agree). 045 seeded the row with the old flat
+         "sctracker/" prefix; this moves it.
+
+         Deployment ordering (specs/backend/07-deployment.md): the artifact bytes must exist at the
+         new path before the backend that carries this change starts, or GET /SCTracker.dll 503s
+         until they do (fail-open — the plugin keeps its current dll and re-checks next launch).
+         Either let a GWToolboxpp master build run first, or one-time:
+           gcloud storage cp gs://$BUCKET/sctracker/SCTracker.dll        gs://$BUCKET/plugins/SCTracker/SCTracker.dll
+           gcloud storage cp gs://$BUCKET/sctracker/SCTracker.version.json gs://$BUCKET/plugins/SCTracker/SCTracker.version.json -->
+    <changeSet id="046-move-sctracker-to-plugins-prefix" author="uwtracker">
+        <update tableName="modules">
+            <column name="bucket_prefix" value="plugins/SCTracker"/>
+            <column name="manifest_object" value="plugins/SCTracker/SCTracker.version.json"/>
+            <where>module_key = 'sctracker'</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>

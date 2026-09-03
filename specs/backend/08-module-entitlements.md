@@ -11,12 +11,14 @@ additive `com.howl.uwtracker.modules` package that reuses the same GCS bucket an
 
 | Table | Purpose |
 |---|---|
-| `modules` (changeset 043) | The registry: one row per hosted artifact. `module_key` (unique slug, `^[a-z0-9][a-z0-9-]{0,63}$`, immutable), `display_name`, `is_public`, `enabled`, `bucket_prefix` + `artifact_object` (bytes live at `bucket_prefix + "/" + artifact_object` in `PLUGIN_STORAGE_BUCKET`), `manifest_object` (full path, nullable), `content_type`, and the cache columns `current_version` / `current_sha256` / `version_detected_at`. |
+| `modules` (changeset 043) | The registry: one row per hosted artifact. `module_key` (unique slug, `^[a-z0-9][a-z0-9-]{0,63}$`, immutable), `display_name`, `is_public`, `enabled`, `bucket_prefix` + `artifact_object` (bytes live at `bucket_prefix + "/" + artifact_object` in `PLUGIN_STORAGE_BUCKET` — every artifact uses the `plugins/<Name>/` layout), `manifest_object` (full path, nullable), `content_type`, and the cache columns `current_version` / `current_sha256` / `version_detected_at`. |
 | `person_module_grants` (changeset 044) | Composite-PK join `(person_id, module_id)`; row existence == access, a revoke deletes it. `granted_by` = the admin's `people.id` (`ON DELETE SET NULL`). Both FKs `ON DELETE CASCADE`. |
 
 Changeset 045 seeds three public rows: `sctracker` (metadata-only — its bytes still come from
-`GET /SCTracker.dll`), `pp-exe`, `pp-base`. Gated module rows are created through the admin API,
-same posture as the `admins` table being populated by hand.
+`GET /SCTracker.dll` / `PluginArtifactCache`, not the generic download path), `pp-exe`, `pp-base`.
+Changeset 046 moves the `sctracker` row onto the uniform `plugins/SCTracker/` bucket layout (see
+[07-deployment](07-deployment.md) for the one-time bucket migration). Gated module rows are created
+through the admin API, same posture as the `admins` table being populated by hand.
 
 ## Manifest cache
 
