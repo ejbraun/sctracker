@@ -102,4 +102,22 @@ class ModuleEntitlementIntegrationTest extends AbstractIntegrationTest {
                         .header("X-Plugin-Version", "1"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void filtersByType() throws Exception {
+        seedModule("pp-vanquish", true, "plugin");
+        seedModule("pp-launcher", true, "module");
+        String key = keyFor("typed");
+
+        mockMvc.perform(get("/module-entitlements?type=module").header("X-Machine-Key", key))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules.length()").value(1))
+                .andExpect(jsonPath("$.modules[0].key").value("pp-launcher"))
+                .andExpect(jsonPath("$.modules[0].type").value("module"));
+        mockMvc.perform(get("/module-entitlements?type=plugin").header("X-Machine-Key", key))
+                .andExpect(jsonPath("$.modules.length()").value(1))
+                .andExpect(jsonPath("$.modules[0].key").value("pp-vanquish"));
+        mockMvc.perform(get("/module-entitlements").header("X-Machine-Key", key))
+                .andExpect(jsonPath("$.modules.length()").value(2));
+    }
 }

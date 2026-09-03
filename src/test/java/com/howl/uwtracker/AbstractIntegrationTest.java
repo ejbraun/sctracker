@@ -252,10 +252,15 @@ public abstract class AbstractIntegrationTest {
      * paths follow the {@code plugins/<key>/} layout the CI publish loop uses.
      */
     protected long seedModule(String moduleKey, boolean isPublic) {
+        return seedModule(moduleKey, isPublic, "plugin");
+    }
+
+    /** {@code type} is the wire value: {@code "plugin"} or {@code "module"}. */
+    protected long seedModule(String moduleKey, boolean isPublic, String type) {
         jdbcTemplate.update(
-                "INSERT INTO modules (module_key, display_name, is_public, enabled, bucket_prefix, artifact_object, manifest_object) "
-                        + "VALUES (?, ?, ?, 1, ?, ?, ?)",
-                moduleKey, moduleKey + " module", isPublic,
+                "INSERT INTO modules (module_key, display_name, type, is_public, enabled, bucket_prefix, artifact_object, manifest_object) "
+                        + "VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
+                moduleKey, moduleKey + " module", type, isPublic,
                 "plugins/" + moduleKey, moduleKey + ".dll", "plugins/" + moduleKey + "/" + moduleKey + ".version.json");
         return jdbcTemplate.queryForObject("SELECT id FROM modules WHERE module_key = ?", Long.class, moduleKey);
     }

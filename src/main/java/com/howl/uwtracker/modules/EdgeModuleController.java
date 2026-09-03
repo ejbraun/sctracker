@@ -1,9 +1,11 @@
 package com.howl.uwtracker.modules;
 
+import com.howl.uwtracker.domain.ModuleType;
 import com.howl.uwtracker.modules.dto.ModuleEntitlementsResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -23,7 +25,8 @@ public class EdgeModuleController {
 
     @GetMapping("/module-entitlements")
     public ResponseEntity<ModuleEntitlementsResponse> entitlements(
-            @RequestHeader(value = "X-Machine-Key", required = false) String machineKey) {
-        return ResponseEntity.ok(moduleEntitlementService.forMachineKey(machineKey));
+            @RequestHeader(value = "X-Machine-Key", required = false) String machineKey,
+            @RequestParam(value = "type", required = false) ModuleType type) {
+        return ResponseEntity.ok(moduleEntitlementService.forMachineKey(machineKey, type));
     }
 }

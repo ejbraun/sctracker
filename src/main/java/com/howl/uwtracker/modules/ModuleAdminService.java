@@ -115,6 +115,9 @@ public class ModuleAdminService {
                 blankToNull(req.manifestObject()),
                 req.contentType(),
                 req.sortOrder() == null ? 0 : req.sortOrder());
+        if (req.type() != null) {
+            module.setType(req.type());
+        }
         return AdminModuleResponse.from(moduleRepository.save(module));
     }
 
@@ -125,6 +128,9 @@ public class ModuleAdminService {
 
         if (req.displayName() != null) {
             module.setDisplayName(requireNonBlank(req.displayName(), "display_name"));
+        }
+        if (req.type() != null) {
+            module.setType(req.type());
         }
         if (req.isPublic() != null) {
             module.setPublicAccess(req.isPublic());

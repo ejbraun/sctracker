@@ -1,5 +1,7 @@
 package com.howl.uwtracker.modules.dto;
 
+import com.howl.uwtracker.domain.ModuleType;
+
 import java.time.Instant;
 
 /**
@@ -11,6 +13,7 @@ import java.time.Instant;
 public record ArtifactSummaryResponse(
         String key,
         String displayName,
+        ModuleType type,
         boolean isPublic,
         Integer version,
         Instant compiledAt,

@@ -1,7 +1,7 @@
 # 08 — Module entitlements & artifact hosting
 
-gwsctracker hosts and gates the per-feature DLL "modules" for **ProjectPotato (PP)**, a separate
-C#/.NET launcher — a user can download a module only if an admin granted it. Every artifact lives
+gwsctracker hosts and gates the **GWToolbox++ plugin** DLLs that the **ProjectPotato (PP)** launcher
+(a separate C#/.NET app) manages for a user — a user can download one only if an admin granted it. Every artifact lives
 under one `plugins/<Name>/` bucket prefix; there are no hardcoded keys — modules are registered
 through the admin API, or discovered (see below). The existing single-artifact SCTracker path
 ([07-deployment](07-deployment.md), "Plugin artifacts") is untouched — this is an additive

@@ -2,6 +2,7 @@ package com.howl.uwtracker.modules;
 
 import com.howl.uwtracker.AbstractIntegrationTest;
 import com.howl.uwtracker.domain.Module;
+import com.howl.uwtracker.domain.ModuleType;
 import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.PersonModuleGrant;
 import com.howl.uwtracker.domain.PersonModuleGrantId;
@@ -44,9 +45,17 @@ class ModuleSchemaIntegrationTest extends AbstractIntegrationTest {
             assertThat(m.getSortOrder()).isEqualTo(5);
             assertThat(m.getCreatedAt()).isNotNull();
             assertThat(m.getCurrentVersion()).isNull();
+            assertThat(m.getType()).isEqualTo(ModuleType.PLUGIN); // column default
             assertThat(m.artifactPath()).isEqualTo("plugins/pp-vanquish/pp-vanquish.dll");
         });
         assertThat(moduleRepository.existsByModuleKey("nope")).isFalse();
+
+        Module launcher = moduleRepository.save(new Module("pp-launcher", "Launcher module", true,
+                "plugins/PP", "PP.exe", null, null, 0));
+        launcher.setType(ModuleType.MODULE);
+        moduleRepository.save(launcher);
+        assertThat(moduleRepository.findByModuleKey("pp-launcher")).get()
+                .extracting(Module::getType).isEqualTo(ModuleType.MODULE);
     }
 
     @Test

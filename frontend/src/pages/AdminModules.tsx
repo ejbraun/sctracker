@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { AdminModule, DiscoveredModule } from '../api/types';
+import type { AdminModule, DiscoveredModule, ModuleType } from '../api/types';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
@@ -41,6 +41,7 @@ export function AdminModules() {
               <tr>
                 <th>Key</th>
                 <th>Display name</th>
+                <th>Type</th>
                 <th>Bucket prefix</th>
                 <th>Artifact object</th>
                 <th>Manifest object</th>
@@ -243,6 +244,17 @@ function ModuleRow({ module }: { module: AdminModule }) {
           <code>{module.module_key}</code>
         </td>
         <td>{field('display_name')}</td>
+        <td>
+          <select
+            aria-label={`${module.module_key} type`}
+            value={module.type}
+            onChange={(e) => patchMutation.mutate({ type: e.target.value })}
+            disabled={patchMutation.isPending}
+          >
+            <option value="plugin">plugin</option>
+            <option value="module">module</option>
+          </select>
+        </td>
         <td>{field('bucket_prefix')}</td>
         <td>{field('artifact_object')}</td>
         <td>{field('manifest_object')}</td>
@@ -292,7 +304,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
       </tr>
       {(patchMutation.error || deleteMutation.error) && (
         <tr>
-          <td colSpan={11}>
+          <td colSpan={12}>
             <ErrorBanner error={patchMutation.error ?? deleteMutation.error} />
           </td>
         </tr>
@@ -306,6 +318,7 @@ function CreateModuleForm() {
   const [form, setForm] = useState({
     module_key: '',
     display_name: '',
+    type: 'plugin' as ModuleType,
     bucket_prefix: '',
     artifact_object: '',
     manifest_object: '',
@@ -319,6 +332,7 @@ function CreateModuleForm() {
       api.post<AdminModule>('/admin/modules', {
         module_key: form.module_key.trim(),
         display_name: form.display_name.trim(),
+        type: form.type,
         is_public: form.is_public,
         bucket_prefix: form.bucket_prefix.trim(),
         artifact_object: form.artifact_object.trim(),
@@ -330,6 +344,7 @@ function CreateModuleForm() {
       setForm({
         module_key: '',
         display_name: '',
+        type: 'plugin',
         bucket_prefix: '',
         artifact_object: '',
         manifest_object: '',
@@ -367,6 +382,14 @@ function CreateModuleForm() {
       <ErrorBanner error={createMutation.error} />
       {input('module_key', 'module key (a-z0-9-)')}
       {input('display_name', 'display name')}
+      <select
+        aria-label="type"
+        value={form.type}
+        onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as ModuleType }))}
+      >
+        <option value="plugin">plugin</option>
+        <option value="module">module</option>
+      </select>
       {input('bucket_prefix', 'bucket prefix, e.g. plugins/Foo')}
       {input('artifact_object', 'artifact object, e.g. Foo.dll')}
       {input('manifest_object', 'manifest object (optional)')}

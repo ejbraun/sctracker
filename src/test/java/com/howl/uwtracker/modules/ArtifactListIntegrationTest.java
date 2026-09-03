@@ -39,4 +39,21 @@ class ArtifactListIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.artifacts.length()").value(0));
     }
+
+    @Test
+    void filtersByType() throws Exception {
+        seedModule("sctracker", true);                // plugin (default)
+        seedModule("pp-vanquish", false, "plugin");
+        seedModule("pp-launcher", true, "module");
+
+        mockMvc.perform(get("/artifacts?type=module"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.artifacts.length()").value(1))
+                .andExpect(jsonPath("$.artifacts[0].key").value("pp-launcher"))
+                .andExpect(jsonPath("$.artifacts[0].type").value("module"));
+        mockMvc.perform(get("/artifacts?type=plugin"))
+                .andExpect(jsonPath("$.artifacts.length()").value(2));
+        mockMvc.perform(get("/artifacts"))
+                .andExpect(jsonPath("$.artifacts.length()").value(3));
+    }
 }

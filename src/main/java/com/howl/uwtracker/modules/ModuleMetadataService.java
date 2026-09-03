@@ -1,6 +1,7 @@
 package com.howl.uwtracker.modules;
 
 import com.howl.uwtracker.domain.Module;
+import com.howl.uwtracker.domain.ModuleType;
 import com.howl.uwtracker.modules.dto.ArtifactListResponse;
 import com.howl.uwtracker.modules.dto.ArtifactSummaryResponse;
 import com.howl.uwtracker.plugin.PluginVersionMetadata;
@@ -26,10 +27,12 @@ public class ModuleMetadataService {
         this.manifestResolver = manifestResolver;
     }
 
-    public ArtifactListResponse list() {
+    /** @param type optional filter — {@code null} returns every enabled artifact. */
+    public ArtifactListResponse list(ModuleType type) {
         List<ArtifactSummaryResponse> artifacts = moduleRepository
                 .findByEnabledTrueOrderBySortOrderAscModuleKeyAsc()
                 .stream()
+                .filter(module -> type == null || module.getType() == type)
                 .map(this::toSummary)
                 .toList();
         return new ArtifactListResponse(artifacts);
@@ -45,6 +48,7 @@ public class ModuleMetadataService {
         return new ArtifactSummaryResponse(
                 module.getModuleKey(),
                 module.getDisplayName(),
+                module.getType(),
                 module.isPublicAccess(),
                 manifest != null ? manifest.version() : module.getCurrentVersion(),
                 manifest != null ? manifest.compiledAt() : null,
