@@ -34,14 +34,14 @@ test.describe('admin modules', () => {
     await expect(page).toHaveURL('/admin/users');
 
     const userRow = page.getByRole('row', { name: new RegExp(admin) });
-    await userRow.getByRole('button', { name: 'View' }).click();
+    await userRow.getByRole('button', { name: 'Modules', exact: true }).click();
 
     const grantRow = page.getByRole('row', { name: new RegExp(moduleKey) });
     await grantRow.getByRole('button', { name: 'Grant' }).click();
     await expect(grantRow.getByRole('button', { name: 'Revoke' })).toBeVisible();
 
     await page.reload();
-    await page.getByRole('row', { name: new RegExp(admin) }).getByRole('button', { name: 'View' }).click();
+    await page.getByRole('row', { name: new RegExp(admin) }).getByRole('button', { name: 'Modules', exact: true }).click();
     await expect(
       page.getByRole('row', { name: new RegExp(moduleKey) }).getByRole('button', { name: 'Revoke' }),
     ).toBeVisible();
