@@ -4,6 +4,7 @@ import com.howl.uwtracker.admin.dto.AdminUserModuleResponse;
 import com.howl.uwtracker.admin.dto.AdminUserResponse;
 import com.howl.uwtracker.characters.CharacterService;
 import com.howl.uwtracker.characters.dto.CharacterResponse;
+import com.howl.uwtracker.domain.Admin;
 import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.modules.ModuleGrantService;
 import com.howl.uwtracker.repository.AdminRepository;
@@ -46,6 +47,25 @@ public class AdminUserService {
         person.setCanReportFailures(canReportFailures);
         personRepository.save(person);
         return AdminUserResponse.from(person, adminRepository.existsById(personId));
+    }
+
+    /**
+     * Adds/removes the target's {@code admins} row (idempotent). An admin can't revoke their own
+     * access — that's the guard against locking every admin out; there's always at least one left.
+     */
+    public AdminUserResponse setAdmin(Long personId, boolean makeAdmin, Long actingAdminPersonId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "user not found"));
+        if (!makeAdmin && personId.equals(actingAdminPersonId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "you can't revoke your own admin access");
+        }
+        boolean isAdmin = adminRepository.existsById(personId);
+        if (makeAdmin && !isAdmin) {
+            adminRepository.save(new Admin(personId));
+        } else if (!makeAdmin && isAdmin) {
+            adminRepository.deleteById(personId);
+        }
+        return AdminUserResponse.from(person, makeAdmin);
     }
 
     /** The target user's registered characters — same view {@code GET /api/characters} gives that user. */

@@ -17,6 +17,7 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -127,6 +128,63 @@ class AdminUserIntegrationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CreateCharacterRequest("Whatever"))))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void promotesAndDemotesAUser() throws Exception {
+        MockHttpSession admin = adminSession();
+        String targetName = "promote-" + System.nanoTime();
+        MockHttpSession targetSession = signup(targetName, "password123");
+        long targetId = personRepository.findByUsername(targetName).orElseThrow().getId();
+
+        // target can't reach admin endpoints yet
+        mockMvc.perform(get("/api/admin/users").session(targetSession)).andExpect(status().isForbidden());
+
+        mockMvc.perform(patch("/api/admin/users/" + targetId + "/admin")
+                        .session(admin).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.is_admin").value(true));
+        // idempotent
+        mockMvc.perform(patch("/api/admin/users/" + targetId + "/admin")
+                        .session(admin).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":true}"))
+                .andExpect(status().isOk());
+
+        // now they can (interceptor checks the DB per request — same session)
+        mockMvc.perform(get("/api/admin/users").session(targetSession)).andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/admin/users/" + targetId + "/admin")
+                        .session(admin).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.is_admin").value(false));
+        mockMvc.perform(get("/api/admin/users").session(targetSession)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anAdminCannotRevokeTheirOwnAccess() throws Exception {
+        String username = "self-" + System.nanoTime();
+        MockHttpSession session = signup(username, "password123");
+        long id = personRepository.findByUsername(username).orElseThrow().getId();
+        makeAdmin(id);
+
+        mockMvc.perform(patch("/api/admin/users/" + id + "/admin")
+                        .session(session).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":false}"))
+                .andExpect(status().isConflict());
+        // still an admin
+        mockMvc.perform(get("/api/admin/users").session(session)).andExpect(status().isOk());
+    }
+
+    @Test
+    void setAdminForUnknownUserIs404AndNonAdminIsForbidden() throws Exception {
+        MockHttpSession admin = adminSession();
+        mockMvc.perform(patch("/api/admin/users/99999999/admin")
+                        .session(admin).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":true}"))
+                .andExpect(status().isNotFound());
+
+        MockHttpSession plain = signup("plain-admin-toggle-" + System.nanoTime(), "password123");
+        Person target = user("t-" + System.nanoTime());
+        mockMvc.perform(patch("/api/admin/users/" + target.getId() + "/admin")
+                        .session(plain).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":true}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

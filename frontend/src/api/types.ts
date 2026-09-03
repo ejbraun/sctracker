@@ -9,7 +9,8 @@ export interface Person {
   // PluginDllVersionInitializer on the backend), or if they've never recorded a download at all.
   new_plugin_version_available: boolean;
   // Membership in the admins table (see AdminAuthInterceptor) — gates the "User Management" nav
-  // link/route and every /api/admin/** call. Granted by hand (direct DB insert), not via any API.
+  // link/route and every /api/admin/** call. Toggled by an existing admin from User Management
+  // (PATCH /api/admin/users/{id}/admin); the bootstrap first admin is a hand DB insert.
   is_admin: boolean;
 }
 
@@ -19,7 +20,7 @@ export interface AdminUser {
   username: string;
   alias: string | null;
   can_report_failures: boolean;
-  // Read-only here — admin status itself isn't grantable through this UI, only by hand in the DB.
+  // Toggled via PATCH /api/admin/users/{id}/admin — an admin can't revoke their own.
   is_admin: boolean;
 }
 

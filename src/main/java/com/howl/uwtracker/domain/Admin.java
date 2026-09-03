@@ -9,8 +9,9 @@ import java.time.Instant;
 
 /**
  * A row's mere existence for a person_id makes them an admin — membership, not a boolean flag.
- * Nothing in the app writes this table; admins are added by hand (direct INSERT). Gates
- * /api/admin/** via AdminAuthInterceptor.
+ * Gates /api/admin/** via AdminAuthInterceptor. Written by an existing admin via
+ * {@code PATCH /api/admin/users/{personId}/admin} (AdminUserController); the bootstrap first admin
+ * is still a hand INSERT.
  */
 @Entity
 @Table(name = "admins")
@@ -24,6 +25,10 @@ public class Admin {
     private Instant grantedAt;
 
     protected Admin() {
+    }
+
+    public Admin(Long personId) {
+        this.personId = personId;
     }
 
     public Long getPersonId() {
