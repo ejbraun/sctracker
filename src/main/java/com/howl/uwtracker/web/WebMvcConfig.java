@@ -46,7 +46,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public FilterRegistrationBean<RequestLoggingFilter> requestLoggingFilter() {
         FilterRegistrationBean<RequestLoggingFilter> registration = new FilterRegistrationBean<>(new RequestLoggingFilter());
         registration.addUrlPatterns("/api/*", "/upload-run", "/report-run-failure", "/can-report-run-failure",
-                "/report-run-mvp", "/plugin-version", "/SCTracker.dll");
+                "/report-run-mvp", "/plugin-version", "/SCTracker.dll", "/artifacts", "/module-entitlements",
+                "/modules/*");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;
     }

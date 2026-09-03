@@ -257,4 +257,10 @@ public abstract class AbstractIntegrationTest {
                 "plugins/" + moduleKey, moduleKey + ".dll", "plugins/" + moduleKey + "/" + moduleKey + ".version.json");
         return jdbcTemplate.queryForObject("SELECT id FROM modules WHERE module_key = ?", Long.class, moduleKey);
     }
+
+    /** Grants {@code personId} access to {@code moduleId} directly — mirrors the admin grant endpoint. */
+    protected void grantModule(long personId, long moduleId) {
+        jdbcTemplate.update("INSERT INTO person_module_grants (person_id, module_id, granted_by) VALUES (?, ?, ?)",
+                personId, moduleId, personId);
+    }
 }
