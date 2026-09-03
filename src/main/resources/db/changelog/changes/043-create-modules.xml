@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Registry of the downloadable artifacts gwsctracker hosts for the ProjectPotato launcher:
+         PP.exe / PP.dll (public), the SCTracker plugin (public — kept here only so it shows up in
+         GET /artifacts; its bytes are still served by GET /SCTracker.dll from PluginArtifactCache),
+         and per-feature module DLLs that are gated per user via person_module_grants. See
+         specs/backend/08-module-entitlements.md.
+
+         Object layout, all inside the existing PLUGIN_STORAGE_BUCKET:
+           - artifact bytes = bucket_prefix + "/" + artifact_object  (e.g. "plugins/Foo" + "/" + "Foo.dll")
+           - manifest       = manifest_object, a full path from the bucket root, or NULL when the
+                              artifact ships no {name,version,compiled_at,sha256} sidecar.
+
+         is_public  = downloadable by anyone; the machine-key entitlement check is skipped.
+         enabled    = soft on/off that keeps grant rows intact (prefer this over DELETE to retire one).
+         current_*  = cached from the manifest by ModuleManifestCache — a cheap read for GET /artifacts
+                      and a per-module "changed at". Mirrors plugin_dll_version but per-row; that
+                      singleton table is left untouched. -->
+    <changeSet id="043-create-modules" author="uwtracker">
+        <createTable tableName="modules">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="module_key" type="VARCHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_modules_key"/>
+            </column>
+            <column name="display_name" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_public" type="TINYINT(1)" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="enabled" type="TINYINT(1)" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="bucket_prefix" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="artifact_object" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="manifest_object" type="VARCHAR(255)"/>
+            <column name="content_type" type="VARCHAR(100)" defaultValue="application/octet-stream">
+                <constraints nullable="false"/>
+            </column>
+            <column name="current_version" type="INT"/>
+            <column name="current_sha256" type="VARCHAR(64)"/>
+            <column name="version_detected_at" type="DATETIME(6)"/>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

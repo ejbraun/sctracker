@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- One row per (person, gated module) the person may download. Existence of the row == access;
+         there is no "revoked" state — a revoke deletes the row. Granted/revoked by an admin via
+         /api/admin/users/{personId}/modules/{moduleKey} (AdminUserController). Public modules
+         (modules.is_public) need no row here. See specs/backend/08-module-entitlements.md. -->
+    <changeSet id="044-create-person-module-grants" author="uwtracker">
+        <createTable tableName="person_module_grants">
+            <column name="person_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="module_id" type="BIGINT UNSIGNED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <!-- people.id of the admin who granted this; SET NULL if that admin's account is later
+                 deleted — the grant itself stands. -->
+            <column name="granted_by" type="BIGINT UNSIGNED"/>
+        </createTable>
+        <addPrimaryKey tableName="person_module_grants" columnNames="person_id, module_id"
+                        constraintName="pk_person_module_grants"/>
+        <addForeignKeyConstraint baseTableName="person_module_grants" baseColumnNames="person_id"
+                                  constraintName="fk_person_module_grants_person"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="person_module_grants" baseColumnNames="module_id"
+                                  constraintName="fk_person_module_grants_module"
+                                  referencedTableName="modules" referencedColumnNames="id"
+                                  onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="person_module_grants" baseColumnNames="granted_by"
+                                  constraintName="fk_person_module_grants_granted_by"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+        <createIndex indexName="idx_person_module_grants_module" tableName="person_module_grants">
+            <column name="module_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

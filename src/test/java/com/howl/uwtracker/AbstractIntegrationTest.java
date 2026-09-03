@@ -104,7 +104,7 @@ public abstract class AbstractIntegrationTest {
     private static final List<String> TABLES_TO_CLEAN = List.of(
             "run_participant_item_drops", "run_failure_reasons", "run_mvp_awards", "run_participants",
             "run_objectives", "runs", "role_objectives", "characters", "machine_keys", "signup_keys",
-            "admins", "people", "map_configs", "maps");
+            "admins", "person_module_grants", "modules", "people", "map_configs", "maps");
 
     @Autowired
     protected MockMvc mockMvc;
@@ -234,5 +234,20 @@ public abstract class AbstractIntegrationTest {
     /** Grants admin status directly — the only way to, per {@code Admin}'s class doc (no API writes this table). */
     protected void makeAdmin(Long personId) {
         jdbcTemplate.update("INSERT INTO admins (person_id) VALUES (?)", personId);
+    }
+
+    /**
+     * Inserts a {@code modules} registry row directly and returns its id — mirrors an admin creating
+     * one via {@code POST /api/admin/modules}. {@code modules} starts empty each test (it's registry
+     * data, not reference data like {@code maps}), so a test that needs one calls this. The bucket
+     * paths follow the {@code plugins/<key>/} layout the CI publish loop uses.
+     */
+    protected long seedModule(String moduleKey, boolean isPublic) {
+        jdbcTemplate.update(
+                "INSERT INTO modules (module_key, display_name, is_public, enabled, bucket_prefix, artifact_object, manifest_object) "
+                        + "VALUES (?, ?, ?, 1, ?, ?, ?)",
+                moduleKey, moduleKey + " module", isPublic,
+                "plugins/" + moduleKey, moduleKey + ".dll", "plugins/" + moduleKey + "/" + moduleKey + ".version.json");
+        return jdbcTemplate.queryForObject("SELECT id FROM modules WHERE module_key = ?", Long.class, moduleKey);
     }
 }
