@@ -7,13 +7,14 @@ import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
 /**
- * Admin-only — gated by AdminRoute. Grants/revokes people.can_report_failures, and (via the
- * expandable row) views and registers characters for any user through /api/admin/users.
+ * Admin-only — gated by AdminRoute. Grants/revokes admin + people.can_report_failures inline, and
+ * has two independent expandable panels per user — Characters and Modules — via /api/admin/users.
  */
 export function AdminUsers() {
   const queryClient = useQueryClient();
   const { person } = useAuth();
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [charsExpandedId, setCharsExpandedId] = useState<number | null>(null);
+  const [modulesExpandedId, setModulesExpandedId] = useState<number | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ['admin', 'users'],
@@ -50,8 +51,9 @@ export function AdminUsers() {
                 <th>Alias</th>
                 <th>Admin</th>
                 <th>Can Report Failures</th>
-                <th>Characters</th>
                 <th></th>
+                <th>Characters</th>
+                <th>Modules</th>
               </tr>
             </thead>
             <tbody>
@@ -72,11 +74,6 @@ export function AdminUsers() {
                     </td>
                     <td>{user.can_report_failures ? 'Yes' : 'No'}</td>
                     <td>
-                      <button onClick={() => setExpandedId((cur) => (cur === user.id ? null : user.id))}>
-                        {expandedId === user.id ? 'Hide' : 'View'}
-                      </button>
-                    </td>
-                    <td>
                       <button
                         onClick={() =>
                           setCanReportFailuresMutation.mutate({ id: user.id, canReportFailures: !user.can_report_failures })
@@ -86,11 +83,27 @@ export function AdminUsers() {
                         {user.can_report_failures ? 'Revoke' : 'Grant'}
                       </button>
                     </td>
+                    <td>
+                      <button onClick={() => setCharsExpandedId((cur) => (cur === user.id ? null : user.id))}>
+                        {charsExpandedId === user.id ? 'Hide characters' : 'Characters'}
+                      </button>
+                    </td>
+                    <td>
+                      <button onClick={() => setModulesExpandedId((cur) => (cur === user.id ? null : user.id))}>
+                        {modulesExpandedId === user.id ? 'Hide modules' : 'Modules'}
+                      </button>
+                    </td>
                   </tr>
-                  {expandedId === user.id && (
+                  {charsExpandedId === user.id && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <UserCharacters personId={user.id} />
+                      </td>
+                    </tr>
+                  )}
+                  {modulesExpandedId === user.id && (
+                    <tr>
+                      <td colSpan={7}>
                         <UserModules personId={user.id} />
                       </td>
                     </tr>
