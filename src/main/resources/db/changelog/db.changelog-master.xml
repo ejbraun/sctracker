@@ -51,5 +51,6 @@
     <include file="db/changelog/changes/044-create-person-module-grants.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/045-seed-modules.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/046-move-sctracker-to-plugins-prefix.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/047-remove-pp-launcher-seed-rows.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

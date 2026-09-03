@@ -26,8 +26,8 @@ export function AdminModules() {
         <p>
           The downloadable artifacts gwsctracker hosts for the ProjectPotato launcher. Public modules
           download without a key; the rest are gated per user (grant access from{' '}
-          <strong>User Management</strong>). <code>sctracker</code>, <code>pp-exe</code> and{' '}
-          <code>pp-base</code> are built in — disable them rather than deleting.
+          <strong>User Management</strong>). <code>sctracker</code> is built in — disable it rather
+          than deleting.
         </p>
 
         <DiscoverModules />
@@ -184,7 +184,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
   );
 }
 
-const BUILT_IN_KEYS = new Set(['sctracker', 'pp-exe', 'pp-base']);
+const BUILT_IN_KEYS = new Set(['sctracker']);
 
 function ModuleRow({ module }: { module: AdminModule }) {
   const queryClient = useQueryClient();

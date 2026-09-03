@@ -32,7 +32,9 @@ import java.util.stream.Collectors;
 public class ModuleAdminService {
 
     private static final Pattern MODULE_KEY = Pattern.compile("^[a-z0-9][a-z0-9-]{0,63}$");
-    private static final Set<String> PROTECTED_KEYS = Set.of("sctracker", "pp-exe", "pp-base");
+    // Only SCTracker is special: its bytes come from PluginArtifactCache / GET /SCTracker.dll, and
+    // ModuleKeys.SCTRACKER / ModuleManifestResolver / ModuleMetadataService key off it.
+    private static final Set<String> PROTECTED_KEYS = Set.of("sctracker");
     private static final String PLUGINS_PREFIX = "plugins/";
 
     private final ModuleRepository moduleRepository;

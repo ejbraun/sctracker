@@ -41,16 +41,15 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 
 ## Module & launcher artifacts (GCS bucket)
 
-The ProjectPotato launcher's artifacts are hosted the same way — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. One uniform object layout for every artifact:
+The ProjectPotato launcher's artifacts are hosted the same way — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One uniform object layout for every artifact — no `launcher/` special case:**
 
-- `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per GWToolboxpp plugin, **SCTracker included** (`plugins/SCTracker/`).
-- `launcher/PP.exe`, `launcher/PP.dll`, `launcher/PP.version.json` — ProjectPotato launcher + base.
+- `plugins/<Name>/<Name>.<ext>` + `plugins/<Name>/<Name>.version.json` — one prefix per artifact: each GWToolboxpp plugin (`plugins/SCTracker/…`), and every ProjectPotato launcher/feature artifact (`plugins/PP/PP.exe`, `plugins/PP/PP.dll`, …).
 
 `ModuleManifestCache` reads each `*.version.json` (`plugin.storage.module-cache-ttl`, default 15m) and streams the artifact bytes per request at `GET /modules/{key}/download` — bytes are never held in memory. Optional overrides: `plugin.storage.module-cache-ttl`, `plugin.storage.max-module-download-bytes` (default 64 MiB).
 
 - **Publishers**:
   - GWToolboxpp `cmake.yml` — one loop over every staged plugin `.dll`, each to `gs://<bucket>/plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`.
-  - The ProjectPotato launcher repo publishes `launcher/PP.exe` / `PP.dll` (+ a `PluginVersionMetadata`-shaped `PP.version.json`) with its own CI step or a one-off `gcloud storage cp`; its SA needs `roles/storage.objectAdmin` on the bucket (or reuse `GCP_SA_KEY`).
+  - The ProjectPotato launcher repo publishes its artifacts to `gs://<bucket>/plugins/<Name>/` (+ a `PluginVersionMetadata`-shaped `<Name>.version.json`) with its own CI step or a one-off `gcloud storage cp`; its SA needs `roles/storage.objectAdmin` on the bucket (or reuse `GCP_SA_KEY`). An admin then registers each as a module (public) — or hits **Scan bucket** on the Modules page, which lists unregistered `plugins/<Name>/` folders for one-click import.
 - The backend tolerates a missing object (503 on that one download) so publishing is decoupled from any backend deploy.
 
 ### One-time SCTracker `sctracker/` → `plugins/SCTracker/` migration

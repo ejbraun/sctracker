@@ -1,10 +1,12 @@
 # 08 — Module entitlements & artifact hosting
 
 gwsctracker hosts the downloadable artifacts for **ProjectPotato (PP)**, a separate C#/.NET
-launcher, and gates its per-feature DLL "modules" per user. `PP.exe` (bootstrap) and `PP.dll`
-(base: launcher/updater) are public; feature modules require a grant. The existing single-artifact
-SCTracker path ([07-deployment](07-deployment.md), "Plugin artifacts") is untouched — this is an
-additive `com.howl.uwtracker.modules` package that reuses the same GCS bucket and the
+launcher, and gates its per-feature DLL "modules" per user. The launcher/base artifacts (`PP.exe`,
+`PP.dll`) are registered as public modules; feature modules require a grant. Every artifact lives
+under one `plugins/<Name>/` bucket prefix — there is no `launcher/` special case and no hardcoded
+`pp-*` keys, they're registered like any other module (or discovered, see below). The existing
+single-artifact SCTracker path ([07-deployment](07-deployment.md), "Plugin artifacts") is untouched
+— this is an additive `com.howl.uwtracker.modules` package that reuses the same GCS bucket and the
 `PluginVersionMetadata` manifest record.
 
 ## Data model
@@ -14,11 +16,12 @@ additive `com.howl.uwtracker.modules` package that reuses the same GCS bucket an
 | `modules` (changeset 043) | The registry: one row per hosted artifact. `module_key` (unique slug, `^[a-z0-9][a-z0-9-]{0,63}$`, immutable), `display_name`, `is_public`, `enabled`, `bucket_prefix` + `artifact_object` (bytes live at `bucket_prefix + "/" + artifact_object` in `PLUGIN_STORAGE_BUCKET` — every artifact uses the `plugins/<Name>/` layout), `manifest_object` (full path, nullable), `content_type`, and the cache columns `current_version` / `current_sha256` / `version_detected_at`. |
 | `person_module_grants` (changeset 044) | Composite-PK join `(person_id, module_id)`; row existence == access, a revoke deletes it. `granted_by` = the admin's `people.id` (`ON DELETE SET NULL`). Both FKs `ON DELETE CASCADE`. |
 
-Changeset 045 seeds three public rows: `sctracker` (metadata-only — its bytes still come from
-`GET /SCTracker.dll` / `PluginArtifactCache`, not the generic download path), `pp-exe`, `pp-base`.
-Changeset 046 moves the `sctracker` row onto the uniform `plugins/SCTracker/` bucket layout (see
-[07-deployment](07-deployment.md) for the one-time bucket migration). Gated module rows are created
-through the admin API, same posture as the `admins` table being populated by hand.
+Changeset 045 seeds one durable public row: `sctracker` (metadata-only — its bytes still come from
+`GET /SCTracker.dll` / `PluginArtifactCache`, not the generic download path). Changeset 046 moves
+it onto the uniform `plugins/SCTracker/` layout; changeset 047 drops the `pp-exe` / `pp-base`
+placeholders that 045 also seeded. Every other row — launcher artifacts included — is created
+through the admin API (or **Scan bucket** → import), same posture as the `admins` table being
+populated by hand. `sctracker` is the only key the backend special-cases.
 
 ## Manifest cache
 
@@ -51,9 +54,10 @@ gate).
 | Route | Notes |
 |---|---|
 | `GET /api/admin/modules` | Full registry (enabled or not), sort order. |
+| `GET /api/admin/modules/discover` | Bucket scan: `plugins/<Folder>/` directories that have a `<Folder>.dll` but no registry row yet, with `bucket_prefix` / `artifact_object` / `manifest_object` pre-derived and a slugified `suggested_key`. Empty when no bucket is configured. The admin imports one via `POST /api/admin/modules`. |
 | `POST /api/admin/modules` | Create. `module_key` validated + unique (409 on dup); `display_name` / `bucket_prefix` / `artifact_object` required; `is_public` defaults false, `sort_order` 0, `content_type` `application/octet-stream`. |
 | `PATCH /api/admin/modules/{moduleKey}` | Partial update (any subset of the mutable fields). Evicts the manifest cache when object paths change. `module_key` is immutable. 404 unknown. |
-| `DELETE /api/admin/modules/{moduleKey}` | Hard delete (grants cascade). 409 for the three seeded keys — disable them instead. |
+| `DELETE /api/admin/modules/{moduleKey}` | Hard delete (grants cascade). 409 for `sctracker` (the one built-in key) — disable it instead. |
 | `GET /api/admin/users/{personId}/modules` | Per-user checklist: every enabled module + `granted`. Public modules come back `granted:false`, shown as "always available". |
 | `PUT /api/admin/users/{personId}/modules/{moduleKey}` | Grant (idempotent, keeps the original `granted_by/at`). 404 unknown user or module. |
 | `DELETE /api/admin/users/{personId}/modules/{moduleKey}` | Revoke (idempotent). |
@@ -64,5 +68,5 @@ admin's session via `@CurrentPersonId`.
 
 ## CI / hosting
 
-See [07-deployment](07-deployment.md) "Module & launcher artifacts". Same bucket, new prefixes
-`plugins/<Name>/` and `launcher/`; no new env var or IAM.
+See [07-deployment](07-deployment.md) "Module & launcher artifacts". Same bucket, one prefix
+(`plugins/<Name>/`) for every artifact; no new env var or IAM.
