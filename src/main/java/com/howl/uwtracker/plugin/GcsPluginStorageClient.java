@@ -1,15 +1,20 @@
 package com.howl.uwtracker.plugin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import com.howl.uwtracker.modules.ArtifactStorageClient;
+import com.howl.uwtracker.modules.ReadableArtifact;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.channels.Channels;
 import java.util.Optional;
 
 /**
@@ -24,10 +29,14 @@ import java.util.Optional;
  * The {@link Storage} handle is built lazily on first use and every failure — including "no ADC
  * available" — is swallowed into {@link Optional#empty()}, so a misconfigured environment degrades
  * to a 503 on {@code /SCTracker.dll} + {@code /plugin-version} rather than a failed startup.
+ *
+ * <p>Also the app-wide {@link ArtifactStorageClient}: {@link #readObject}/{@link #openObject} serve
+ * the registry-driven module artifacts (see {@code com.howl.uwtracker.modules}) from the same bucket
+ * and the same lazy {@link Storage} handle. The SCTracker-specific {@link #fetch()} is unchanged.
  */
 @Component
 @ConditionalOnProperty(prefix = "plugin.storage", name = "bucket")
-public class GcsPluginStorageClient implements PluginStorageClient {
+public class GcsPluginStorageClient implements PluginStorageClient, ArtifactStorageClient {
 
     private static final Logger log = LoggerFactory.getLogger(GcsPluginStorageClient.class);
 
@@ -54,6 +63,32 @@ public class GcsPluginStorageClient implements PluginStorageClient {
         } catch (RuntimeException | IOException e) {
             log.warn("could not fetch plugin artifacts from gs://{}/ ({}, {}) — cache keeps its current state",
                     props.bucket(), props.dllObject(), props.manifestObject(), e);
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<byte[]> readObject(String objectPath) {
+        try {
+            return Optional.of(storage().readAllBytes(BlobId.of(props.bucket(), objectPath)));
+        } catch (RuntimeException e) {
+            log.warn("could not read gs://{}/{} — treating as absent", props.bucket(), objectPath, e);
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public Optional<ReadableArtifact> openObject(String objectPath) {
+        try {
+            Blob blob = storage().get(BlobId.of(props.bucket(), objectPath));
+            if (blob == null || !blob.exists()) {
+                return Optional.empty();
+            }
+            long size = blob.getSize() == null ? ReadableArtifact.UNKNOWN_SIZE : blob.getSize();
+            InputStream stream = Channels.newInputStream(blob.reader());
+            return Optional.of(new ReadableArtifact(stream, size));
+        } catch (RuntimeException e) {
+            log.warn("could not open gs://{}/{} — treating as absent", props.bucket(), objectPath, e);
             return Optional.empty();
         }
     }

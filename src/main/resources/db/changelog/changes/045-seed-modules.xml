@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- The three artifacts that are public from day one. Per-feature gated module rows are added
+         later through the admin module API (POST /api/admin/modules), same posture as the `admins`
+         table being populated by hand. -->
+    <changeSet id="045-seed-modules" author="uwtracker">
+        <!-- Metadata-only row so SCTracker appears in GET /artifacts. Its bytes are still served by
+             GET /SCTracker.dll from PluginArtifactCache, NOT GET /modules/sctracker/download. -->
+        <insert tableName="modules">
+            <column name="module_key" value="sctracker"/>
+            <column name="display_name" value="SCTracker plugin"/>
+            <column name="is_public" valueBoolean="true"/>
+            <column name="bucket_prefix" value="sctracker"/>
+            <column name="artifact_object" value="SCTracker.dll"/>
+            <column name="manifest_object" value="sctracker/SCTracker.version.json"/>
+            <column name="sort_order" valueNumeric="0"/>
+        </insert>
+        <insert tableName="modules">
+            <column name="module_key" value="pp-exe"/>
+            <column name="display_name" value="ProjectPotato launcher (PP.exe)"/>
+            <column name="is_public" valueBoolean="true"/>
+            <column name="bucket_prefix" value="launcher"/>
+            <column name="artifact_object" value="PP.exe"/>
+            <column name="manifest_object" value="launcher/PP.version.json"/>
+            <column name="content_type" value="application/vnd.microsoft.portable-executable"/>
+            <column name="sort_order" valueNumeric="1"/>
+        </insert>
+        <!-- PP.exe and PP.dll ship as a set from one launcher build, so pp-base reuses PP.exe's
+             manifest (same version/compiled_at; the sha256 there is PP.exe's, only used for its
+             own ETag). -->
+        <insert tableName="modules">
+            <column name="module_key" value="pp-base"/>
+            <column name="display_name" value="ProjectPotato base (PP.dll)"/>
+            <column name="is_public" valueBoolean="true"/>
+            <column name="bucket_prefix" value="launcher"/>
+            <column name="artifact_object" value="PP.dll"/>
+            <column name="manifest_object" value="launcher/PP.version.json"/>
+            <column name="sort_order" valueNumeric="2"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

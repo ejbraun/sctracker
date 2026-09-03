@@ -74,6 +74,11 @@ export function Layout() {
               Run Cleanup
             </Link>
           )}
+          {person?.is_admin && (
+            <Link className={styles.navLink} to="/admin/modules" onClick={closeMenu}>
+              Modules
+            </Link>
+          )}
           <span className={styles.spacer} />
           <button
             onClick={() => {

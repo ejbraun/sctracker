@@ -39,6 +39,21 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 - **IAM**: the Cloud Run runtime service account needs `roles/storage.objectViewer` on the bucket (a 403 in the logs = this is missing). Auth is ADC via the metadata server — no key file.
 - **Publisher**: GWToolboxpp CI (`cmake.yml`) uploads to `gs://<bucket>/sctracker/` on every `master` build, authenticated with a dedicated SA JSON key (`GCP_SA_KEY` repo secret) that has `roles/storage.objectAdmin` on the bucket only.
 
+## Module & launcher artifacts (GCS bucket)
+
+The ProjectPotato launcher's artifacts are hosted the same way — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. Object layout:
+
+- `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per GWToolboxpp plugin.
+- `launcher/PP.exe`, `launcher/PP.dll`, `launcher/PP.version.json` — ProjectPotato launcher + base.
+- `sctracker/SCTracker.dll` + `sctracker/SCTracker.version.json` — unchanged (legacy layout).
+
+`ModuleManifestCache` reads each `*.version.json` (`plugin.storage.module-cache-ttl`, default 15m) and streams the artifact bytes per request at `GET /modules/{key}/download` — bytes are never held in memory. Optional overrides: `plugin.storage.module-cache-ttl`, `plugin.storage.max-module-download-bytes` (default 64 MiB).
+
+- **Publishers**:
+  - GWToolboxpp `cmake.yml` — the existing SCTracker step still writes `sctracker/`; a second step loops over every other staged plugin and writes `plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`.
+  - The ProjectPotato launcher repo publishes `launcher/PP.exe` / `PP.dll` (+ a `PluginVersionMetadata`-shaped `PP.version.json`) with its own CI step or a one-off `gcloud storage cp`; its SA needs `roles/storage.objectAdmin` on the bucket (or reuse `GCP_SA_KEY`).
+- The backend tolerates a missing object (503 on that one download) so publishing is decoupled from any backend deploy.
+
 ## Migrations on boot
 
 `spring.liquibase.enabled=true` — the app applies pending changesets on every startup. Liquibase's `DATABASECHANGELOGLOCK` table serializes concurrent instance startups safely (only one instance actually runs the migration; others wait), so this is safe even during a Cloud Run rolling deploy. Runbook note: if an instance crashes mid-migration and leaves the lock held, it needs a manual `liquibase releaseLocks` (via the same `make migrate`-style CLI invocation pointed at prod, spec 01) before the next deploy can proceed — not automated, just documented here so it's not a mystery when it happens.

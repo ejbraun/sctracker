@@ -23,6 +23,39 @@ export interface AdminUser {
   is_admin: boolean;
 }
 
+/**
+ * Registry row for the admin-only "Modules" page — GET/POST/PATCH/DELETE /api/admin/modules.
+ * current_* are read-only (ModuleManifestCache fills them from the artifact's manifest).
+ */
+export interface AdminModule {
+  id: number;
+  module_key: string;
+  display_name: string;
+  is_public: boolean;
+  enabled: boolean;
+  bucket_prefix: string;
+  artifact_object: string;
+  manifest_object: string | null;
+  content_type: string;
+  current_version: number | null;
+  current_sha256: string | null;
+  version_detected_at: string | null;
+  sort_order: number;
+}
+
+/**
+ * One row of the per-user module checklist — GET /api/admin/users/{personId}/modules.
+ * Public modules come back granted=false but are shown as "always available".
+ */
+export interface AdminUserModule {
+  module_key: string;
+  display_name: string;
+  is_public: boolean;
+  granted: boolean;
+  granted_at: string | null;
+  granted_by: number | null;
+}
+
 /** GET /api/admin/runs/unregistered-count — how many runs the wipe below would delete. */
 export interface UnregisteredRunsCount {
   count: number;

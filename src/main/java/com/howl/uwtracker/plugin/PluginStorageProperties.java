@@ -15,11 +15,18 @@ import java.time.Duration;
  * {@link GcsPluginStorageClient} bean, so the cache stays empty and {@code GET /plugin-version} /
  * {@code GET /SCTracker.dll} return 503 and plugin-version enforcement fails open — the expected
  * state for local dev and the e2e backend.
+ *
+ * <p>{@code moduleCacheTtl} / {@code maxModuleDownloadBytes} govern the registry-driven module
+ * artifacts served from the same bucket (see {@code com.howl.uwtracker.modules}): how long
+ * {@code ModuleManifestCache} holds a module's manifest, and the ceiling
+ * {@code ModuleDownloadController} enforces before streaming one.
  */
 @ConfigurationProperties("plugin.storage")
 public record PluginStorageProperties(
         @DefaultValue("") String bucket,
         @DefaultValue("sctracker/SCTracker.version.json") String manifestObject,
         @DefaultValue("sctracker/SCTracker.dll") String dllObject,
-        @DefaultValue("1h") Duration cacheTtl) {
+        @DefaultValue("1h") Duration cacheTtl,
+        @DefaultValue("15m") Duration moduleCacheTtl,
+        @DefaultValue("67108864") long maxModuleDownloadBytes) {
 }

@@ -1,9 +1,11 @@
 package com.howl.uwtracker.admin;
 
+import com.howl.uwtracker.admin.dto.AdminUserModuleResponse;
 import com.howl.uwtracker.admin.dto.AdminUserResponse;
 import com.howl.uwtracker.characters.CharacterService;
 import com.howl.uwtracker.characters.dto.CharacterResponse;
 import com.howl.uwtracker.domain.Person;
+import com.howl.uwtracker.modules.ModuleGrantService;
 import com.howl.uwtracker.repository.AdminRepository;
 import com.howl.uwtracker.repository.PersonRepository;
 import com.howl.uwtracker.web.ApiException;
@@ -20,12 +22,14 @@ public class AdminUserService {
     private final PersonRepository personRepository;
     private final AdminRepository adminRepository;
     private final CharacterService characterService;
+    private final ModuleGrantService moduleGrantService;
 
     public AdminUserService(PersonRepository personRepository, AdminRepository adminRepository,
-                             CharacterService characterService) {
+                             CharacterService characterService, ModuleGrantService moduleGrantService) {
         this.personRepository = personRepository;
         this.adminRepository = adminRepository;
         this.characterService = characterService;
+        this.moduleGrantService = moduleGrantService;
     }
 
     public List<AdminUserResponse> list() {
@@ -58,6 +62,22 @@ public class AdminUserService {
     public CharacterResponse addCharacter(Long personId, String characterName) {
         requireUser(personId);
         return characterService.add(personId, characterName);
+    }
+
+    /** The per-user module checklist — every enabled module with this user's grant state. */
+    public List<AdminUserModuleResponse> listModules(Long personId) {
+        requireUser(personId);
+        return moduleGrantService.listForUser(personId);
+    }
+
+    public void grantModule(Long personId, String moduleKey, Long grantedByPersonId) {
+        requireUser(personId);
+        moduleGrantService.grant(personId, moduleKey, grantedByPersonId);
+    }
+
+    public void revokeModule(Long personId, String moduleKey) {
+        requireUser(personId);
+        moduleGrantService.revoke(personId, moduleKey);
     }
 
     private void requireUser(Long personId) {

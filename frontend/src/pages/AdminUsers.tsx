@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { AdminUser, CharacterSummary } from '../api/types';
+import type { AdminUser, AdminUserModule, CharacterSummary } from '../api/types';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
@@ -73,6 +73,7 @@ export function AdminUsers() {
                     <tr>
                       <td colSpan={6}>
                         <UserCharacters personId={user.id} />
+                        <UserModules personId={user.id} />
                       </td>
                     </tr>
                   )}
@@ -135,6 +136,68 @@ function UserCharacters({ personId }: { personId: number }) {
           Add character
         </button>
       </form>
+    </div>
+  );
+}
+
+/** Per-user module grants — toggle access to each gated module; public ones are always available. */
+function UserModules({ personId }: { personId: number }) {
+  const queryClient = useQueryClient();
+
+  const modulesQuery = useQuery({
+    queryKey: ['admin', 'users', personId, 'modules'],
+    queryFn: () => api.get<AdminUserModule[]>(`/admin/users/${personId}/modules`),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ moduleKey, granted }: { moduleKey: string; granted: boolean }) =>
+      granted
+        ? api.delete<void>(`/admin/users/${personId}/modules/${moduleKey}`)
+        : api.put<void>(`/admin/users/${personId}/modules/${moduleKey}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users', personId, 'modules'] }),
+  });
+
+  return (
+    <div>
+      <h3>Modules</h3>
+      <ErrorBanner error={toggleMutation.error} />
+      {modulesQuery.isLoading && <p>Loading…</p>}
+      {modulesQuery.data && modulesQuery.data.length === 0 && <p>No modules registered.</p>}
+      {modulesQuery.data && modulesQuery.data.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>Access</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {modulesQuery.data.map((module) => (
+              <tr key={module.module_key}>
+                <td>
+                  {module.display_name} <code>{module.module_key}</code>
+                </td>
+                <td>{module.is_public ? 'Public' : module.granted ? 'Granted' : 'No access'}</td>
+                <td>
+                  {module.is_public ? (
+                    <span>always available</span>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        toggleMutation.mutate({ moduleKey: module.module_key, granted: module.granted })
+                      }
+                      disabled={toggleMutation.isPending}
+                    >
+                      {module.granted ? 'Revoke' : 'Grant'}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
