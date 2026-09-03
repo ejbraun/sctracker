@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -90,6 +92,36 @@ public class GcsPluginStorageClient implements PluginStorageClient, ArtifactStor
         } catch (RuntimeException e) {
             log.warn("could not open gs://{}/{} — treating as absent", props.bucket(), objectPath, e);
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public List<String> listSubdirectories(String prefix) {
+        try {
+            List<String> dirs = new ArrayList<>();
+            for (Blob blob : storage().list(props.bucket(),
+                    Storage.BlobListOption.prefix(prefix),
+                    Storage.BlobListOption.currentDirectory()).iterateAll()) {
+                String name = blob.getName(); // e.g. "plugins/SCTracker/"
+                if (name.endsWith("/") && name.length() > prefix.length()) {
+                    dirs.add(name.substring(prefix.length(), name.length() - 1));
+                }
+            }
+            return dirs;
+        } catch (RuntimeException e) {
+            log.warn("could not list gs://{}/{} — treating as empty", props.bucket(), prefix, e);
+            return List.of();
+        }
+    }
+
+    @Override
+    public boolean objectExists(String objectPath) {
+        try {
+            Blob blob = storage().get(BlobId.of(props.bucket(), objectPath));
+            return blob != null && blob.exists();
+        } catch (RuntimeException e) {
+            log.warn("could not stat gs://{}/{} — treating as absent", props.bucket(), objectPath, e);
+            return false;
         }
     }
 

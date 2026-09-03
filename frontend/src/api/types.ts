@@ -45,6 +45,20 @@ export interface AdminModule {
 }
 
 /**
+ * GET /api/admin/modules/discover — a plugins/<Folder>/ directory in the bucket that has a dll but
+ * no `modules` row yet. The admin picks display_name + is_public and imports via POST /admin/modules.
+ */
+export interface DiscoveredModule {
+  folder_name: string;
+  suggested_key: string;
+  suggested_display_name: string;
+  bucket_prefix: string;
+  artifact_object: string;
+  manifest_object: string | null;
+  has_manifest: boolean;
+}
+
+/**
  * One row of the per-user module checklist — GET /api/admin/users/{personId}/modules.
  * Public modules come back granted=false but are shown as "always available".
  */

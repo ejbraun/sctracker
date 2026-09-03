@@ -167,6 +167,8 @@ public abstract class AbstractIntegrationTest {
         // The manifest cache is a singleton keyed by modules.id; TRUNCATE resets AUTO_INCREMENT, so a
         // new module can reuse an id whose stale manifest entry would otherwise be served.
         moduleManifestCache.clear();
+        FakePluginStorageConfig.PLUGIN_FOLDERS.clear();
+        FakePluginStorageConfig.EMPTY_DIRS.clear();
     }
 
     /**

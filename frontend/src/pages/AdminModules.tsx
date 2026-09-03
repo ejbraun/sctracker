@@ -1,11 +1,12 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { AdminModule } from '../api/types';
+import type { AdminModule, DiscoveredModule } from '../api/types';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
 const MODULES_KEY = ['admin', 'modules'] as const;
+const DISCOVER_KEY = ['admin', 'modules', 'discover'] as const;
 
 /**
  * Admin-only — gated by AdminRoute. Manages the `modules` registry: the artifacts gwsctracker
@@ -28,6 +29,8 @@ export function AdminModules() {
           <strong>User Management</strong>). <code>sctracker</code>, <code>pp-exe</code> and{' '}
           <code>pp-base</code> are built in — disable them rather than deleting.
         </p>
+
+        <DiscoverModules />
 
         <CreateModuleForm />
 
@@ -58,6 +61,126 @@ export function AdminModules() {
         )}
       </Panel>
     </div>
+  );
+}
+
+/** Scan gs://<bucket>/plugins/ for folders that have a dll but no registry row, and import them. */
+function DiscoverModules() {
+  const queryClient = useQueryClient();
+  const [scanned, setScanned] = useState(false);
+
+  const discoverQuery = useQuery({
+    queryKey: DISCOVER_KEY,
+    queryFn: () => api.get<DiscoveredModule[]>('/admin/modules/discover'),
+    enabled: scanned,
+  });
+
+  return (
+    <div>
+      <button
+        onClick={() => {
+          setScanned(true);
+          discoverQuery.refetch();
+        }}
+        disabled={discoverQuery.isFetching}
+      >
+        {discoverQuery.isFetching ? 'Scanning…' : 'Scan bucket for new modules'}
+      </button>
+
+      {scanned && discoverQuery.data && discoverQuery.data.length === 0 && (
+        <p>No unregistered plugin folders in the bucket.</p>
+      )}
+      {discoverQuery.data && discoverQuery.data.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Bucket folder</th>
+              <th>Key</th>
+              <th>Display name</th>
+              <th>Manifest</th>
+              <th>Public</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {discoverQuery.data.map((candidate) => (
+              <DiscoveredRow
+                key={candidate.folder_name}
+                candidate={candidate}
+                onImported={() => {
+                  queryClient.invalidateQueries({ queryKey: MODULES_KEY });
+                  discoverQuery.refetch();
+                }}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule; onImported: () => void }) {
+  const [key, setKey] = useState(candidate.suggested_key);
+  const [displayName, setDisplayName] = useState(candidate.suggested_display_name);
+  const [isPublic, setIsPublic] = useState(false);
+
+  const importMutation = useMutation({
+    mutationFn: () =>
+      api.post<AdminModule>('/admin/modules', {
+        module_key: key.trim(),
+        display_name: displayName.trim(),
+        is_public: isPublic,
+        bucket_prefix: candidate.bucket_prefix,
+        artifact_object: candidate.artifact_object,
+        manifest_object: candidate.manifest_object,
+        sort_order: 0,
+      }),
+    onSuccess: onImported,
+  });
+
+  return (
+    <Fragment>
+      <tr>
+        <td>
+          <code>{candidate.bucket_prefix}</code>
+        </td>
+        <td>
+          <input aria-label={`${candidate.folder_name} key`} size={16} value={key} onChange={(e) => setKey(e.target.value)} />
+        </td>
+        <td>
+          <input
+            aria-label={`${candidate.folder_name} display name`}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </td>
+        <td>{candidate.has_manifest ? 'yes' : 'missing'}</td>
+        <td>
+          <input
+            type="checkbox"
+            aria-label={`${candidate.folder_name} public`}
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+          />
+        </td>
+        <td>
+          <button
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending || !key.trim() || !displayName.trim()}
+          >
+            Import
+          </button>
+        </td>
+      </tr>
+      {importMutation.error && (
+        <tr>
+          <td colSpan={6}>
+            <ErrorBanner error={importMutation.error} />
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 

@@ -4,6 +4,7 @@ import com.howl.uwtracker.AbstractIntegrationTest;
 import com.howl.uwtracker.admin.dto.CreateModuleRequest;
 import com.howl.uwtracker.admin.dto.UpdateModuleRequest;
 import com.howl.uwtracker.domain.Person;
+import com.howl.uwtracker.plugin.FakePluginStorageConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
@@ -32,6 +33,76 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
     private String json(Object body) throws Exception {
         return objectMapper.writeValueAsString(body);
+    }
+
+    // --- bucket discovery ------------------------------------------------------------------------
+
+    @Test
+    void discoverListsUnregisteredPluginFoldersWithDerivedPaths() throws Exception {
+        MockHttpSession admin = adminSession();
+        FakePluginStorageConfig.PLUGIN_FOLDERS.add("SCTracker");
+        FakePluginStorageConfig.PLUGIN_FOLDERS.add("PP-Vanquish");
+        FakePluginStorageConfig.EMPTY_DIRS.add("StrayDir");
+        // SCTracker is already registered (its plugins/SCTracker prefix), so discover skips it.
+        seedModuleWithPrefix("sctracker", "plugins/SCTracker");
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].folder_name").value("PP-Vanquish"))
+                .andExpect(jsonPath("$[0].suggested_key").value("pp-vanquish"))
+                .andExpect(jsonPath("$[0].bucket_prefix").value("plugins/PP-Vanquish"))
+                .andExpect(jsonPath("$[0].artifact_object").value("PP-Vanquish.dll"))
+                .andExpect(jsonPath("$[0].manifest_object").value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
+                .andExpect(jsonPath("$[0].has_manifest").value(true))
+                // suggested display name comes from the (synthetic) manifest's name field
+                .andExpect(jsonPath("$[0].suggested_display_name").value("PP-Vanquish"));
+    }
+
+    @Test
+    void discoveredModuleCanBeImportedAndThenNoLongerShowsUp() throws Exception {
+        MockHttpSession admin = adminSession();
+        FakePluginStorageConfig.PLUGIN_FOLDERS.add("PP-Vanquish");
+
+        String discovered = mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var node = objectMapper.readTree(discovered).get(0);
+
+        mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new CreateModuleRequest(
+                                node.get("suggested_key").asText(), "Vanquish data", false,
+                                node.get("bucket_prefix").asText(), node.get("artifact_object").asText(),
+                                node.get("manifest_object").asText(), null, 0))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/admin/modules").session(admin))
+                .andExpect(jsonPath("$[?(@.module_key == 'pp-vanquish')].bucket_prefix").value("plugins/PP-Vanquish"));
+    }
+
+    @Test
+    void discoverIsEmptyWhenTheBucketHasNothing() throws Exception {
+        MockHttpSession admin = adminSession();
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void discoverIsAdminOnly() throws Exception {
+        MockHttpSession plain = signup("plain-discover-" + System.nanoTime(), "password123");
+        mockMvc.perform(get("/api/admin/modules/discover").session(plain))
+                .andExpect(status().isForbidden());
+    }
+
+    private void seedModuleWithPrefix(String key, String bucketPrefix) {
+        jdbcTemplate.update(
+                "INSERT INTO modules (module_key, display_name, is_public, enabled, bucket_prefix, artifact_object) "
+                        + "VALUES (?, ?, 1, 1, ?, ?)",
+                key, key + " module", bucketPrefix, "x.dll");
     }
 
     // --- registry CRUD -----------------------------------------------------------------------------

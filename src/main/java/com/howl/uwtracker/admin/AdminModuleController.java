@@ -2,6 +2,7 @@ package com.howl.uwtracker.admin;
 
 import com.howl.uwtracker.admin.dto.AdminModuleResponse;
 import com.howl.uwtracker.admin.dto.CreateModuleRequest;
+import com.howl.uwtracker.admin.dto.DiscoveredModuleResponse;
 import com.howl.uwtracker.admin.dto.UpdateModuleRequest;
 import com.howl.uwtracker.modules.ModuleAdminService;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,12 @@ public class AdminModuleController {
     @GetMapping
     public ResponseEntity<List<AdminModuleResponse>> list() {
         return ResponseEntity.ok(moduleAdminService.list());
+    }
+
+    /** Bucket scan: {@code plugins/<Folder>/} directories with a dll but no registry row yet. */
+    @GetMapping("/discover")
+    public ResponseEntity<List<DiscoveredModuleResponse>> discover() {
+        return ResponseEntity.ok(moduleAdminService.discover());
     }
 
     @PostMapping
