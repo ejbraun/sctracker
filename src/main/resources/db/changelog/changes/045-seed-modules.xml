@@ -30,13 +30,16 @@
             <column name="content_type" value="application/vnd.microsoft.portable-executable"/>
             <column name="sort_order" valueNumeric="1"/>
         </insert>
+        <!-- PP.exe and PP.dll ship as a set from one launcher build, so pp-base reuses PP.exe's
+             manifest (same version/compiled_at; the sha256 there is PP.exe's, only used for its
+             own ETag). -->
         <insert tableName="modules">
             <column name="module_key" value="pp-base"/>
             <column name="display_name" value="ProjectPotato base (PP.dll)"/>
             <column name="is_public" valueBoolean="true"/>
             <column name="bucket_prefix" value="launcher"/>
             <column name="artifact_object" value="PP.dll"/>
-            <column name="manifest_object" value="launcher/PP.dll.version.json"/>
+            <column name="manifest_object" value="launcher/PP.version.json"/>
             <column name="sort_order" valueNumeric="2"/>
         </insert>
     </changeSet>

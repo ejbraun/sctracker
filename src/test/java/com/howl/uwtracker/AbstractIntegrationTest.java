@@ -2,6 +2,7 @@ package com.howl.uwtracker;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.howl.uwtracker.auth.dto.GeneratedMachineKeyResponse;
+import com.howl.uwtracker.modules.ModuleManifestCache;
 import com.howl.uwtracker.plugin.FakePluginStorageConfig;
 import com.howl.uwtracker.auth.dto.LoginRequest;
 import com.howl.uwtracker.auth.dto.SignupRequest;
@@ -151,6 +152,9 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     protected TrackedItemRepository trackedItemRepository;
 
+    @Autowired
+    protected ModuleManifestCache moduleManifestCache;
+
     @BeforeEach
     void cleanDatabase() {
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=0");
@@ -160,6 +164,9 @@ public abstract class AbstractIntegrationTest {
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
         jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", UNDERWORLD_MAP_ID, UNDERWORLD_MAP_NAME);
         jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 8, 'trapper')", UNDERWORLD_MAP_ID);
+        // The manifest cache is a singleton keyed by modules.id; TRUNCATE resets AUTO_INCREMENT, so a
+        // new module can reuse an id whose stale manifest entry would otherwise be served.
+        moduleManifestCache.clear();
     }
 
     /**
