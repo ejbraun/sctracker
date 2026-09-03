@@ -1,8 +1,10 @@
 package com.howl.uwtracker.modules;
 
+import com.howl.uwtracker.domain.ModuleType;
 import com.howl.uwtracker.modules.dto.ArtifactListResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -21,7 +23,8 @@ public class ModuleMetadataController {
     }
 
     @GetMapping("/artifacts")
-    public ResponseEntity<ArtifactListResponse> list() {
-        return ResponseEntity.ok(moduleMetadataService.list());
+    public ResponseEntity<ArtifactListResponse> list(
+            @RequestParam(value = "type", required = false) ModuleType type) {
+        return ResponseEntity.ok(moduleMetadataService.list(type));
     }
 }

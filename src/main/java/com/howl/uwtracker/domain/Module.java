@@ -1,6 +1,7 @@
 package com.howl.uwtracker.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -36,6 +37,12 @@ public class Module {
 
     @Column(name = "display_name", nullable = false, length = 128)
     private String displayName;
+
+    // What kind of artifact this is — a GWToolbox plugin or a ProjectPotato launcher module. Lets a
+    // consumer fetch just its kind via ?type= on /artifacts and /module-entitlements.
+    @Convert(converter = ModuleTypeConverter.class)
+    @Column(name = "type", nullable = false, length = 16)
+    private ModuleType type = ModuleType.PLUGIN;
 
     @Column(name = "is_public", nullable = false)
     private boolean publicAccess;
@@ -108,6 +115,14 @@ public class Module {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public ModuleType getType() {
+        return type;
+    }
+
+    public void setType(ModuleType type) {
+        this.type = type;
     }
 
     public boolean isPublicAccess() {

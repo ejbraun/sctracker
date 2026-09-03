@@ -1,7 +1,11 @@
 # ProjectPotato ↔ gwsctracker integration
 
-How the **ProjectPotato (PP)** launcher talks to **gwsctracker** for per-user feature
-entitlements and artifact downloads, and what PP's build pipeline has to publish.
+How the **ProjectPotato (PP)** launcher talks to **gwsctracker** to learn which **GWToolbox++
+plugins** a user is entitled to and to download them.
+
+> **Scope:** this covers the gated Toolbox plugins only. How the base launcher (`PP.exe` /
+> `PP.dll`) discovers and updates *itself* is an **open question** — see §7. gwsctracker currently
+> serves only Toolbox plugins.
 
 - **gwsctracker side:** [08-module-entitlements](../backend/08-module-entitlements.md) (API),
   [07-deployment](../backend/07-deployment.md) (bucket / IAM).
@@ -10,6 +14,8 @@ entitlements and artifact downloads, and what PP's build pipeline has to publish
 - **Contract stability:** these endpoints are top-level (not under `/api/`), the same convention
   the GW1 SDK plugin already relies on — treated as a stable external contract.
 
+PP is configured with the base URL and the user's **machine key**.
+
 ---
 
 ## 1. Model
@@ -17,9 +23,10 @@ entitlements and artifact downloads, and what PP's build pipeline has to publish
 | Piece | Owner | Notes |
 |---|---|---|
 | **Machine key** | gwsctracker | The user generates one on their gwsctracker **Account** page and pastes it into PP's config. It maps to their **account** (a user may hold several). PP sends it as the `X-Machine-Key` header. Revoking it on the Account page cuts PP off. |
-| **Module** | gwsctracker registry | One downloadable artifact: `PP.exe`, `PP.dll`, or a feature DLL. Identified by a lowercase-slug `key` (`^[a-z0-9][a-z0-9-]{0,63}$`). `PP.exe` / `PP.dll` are **public**; feature modules are **gated** — a user sees one only if an admin granted it. |
+| **Module** | gwsctracker registry | The registry's noun for one downloadable artifact — for PP's purposes, a GWToolbox++ plugin DLL. Identified by a lowercase-slug `key` (`^[a-z0-9][a-z0-9-]{0,63}$`) an admin assigns at registration (e.g. `sctracker`, `pp-vanquish`). These plugins are **gated** — a user sees one only if an admin granted it. |
+| **`type`** | gwsctracker registry | Each module is `type: "plugin"` (a GWToolbox++ plugin DLL, loaded by the toolbox) or `type: "module"` (a ProjectPotato launcher component, loaded by PP itself). Every response entry carries it, and both list endpoints take an optional `?type=plugin` / `?type=module` filter so each consumer fetches only its kind. Everything PP downloads today is `type: "plugin"`; `type: "module"` is reserved for the launcher's own components (see §7). |
 | **Entitlement** | gwsctracker admin | Per `(user, module)` grant, managed from the admin **User Management** page. Checked **live** on every call, so a grant or revoke takes effect on PP's next request — no caching, no propagation delay. |
-| **Artifact bytes** | private GCS bucket | gwsctracker proxies them; PP never talks to GCS directly. PP's build pipeline **publishes** `PP.exe` / `PP.dll` (and any feature DLLs it builds) into the bucket — see §5. |
+| **Artifact bytes** | private GCS bucket | gwsctracker proxies them; PP never talks to GCS directly. Plugin DLLs are published under `plugins/<Name>/` — see §5. |
 
 There is **no plugin-version gate** on these endpoints. PP versions independently of the GW1
 SCTracker plugin; a missing or stale `X-Plugin-Version` header is ignored here (it will never
@@ -34,7 +41,7 @@ get a `426`).
 Call on launch and on every update check.
 
 ```
-GET /module-entitlements
+GET /module-entitlements[?type=plugin|module]
 X-Machine-Key: <the user's key>
 ```
 
@@ -49,16 +56,9 @@ X-Machine-Key: <the user's key>
 {
   "modules": [
     {
-      "key": "pp-exe",
-      "display_name": "ProjectPotato launcher (PP.exe)",
-      "is_public": true,
-      "version": 7,
-      "sha256": "0d1f…",
-      "download_url": "/modules/pp-exe/download"
-    },
-    {
       "key": "pp-vanquish",
       "display_name": "Vanquish data aggregation",
+      "type": "plugin",
       "is_public": false,
       "version": 3,
       "sha256": "9ab0…",
@@ -68,27 +68,29 @@ X-Machine-Key: <the user's key>
 }
 ```
 
-- The list is **the complete set** the user is entitled to right now: every public module plus
-  every gated module granted to them. A module that was granted and later **revoked** simply
-  stops appearing — PP should treat "not in the list" as "remove it / stop loading it".
+- `?type=plugin` returns only the toolbox plugins the user is entitled to; `?type=module` only the
+  launcher modules; no param returns both. Each entry also carries `type` so you can route locally.
+- The list is **the complete set** the user is entitled to right now: every gated module granted
+  to them (plus any `is_public` modules, which for PP's purposes is usually none). A module that
+  was granted and later **revoked** simply stops appearing — PP should treat "not in the list" as
+  "remove it / stop loading it".
 - `version` is an integer, `null` until gwsctracker has seen the artifact's manifest at least
   once. `sha256` is the hex digest of the artifact bytes (also `null` until first seen).
 - `download_url` is **app-relative** — prepend the base URL. Always use the value from the
-  response; don't hardcode `/modules/{key}/download` (the `sctracker` key, if it ever shows up,
-  uses `/SCTracker.dll`).
+  response; don't hardcode `/modules/{key}/download`.
 
 ### `GET /modules/{key}/download` — fetch one artifact
 
 ```
 GET /modules/pp-vanquish/download
-X-Machine-Key: <key>          # required only for gated modules; harmless to always send
+X-Machine-Key: <key>
 ```
 
 | Status | Meaning |
 |---|---|
 | `200` | body is the raw artifact bytes |
-| `401` | gated module, key missing/invalid/revoked |
-| `403` | gated module, valid key but no grant for it |
+| `401` | key missing/invalid/revoked |
+| `403` | valid key but no grant for this module |
 | `404` | no such module key, or it's disabled |
 | `503` | the bytes aren't in the bucket yet (publish hasn't run) — retry later |
 
@@ -99,41 +101,32 @@ X-Machine-Key: <key>          # required only for gated modules; harmless to alw
 | `Content-Disposition: attachment; filename="<Name>.dll"` | the on-disk filename to write |
 | `Content-Length` | total size (when known) |
 | `ETag: "<sha256>"` | the artifact's sha256, quoted. Compare against what's on disk to skip a redundant download; `Cache-Control: no-cache` means always revalidate, never blind-cache. |
-| `Content-Type` | `application/octet-stream` for DLLs, `application/vnd.microsoft.portable-executable` for `PP.exe` |
-
-Public artifacts (`PP.exe`, `PP.dll`) download with **no** `X-Machine-Key` at all — the
-bootstrapper can fetch them before the user has entered a key.
+| `Content-Type` | `application/octet-stream` for dlls |
 
 ### `GET /artifacts` — full catalog (no auth)
 
 ```
-GET /artifacts
+GET /artifacts[?type=plugin|module]
 ```
 
 ```json
 {
   "artifacts": [
-    { "key": "pp-exe",  "display_name": "…", "is_public": true,  "version": 7, "compiled_at": "2026-09-02T18:40:11Z", "sha256": "…", "download_url": "/modules/pp-exe/download" },
-    { "key": "pp-base", "display_name": "…", "is_public": true,  "version": 7, "compiled_at": "…",                    "sha256": "…", "download_url": "/modules/pp-base/download" },
-    { "key": "pp-vanquish", "display_name": "…", "is_public": false, "version": 3, "compiled_at": "…", "sha256": "…", "download_url": "/modules/pp-vanquish/download" }
+    { "key": "pp-vanquish", "display_name": "…", "type": "plugin", "is_public": false, "version": 3, "compiled_at": "…", "sha256": "…", "download_url": "/modules/pp-vanquish/download" }
   ]
 }
 ```
 
-Every enabled artifact, public or not, with its current version and `compiled_at`. Useful for the
-updater to discover the current launcher/base version without a key. It does **not** tell you
-which gated modules a given user may use — that's `/module-entitlements`.
+Every enabled artifact with its current version and `compiled_at` (same optional `?type=` filter).
+It does **not** tell you which gated modules a given user may use — that's `/module-entitlements`.
 
 ---
 
 ## 3. Recommended PP client flow
 
-**Bootstrap (`PP.exe` self-update, no key needed):**
-1. `GET /artifacts`, find `key == "pp-exe"` (and `"pp-base"`).
-2. If its `sha256` ≠ the running exe's, `GET` its `download_url` (no header), replace on disk, relaunch.
-
 **On launch / "check for updates" (key required):**
-1. `GET /module-entitlements` with `X-Machine-Key`.
+1. `GET /module-entitlements?type=plugin` with `X-Machine-Key` (add `?type=module` for launcher
+   components once those exist — §7).
    - `401` → surface "your gwsctracker key is invalid or was revoked"; load only the base app.
 2. For each module in the response:
    - not present on disk, or on-disk `sha256` ≠ `module.sha256` → `GET module.download_url` with
@@ -142,7 +135,7 @@ which gated modules a given user may use — that's `/module-entitlements`.
    stop loading it.
 4. Load the modules that are present and current.
 
-**Entitlement is re-checked server-side on every `/module-entitlements` and every gated
+**Entitlement is re-checked server-side on every `/module-entitlements` and every
 `/modules/{key}/download`**, so PP doesn't need its own expiry logic — just re-run step 1 on the
 cadence you want revocations to take effect (launch, and/or a periodic check).
 
@@ -162,25 +155,24 @@ cadence you want revocations to take effect (launch, and/or a periodic check).
 
 ---
 
-## 5. What PP's build pipeline must publish
+## 5. Publishing a Toolbox plugin
 
 gwsctracker serves artifacts from a **private GCS bucket** (`PLUGIN_STORAGE_BUCKET`, shared with
-the GW1 plugin). PP's CI uploads into it; gwsctracker reads from it. Object layout:
+the GW1 plugin). Toolbox plugins are built and published by the GWToolbox++ fork (`cmake.yml`, see 07-deployment); any other pipeline follows the same layout. One prefix per plugin:
 
 | Object | What |
 |---|---|
-| `launcher/PP.exe` | the bootstrapper |
-| `launcher/PP.version.json` | manifest for `PP.exe` (schema below) |
-| `launcher/PP.dll` | the base app |
-| `plugins/<Name>/<Name>.dll` | a feature module DLL (only if PP's own pipeline builds it — modules built in the GWToolbox fork are already auto-published there by that repo's `cmake.yml`) |
-| `plugins/<Name>/<Name>.version.json` | manifest for that module |
+| `plugins/<Name>/<Name>.dll` | the plugin dll |
+| `plugins/<Name>/<Name>.version.json` | its manifest (schema below) |
+
+Modules built in the GWToolbox fork are already published there by that repo's `cmake.yml`.
 
 **Manifest schema** (`*.version.json`) — matches gwsctracker's `PluginVersionMetadata`:
 
 ```json
 {
-  "name": "PP",
-  "version": 7,
+  "name": "<Name>",
+  "version": 3,
   "compiled_at": "2026-09-02T18:40:11Z",
   "sha256": "0d1f8b…"
 }
@@ -188,35 +180,66 @@ the GW1 plugin). PP's CI uploads into it; gwsctracker reads from it. Object layo
 
 - `version` — **integer**, bumped on every release you want clients to pick up.
 - `compiled_at` — ISO-8601 UTC.
-- `sha256` — hex digest of the sibling artifact's bytes (`PP.exe` for `launcher/PP.version.json`).
+- `sha256` — hex digest of the sibling dll's bytes.
 
 **Upload rules:**
-- **Bytes first, manifest second.** Upload `PP.exe`, then `PP.version.json`. A gwsctracker refresh
-  racing the two uploads then sees a manifest that lags the bytes by at most one cycle, never one
-  that points ahead of them.
-- `gcloud storage cp <file> gs://$BUCKET/launcher/PP.exe --cache-control=no-cache` (the
+- **Bytes first, manifest second.** Upload `<Name>.dll`, then `<Name>.version.json`. A gwsctracker
+  refresh racing the two uploads then sees a manifest that lags the bytes by at most one cycle,
+  never one that points ahead of them.
+- `gcloud storage cp <file> gs://$BUCKET/plugins/<Name>/<Name>.dll --cache-control=no-cache` (the
   `--cache-control` flag keeps any CDN layer from stacking staleness on gwsctracker's own cache TTL).
 - No backend redeploy needed — gwsctracker picks up a new manifest within its cache TTL (15 min
   for modules) and re-reads `current_version` / `current_sha256`.
 
-**IAM:** PP's CI service account needs `roles/storage.objectAdmin` **on that bucket only**. Evan
-grants it (or shares the existing `GCP_SA_KEY` used by the GWToolbox fork). No other GCP access.
+**IAM:** the publishing CI service account needs `roles/storage.objectAdmin` **on that bucket
+only**. Evan grants it (or shares the existing `GCP_SA_KEY` used by the GWToolbox fork).
 
 ---
 
-## 6. Registering a gated module (gwsctracker admin — Evan)
+## 6. Registering a Toolbox plugin (gwsctracker admin — Evan)
 
-A new feature-module DLL is not usable until an admin registers it once, then grants it per user.
+A published DLL isn't usable until an admin registers it as a module, then grants it per user.
 
-1. Publish `plugins/<Name>/<Name>.dll` + `<Name>.version.json` (§5).
-2. gwsctracker admin → **Modules** → *Add a module*:
-   - `module_key` = the slug PP uses (e.g. `pp-vanquish`)
-   - `display_name` = human label
-   - `bucket_prefix` = `plugins/<Name>`
-   - `artifact_object` = `<Name>.dll`
-   - `manifest_object` = `plugins/<Name>/<Name>.version.json`
-   - `is_public` = unchecked
-3. gwsctracker admin → **User Management** → expand the user → **Modules** → **Grant**.
+**Scan (fastest):** gwsctracker admin → **Modules** → **Scan bucket for new modules**. Every
+`plugins/<Name>/` folder with a dll but no registry row shows up with the paths pre-filled; set the
+display name, leave **Public** unticked, **Import**.
 
-Revoke from the same place; **Disable** (Modules page) takes a module out of circulation for
-everyone without deleting the grants.
+**Manual:** **Modules** → *Add a module*:
+- `module_key` = a slug for the plugin (e.g. `sctracker`, `pp-vanquish`)
+- `type` = `plugin` (the default) for a Toolbox plugin; `module` for a launcher component
+- `bucket_prefix` = `plugins/<Name>`
+- `artifact_object` = `<Name>.dll`
+- `manifest_object` = `plugins/<Name>/<Name>.version.json`
+- `is_public` = unchecked
+
+Then: **User Management** → expand the user → **Modules** → **Grant**. Revoke from the same place;
+**Disable** (Modules page) pulls a module for everyone without deleting grants.
+
+---
+
+## 7. Open question — launcher self-update
+
+The Toolbox-plugin flow above is settled. **How `PP.exe` / `PP.dll` find and update themselves is
+not.** The registry now has the hook for it — `type: "module"` and the `?type=module` filter — so a
+launcher component *can* be a gated-or-public module the bootstrapper pulls via
+`GET /artifacts?type=module` / `GET /module-entitlements?type=module`. Still to decide:
+
+1. **Where the launcher bytes live.**
+   - *This bucket, as `type: "module"` rows* — reuses everything above; needs point 2.
+   - *Somewhere else* — Dan's own host, GitHub Releases, a CDN. Then gwsctracker isn't involved in
+     launcher updates at all and PP keeps whatever bootstrap mechanism it already has.
+
+2. **How the running exe identifies its own artifact among the `type=module` rows.** `/artifacts`
+   exposes `key`, `display_name`, `type`, `version`, `sha256`, `download_url` — but **not** the
+   filename — so the bootstrapper can't match by `PP.exe`. Options:
+   - a **fixed key convention** (e.g. `pp` / `pp-base`) that PP is compiled to look for;
+   - a **config value** — PP ships with its launcher module key in config alongside the base URL;
+   - a **dedicated endpoint** — e.g. `GET /launcher` returning the current exe's version + URL.
+
+3. **Auth.** Presumably none — the launcher download has to work before the user has entered a
+   machine key. So it must be a **public** module (or an unauthenticated endpoint).
+
+4. **Versioning / manifest.** If it's a module, it uses the same integer `*.version.json` scheme as
+   §5. If it's hosted elsewhere, whatever that host provides.
+
+Until this is decided, treat launcher updates as PP's existing concern and use gwsctracker only for the gated Toolbox plugins.

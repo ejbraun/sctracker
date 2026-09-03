@@ -1,11 +1,12 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { AdminModule } from '../api/types';
+import type { AdminModule, DiscoveredModule, ModuleType } from '../api/types';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
 const MODULES_KEY = ['admin', 'modules'] as const;
+const DISCOVER_KEY = ['admin', 'modules', 'discover'] as const;
 
 /**
  * Admin-only — gated by AdminRoute. Manages the `modules` registry: the artifacts gwsctracker
@@ -25,9 +26,11 @@ export function AdminModules() {
         <p>
           The downloadable artifacts gwsctracker hosts for the ProjectPotato launcher. Public modules
           download without a key; the rest are gated per user (grant access from{' '}
-          <strong>User Management</strong>). <code>sctracker</code>, <code>pp-exe</code> and{' '}
-          <code>pp-base</code> are built in — disable them rather than deleting.
+          <strong>User Management</strong>). <code>sctracker</code> is built in — disable it rather
+          than deleting.
         </p>
+
+        <DiscoverModules />
 
         <CreateModuleForm />
 
@@ -38,6 +41,7 @@ export function AdminModules() {
               <tr>
                 <th>Key</th>
                 <th>Display name</th>
+                <th>Type</th>
                 <th>Bucket prefix</th>
                 <th>Artifact object</th>
                 <th>Manifest object</th>
@@ -61,7 +65,127 @@ export function AdminModules() {
   );
 }
 
-const BUILT_IN_KEYS = new Set(['sctracker', 'pp-exe', 'pp-base']);
+/** Scan gs://<bucket>/plugins/ for folders that have a dll but no registry row, and import them. */
+function DiscoverModules() {
+  const queryClient = useQueryClient();
+  const [scanned, setScanned] = useState(false);
+
+  const discoverQuery = useQuery({
+    queryKey: DISCOVER_KEY,
+    queryFn: () => api.get<DiscoveredModule[]>('/admin/modules/discover'),
+    enabled: scanned,
+  });
+
+  return (
+    <div>
+      <button
+        onClick={() => {
+          setScanned(true);
+          discoverQuery.refetch();
+        }}
+        disabled={discoverQuery.isFetching}
+      >
+        {discoverQuery.isFetching ? 'Scanning…' : 'Scan bucket for new modules'}
+      </button>
+
+      {scanned && discoverQuery.data && discoverQuery.data.length === 0 && (
+        <p>No unregistered plugin folders in the bucket.</p>
+      )}
+      {discoverQuery.data && discoverQuery.data.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Bucket folder</th>
+              <th>Key</th>
+              <th>Display name</th>
+              <th>Manifest</th>
+              <th>Public</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {discoverQuery.data.map((candidate) => (
+              <DiscoveredRow
+                key={candidate.folder_name}
+                candidate={candidate}
+                onImported={() => {
+                  queryClient.invalidateQueries({ queryKey: MODULES_KEY });
+                  discoverQuery.refetch();
+                }}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule; onImported: () => void }) {
+  const [key, setKey] = useState(candidate.suggested_key);
+  const [displayName, setDisplayName] = useState(candidate.suggested_display_name);
+  const [isPublic, setIsPublic] = useState(false);
+
+  const importMutation = useMutation({
+    mutationFn: () =>
+      api.post<AdminModule>('/admin/modules', {
+        module_key: key.trim(),
+        display_name: displayName.trim(),
+        is_public: isPublic,
+        bucket_prefix: candidate.bucket_prefix,
+        artifact_object: candidate.artifact_object,
+        manifest_object: candidate.manifest_object,
+        sort_order: 0,
+      }),
+    onSuccess: onImported,
+  });
+
+  return (
+    <Fragment>
+      <tr>
+        <td>
+          <code>{candidate.bucket_prefix}</code>
+        </td>
+        <td>
+          <input aria-label={`${candidate.folder_name} key`} size={16} value={key} onChange={(e) => setKey(e.target.value)} />
+        </td>
+        <td>
+          <input
+            aria-label={`${candidate.folder_name} display name`}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+        </td>
+        <td>{candidate.has_manifest ? 'yes' : 'missing'}</td>
+        <td>
+          <input
+            type="checkbox"
+            aria-label={`${candidate.folder_name} public`}
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+          />
+        </td>
+        <td>
+          <button
+            onClick={() => importMutation.mutate()}
+            disabled={importMutation.isPending || !key.trim() || !displayName.trim()}
+          >
+            Import
+          </button>
+        </td>
+      </tr>
+      {importMutation.error && (
+        <tr>
+          <td colSpan={6}>
+            <ErrorBanner error={importMutation.error} />
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  );
+}
+
+const BUILT_IN_KEYS = new Set(['sctracker']);
 
 function ModuleRow({ module }: { module: AdminModule }) {
   const queryClient = useQueryClient();
@@ -120,6 +244,17 @@ function ModuleRow({ module }: { module: AdminModule }) {
           <code>{module.module_key}</code>
         </td>
         <td>{field('display_name')}</td>
+        <td>
+          <select
+            aria-label={`${module.module_key} type`}
+            value={module.type}
+            onChange={(e) => patchMutation.mutate({ type: e.target.value })}
+            disabled={patchMutation.isPending}
+          >
+            <option value="plugin">plugin</option>
+            <option value="module">module</option>
+          </select>
+        </td>
         <td>{field('bucket_prefix')}</td>
         <td>{field('artifact_object')}</td>
         <td>{field('manifest_object')}</td>
@@ -169,7 +304,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
       </tr>
       {(patchMutation.error || deleteMutation.error) && (
         <tr>
-          <td colSpan={11}>
+          <td colSpan={12}>
             <ErrorBanner error={patchMutation.error ?? deleteMutation.error} />
           </td>
         </tr>
@@ -183,6 +318,7 @@ function CreateModuleForm() {
   const [form, setForm] = useState({
     module_key: '',
     display_name: '',
+    type: 'plugin' as ModuleType,
     bucket_prefix: '',
     artifact_object: '',
     manifest_object: '',
@@ -196,6 +332,7 @@ function CreateModuleForm() {
       api.post<AdminModule>('/admin/modules', {
         module_key: form.module_key.trim(),
         display_name: form.display_name.trim(),
+        type: form.type,
         is_public: form.is_public,
         bucket_prefix: form.bucket_prefix.trim(),
         artifact_object: form.artifact_object.trim(),
@@ -207,6 +344,7 @@ function CreateModuleForm() {
       setForm({
         module_key: '',
         display_name: '',
+        type: 'plugin',
         bucket_prefix: '',
         artifact_object: '',
         manifest_object: '',
@@ -244,6 +382,14 @@ function CreateModuleForm() {
       <ErrorBanner error={createMutation.error} />
       {input('module_key', 'module key (a-z0-9-)')}
       {input('display_name', 'display name')}
+      <select
+        aria-label="type"
+        value={form.type}
+        onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as ModuleType }))}
+      >
+        <option value="plugin">plugin</option>
+        <option value="module">module</option>
+      </select>
       {input('bucket_prefix', 'bucket prefix, e.g. plugins/Foo')}
       {input('artifact_object', 'artifact object, e.g. Foo.dll')}
       {input('manifest_object', 'manifest object (optional)')}

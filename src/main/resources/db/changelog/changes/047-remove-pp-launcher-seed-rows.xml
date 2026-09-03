@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Drop the pre-seeded pp-exe / pp-base placeholder rows (changeset 045). The ProjectPotato
+         launcher's artifacts are registered like any other module now — one uniform
+         plugins/<Name>/ bucket layout, no launcher/ special prefix, no hardcoded keys. Both were
+         public so no person_module_grants reference them; nothing else does either. sctracker stays
+         (its bytes come from PluginArtifactCache / GET /SCTracker.dll). -->
+    <changeSet id="047-remove-pp-launcher-seed-rows" author="uwtracker">
+        <delete tableName="modules">
+            <where>module_key in ('pp-exe', 'pp-base')</where>
+        </delete>
+    </changeSet>
+
+</databaseChangeLog>

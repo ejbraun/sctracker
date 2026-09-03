@@ -28,10 +28,14 @@ export interface AdminUser {
  * Registry row for the admin-only "Modules" page — GET/POST/PATCH/DELETE /api/admin/modules.
  * current_* are read-only (ModuleManifestCache fills them from the artifact's manifest).
  */
+export type ModuleType = 'plugin' | 'module';
+
 export interface AdminModule {
   id: number;
   module_key: string;
   display_name: string;
+  // 'plugin' = a GWToolbox++ plugin DLL; 'module' = a ProjectPotato launcher module.
+  type: ModuleType;
   is_public: boolean;
   enabled: boolean;
   bucket_prefix: string;
@@ -42,6 +46,20 @@ export interface AdminModule {
   current_sha256: string | null;
   version_detected_at: string | null;
   sort_order: number;
+}
+
+/**
+ * GET /api/admin/modules/discover — a plugins/<Folder>/ directory in the bucket that has a dll but
+ * no `modules` row yet. The admin picks display_name + is_public and imports via POST /admin/modules.
+ */
+export interface DiscoveredModule {
+  folder_name: string;
+  suggested_key: string;
+  suggested_display_name: string;
+  bucket_prefix: string;
+  artifact_object: string;
+  manifest_object: string | null;
+  has_manifest: boolean;
 }
 
 /**

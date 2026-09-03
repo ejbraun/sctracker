@@ -11,8 +11,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Stands in for {@link GcsPluginStorageClient} in integration tests — no GCS, no ADC, no bucket.
@@ -37,6 +41,14 @@ public class FakePluginStorageConfig {
     public static final byte[] FAKE_DLL = "fake-sctracker-dll".getBytes(StandardCharsets.UTF_8);
     public static final String FAKE_SHA256 = sha256Hex(FAKE_DLL);
     public static final Instant FAKE_COMPILED_AT = Instant.parse("2026-08-29T11:38:10Z");
+
+    /**
+     * Test-settable contents of {@code gs://<bucket>/plugins/} for the bucket-discovery path.
+     * {@code PLUGIN_FOLDERS} have both {@code <F>.dll} and {@code <F>.version.json}; {@code EMPTY_DIRS}
+     * are listed but have no dll. {@code AbstractIntegrationTest.cleanDatabase()} clears both.
+     */
+    public static final Set<String> PLUGIN_FOLDERS = ConcurrentHashMap.newKeySet();
+    public static final Set<String> EMPTY_DIRS = ConcurrentHashMap.newKeySet();
 
     /** Bytes the fake store returns for any non-manifest object path. */
     public static byte[] fakeArtifactBytes(String objectPath) {
@@ -76,6 +88,27 @@ public class FakePluginStorageConfig {
         public Optional<ReadableArtifact> openObject(String objectPath) {
             byte[] bytes = fakeArtifactBytes(objectPath);
             return Optional.of(new ReadableArtifact(new ByteArrayInputStream(bytes), bytes.length));
+        }
+
+        @Override
+        public List<String> listSubdirectories(String prefix) {
+            if (!"plugins/".equals(prefix)) {
+                return List.of();
+            }
+            List<String> dirs = new ArrayList<>(PLUGIN_FOLDERS);
+            dirs.addAll(EMPTY_DIRS);
+            return dirs;
+        }
+
+        @Override
+        public boolean objectExists(String objectPath) {
+            for (String folder : PLUGIN_FOLDERS) {
+                if (objectPath.equals("plugins/" + folder + "/" + folder + ".dll")
+                        || objectPath.equals("plugins/" + folder + "/" + folder + ".version.json")) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
