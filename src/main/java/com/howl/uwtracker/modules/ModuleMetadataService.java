@@ -4,7 +4,6 @@ import com.howl.uwtracker.domain.Module;
 import com.howl.uwtracker.modules.dto.ArtifactListResponse;
 import com.howl.uwtracker.modules.dto.ArtifactSummaryResponse;
 import com.howl.uwtracker.plugin.PluginVersionMetadata;
-import com.howl.uwtracker.plugin.PluginVersionMetadataLoader;
 import com.howl.uwtracker.repository.ModuleRepository;
 import org.springframework.stereotype.Service;
 
@@ -12,21 +11,19 @@ import java.util.List;
 
 /**
  * Backs the public {@code GET /artifacts} listing. Version/hash come from the live manifest where
- * available, falling back to the persisted {@code current_*} columns (last known good, e.g. right
- * after a restart before {@link ModuleManifestCache#prime()} finishes).
+ * available (via {@link ModuleManifestResolver}), falling back to the persisted {@code current_*}
+ * columns (last known good, e.g. right after a restart before {@link ModuleManifestCache#prime()}
+ * finishes).
  */
 @Service
 public class ModuleMetadataService {
 
     private final ModuleRepository moduleRepository;
-    private final ModuleManifestCache moduleManifestCache;
-    private final PluginVersionMetadataLoader pluginVersionMetadataLoader;
+    private final ModuleManifestResolver manifestResolver;
 
-    public ModuleMetadataService(ModuleRepository moduleRepository, ModuleManifestCache moduleManifestCache,
-                                 PluginVersionMetadataLoader pluginVersionMetadataLoader) {
+    public ModuleMetadataService(ModuleRepository moduleRepository, ModuleManifestResolver manifestResolver) {
         this.moduleRepository = moduleRepository;
-        this.moduleManifestCache = moduleManifestCache;
-        this.pluginVersionMetadataLoader = pluginVersionMetadataLoader;
+        this.manifestResolver = manifestResolver;
     }
 
     public ArtifactListResponse list() {
@@ -44,19 +41,14 @@ public class ModuleMetadataService {
     }
 
     private ArtifactSummaryResponse toSummary(Module module) {
-        PluginVersionMetadata manifest = ModuleKeys.SCTRACKER.equals(module.getModuleKey())
-                ? pluginVersionMetadataLoader.getCurrent()
-                : moduleManifestCache.getManifest(module).orElse(null);
-
-        Integer version = manifest != null ? manifest.version() : module.getCurrentVersion();
-        String sha256 = manifest != null ? manifest.sha256() : module.getCurrentSha256();
+        PluginVersionMetadata manifest = manifestResolver.manifestFor(module);
         return new ArtifactSummaryResponse(
                 module.getModuleKey(),
                 module.getDisplayName(),
                 module.isPublicAccess(),
-                version,
+                manifest != null ? manifest.version() : module.getCurrentVersion(),
                 manifest != null ? manifest.compiledAt() : null,
-                sha256,
+                manifest != null ? manifest.sha256() : module.getCurrentSha256(),
                 downloadUrl(module.getModuleKey()));
     }
 }
