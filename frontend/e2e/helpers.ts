@@ -29,6 +29,30 @@ function mintSignupKey(): string {
   return rawKey;
 }
 
+/**
+ * Promotes an existing user to admin by inserting straight into the dev MySQL container — the same
+ * approach mintSignupKey uses, and the only way to (the `admins` table has no API, see Admin's
+ * class doc).
+ */
+export function makeAdmin(username: string): void {
+  execFileSync(
+    'docker',
+    [
+      'compose',
+      'exec',
+      '-T',
+      'mysql',
+      'mysql',
+      '-uroot',
+      '-proot',
+      'uwtracker',
+      '-e',
+      `INSERT INTO admins (person_id) SELECT id FROM people WHERE username = '${username}';`,
+    ],
+    { cwd: REPO_ROOT, stdio: ['ignore', 'ignore', 'ignore'] },
+  );
+}
+
 export async function signUp(page: Page, username: string, password = 'password123'): Promise<void> {
   const signupKey = mintSignupKey();
   await page.goto('/signup');

@@ -19,4 +19,7 @@ public interface ModuleRepository extends JpaRepository<Module, Long> {
 
     /** Enabled modules in display order — powers {@code GET /artifacts} and the admin grant checklist. */
     List<Module> findByEnabledTrueOrderBySortOrderAscModuleKeyAsc();
+
+    /** Every module, enabled or not, in display order — the admin registry table. */
+    List<Module> findAllByOrderBySortOrderAscModuleKeyAsc();
 }

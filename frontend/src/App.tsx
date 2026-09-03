@@ -17,6 +17,7 @@ import { RunHistory } from './pages/RunHistory';
 import { RunDetail } from './pages/RunDetail';
 import { AdminUsers } from './pages/AdminUsers';
 import { AdminRuns } from './pages/AdminRuns';
+import { AdminModules } from './pages/AdminModules';
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ export default function App() {
                 <Route element={<AdminRoute />}>
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/runs" element={<AdminRuns />} />
+                  <Route path="/admin/modules" element={<AdminModules />} />
                 </Route>
               </Route>
             </Route>
