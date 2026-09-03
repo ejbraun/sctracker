@@ -20,12 +20,16 @@ import java.time.Duration;
  * artifacts served from the same bucket (see {@code com.howl.uwtracker.modules}): how long
  * {@code ModuleManifestCache} holds a module's manifest, and the ceiling
  * {@code ModuleDownloadController} enforces before streaming one.
+ *
+ * <p>SCTracker sits on the same {@code plugins/<Name>/} bucket layout as every other plugin — the
+ * defaults below and the {@code sctracker} row in {@code modules} (changeset 046) agree. See the
+ * one-time bucket-migration note in specs/backend/07-deployment.md.
  */
 @ConfigurationProperties("plugin.storage")
 public record PluginStorageProperties(
         @DefaultValue("") String bucket,
-        @DefaultValue("sctracker/SCTracker.version.json") String manifestObject,
-        @DefaultValue("sctracker/SCTracker.dll") String dllObject,
+        @DefaultValue("plugins/SCTracker/SCTracker.version.json") String manifestObject,
+        @DefaultValue("plugins/SCTracker/SCTracker.dll") String dllObject,
         @DefaultValue("1h") Duration cacheTtl,
         @DefaultValue("15m") Duration moduleCacheTtl,
         @DefaultValue("67108864") long maxModuleDownloadBytes) {

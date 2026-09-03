@@ -37,22 +37,39 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 
 - **Env var**: `PLUGIN_STORAGE_BUCKET=<bucket>` on the Cloud Run service (`gcloud run services update uwtracker --region us-central1 --update-env-vars PLUGIN_STORAGE_BUCKET=<bucket>`). Blank/unset → plugin storage disabled: `/plugin-version` and `/SCTracker.dll` 503, version enforcement fails open. Optional overrides: `plugin.storage.manifest-object`, `plugin.storage.dll-object`, `plugin.storage.cache-ttl`.
 - **IAM**: the Cloud Run runtime service account needs `roles/storage.objectViewer` on the bucket (a 403 in the logs = this is missing). Auth is ADC via the metadata server — no key file.
-- **Publisher**: GWToolboxpp CI (`cmake.yml`) uploads to `gs://<bucket>/sctracker/` on every `master` build, authenticated with a dedicated SA JSON key (`GCP_SA_KEY` repo secret) that has `roles/storage.objectAdmin` on the bucket only.
+- **Publisher**: GWToolboxpp CI (`cmake.yml`) uploads to `gs://<bucket>/plugins/SCTracker/` on every `master` build, authenticated with a dedicated SA JSON key (`GCP_SA_KEY` repo secret) that has `roles/storage.objectAdmin` on the bucket only. (SCTracker used the flat `gs://<bucket>/sctracker/` path before the `plugins/<Name>/` migration — see below.)
 
 ## Module & launcher artifacts (GCS bucket)
 
-The ProjectPotato launcher's artifacts are hosted the same way — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. Object layout:
+The ProjectPotato launcher's artifacts are hosted the same way — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. One uniform object layout for every artifact:
 
-- `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per GWToolboxpp plugin.
+- `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per GWToolboxpp plugin, **SCTracker included** (`plugins/SCTracker/`).
 - `launcher/PP.exe`, `launcher/PP.dll`, `launcher/PP.version.json` — ProjectPotato launcher + base.
-- `sctracker/SCTracker.dll` + `sctracker/SCTracker.version.json` — unchanged (legacy layout).
 
 `ModuleManifestCache` reads each `*.version.json` (`plugin.storage.module-cache-ttl`, default 15m) and streams the artifact bytes per request at `GET /modules/{key}/download` — bytes are never held in memory. Optional overrides: `plugin.storage.module-cache-ttl`, `plugin.storage.max-module-download-bytes` (default 64 MiB).
 
 - **Publishers**:
-  - GWToolboxpp `cmake.yml` — the existing SCTracker step still writes `sctracker/`; a second step loops over every other staged plugin and writes `plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`.
+  - GWToolboxpp `cmake.yml` — one loop over every staged plugin `.dll`, each to `gs://<bucket>/plugins/<Name>/`. Same `GCP_SA_KEY` / `roles/storage.objectAdmin`.
   - The ProjectPotato launcher repo publishes `launcher/PP.exe` / `PP.dll` (+ a `PluginVersionMetadata`-shaped `PP.version.json`) with its own CI step or a one-off `gcloud storage cp`; its SA needs `roles/storage.objectAdmin` on the bucket (or reuse `GCP_SA_KEY`).
 - The backend tolerates a missing object (503 on that one download) so publishing is decoupled from any backend deploy.
+
+### One-time SCTracker `sctracker/` → `plugins/SCTracker/` migration
+
+`PluginStorageProperties` defaults and the `sctracker` row in `modules` (changeset 046) both point at
+`plugins/SCTracker/` now. Before the backend carrying that change is deployed, the bytes must exist
+there or `GET /SCTracker.dll` 503s until they do (fail-open — the plugin keeps its current dll and
+re-checks next launch). Either:
+
+1. Merge the GWToolboxpp `cmake.yml` change and let one `master` build run (it writes the new path), **or**
+2. Copy the objects once:
+   ```
+   gcloud storage cp gs://$BUCKET/sctracker/SCTracker.dll         gs://$BUCKET/plugins/SCTracker/SCTracker.dll
+   gcloud storage cp gs://$BUCKET/sctracker/SCTracker.version.json gs://$BUCKET/plugins/SCTracker/SCTracker.version.json
+   ```
+
+If the Cloud Run service sets `PLUGIN_STORAGE_DLL_OBJECT` / `PLUGIN_STORAGE_MANIFEST_OBJECT`
+explicitly (it currently doesn't — it relies on the code defaults), update or unset them too. After
+the cutover, delete the dead `gs://$BUCKET/sctracker/` objects.
 
 ## Migrations on boot
 
