@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Domain of Anguish as a third supported map. map_id 474 is GWCA's MapID::Domain_of_Anguish
+         (sequential from None=0; The_Underworld is 72, The_Fissure_of_Woe is 34). Note the DoA
+         explorable shares this map_id with the solo Ebony Citadel of Mallyx challenge - the plugin's
+         8-real-player gate rejects that 1-player instance, and only 8-man clears reach the backend.
+
+         One configuration:
+           - (474, 8): the full 8-man. role_model = NULL - DoA has no fixed role composition (like
+             FoW 8-man, unlike UW's trapper team), so run_participants.role stays NULL for these
+             runs, the by-role board panels are hidden, and the personal section-best query is not
+             role-gated. 8 real players, no heroes.
+         No role_objectives rows (those are only for role-gated configs).
+         See specs/features/fow-and-party-size.md. -->
+    <changeSet id="051-seed-domain-of-anguish" author="uwtracker">
+        <insert tableName="maps">
+            <column name="id" valueNumeric="474"/>
+            <column name="name" value="Domain of Anguish"/>
+        </insert>
+        <insert tableName="map_configs">
+            <column name="map_id" valueNumeric="474"/>
+            <column name="party_size" valueNumeric="8"/>
+            <!-- role_model deliberately omitted -> NULL -->
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

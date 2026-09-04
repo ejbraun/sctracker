@@ -90,6 +90,11 @@ public abstract class AbstractIntegrationTest {
     public static final int FISSURE_OF_WOE_MAP_ID = 34;
     public static final String FISSURE_OF_WOE_MAP_NAME = "The Fissure of Woe";
 
+    /** Domain of Anguish (051-seed-domain-of-anguish.xml) — 8-man only, role-less (role_model NULL).
+     *  Not reseeded by cleanDatabase(); a test that needs it calls {@link #seedDomainOfAnguish()}. */
+    public static final int DOMAIN_OF_ANGUISH_MAP_ID = 474;
+    public static final String DOMAIN_OF_ANGUISH_MAP_NAME = "Domain of Anguish";
+
     // Children first, respecting FK order; role_objectives/people have no dependents left after this.
     // "maps" truncates like everything else, but — unlike everything else — cleanDatabase() below
     // reseeds it with the curated set (011-seed-supported-maps.xml) right after: maps is reference
@@ -195,6 +200,17 @@ public abstract class AbstractIntegrationTest {
             jdbcTemplate.update("INSERT INTO role_objectives (map_id, objective_name, role) VALUES (?, ?, 'Derv')",
                     FISSURE_OF_WOE_MAP_ID, objective);
         }
+    }
+
+    /**
+     * Seeds Domain of Anguish (map + its single {@code map_configs} row), for tests that exercise
+     * the DoA path. Mirrors changeset 051: 8-man only, role-less (role_model NULL), no
+     * role_objectives. Not part of {@link #cleanDatabase()} since most tests don't need it.
+     */
+    protected void seedDomainOfAnguish() {
+        jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", DOMAIN_OF_ANGUISH_MAP_ID, DOMAIN_OF_ANGUISH_MAP_NAME);
+        jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 8, NULL)",
+                DOMAIN_OF_ANGUISH_MAP_ID);
     }
 
     /**

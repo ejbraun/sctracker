@@ -27,6 +27,7 @@ export const MAPS: MapChoice[] = [
     // The duo is the canonical FoW speed clear — default to it even though it isn't partySizes[0].
     defaultSize: 2,
   },
+  { id: '474', short: 'DoA', name: 'Domain of Anguish', partySizes: [8] },
 ];
 
 // Role model per (map, party_size), mirroring the backend's map_configs.role_model. `null` = the
@@ -43,6 +44,8 @@ const ROLE_MODEL: Record<string, string | null> = {
   '34:6': null,
   '34:7': null,
   '34:8': null,
+  // Domain of Anguish — 8-man only, no fixed role composition (like FoW 8-man).
+  '474:8': null,
 };
 
 export const roleModelFor = (mapId: string, partySize: number): string | null | undefined =>
