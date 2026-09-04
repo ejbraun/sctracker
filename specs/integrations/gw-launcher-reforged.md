@@ -238,3 +238,19 @@ plugins — `GET /module-entitlements?type=module` on launch / on demand, then
 `GET module.download_url` per entry. `download_url` is app-relative and comes from the response
 (`/modules/{key}/download`); never hardcode it. Entitlement is re-checked server-side per call, so a
 revoke drops the component on GWRL's next sync.
+
+### Provisioning a user for the launcher (gwsctracker admin — Evan)
+
+The **Launcher** download panel on a user's Account page renders **only** when `gwrl-install` comes
+back from `GET /api/account/modules` for that user — i.e. the row exists, is enabled, and is
+public **or** granted to them. Since `gwrl-install` is gated, both of these are required:
+
+1. **Register `gwrl-install`** — Modules → *Scan bucket* (once `launcher/gwrl-install/…` is
+   uploaded) and Import, or *Add a module* manually: `type = module`,
+   `bucket_prefix = launcher/gwrl-install`, `artifact_object = gwrl-install.zip`,
+   `manifest_object = launcher/gwrl-install/gwrl-install.version.json`, **Public unchecked**.
+2. **Grant it** — User Management → expand the user → Modules → **Grant** `gwrl-install`.
+
+The bytes need not exist yet for the panel to appear — `version` shows blank and the download
+`503`s until `launcher/gwrl-install/…` is in the bucket. A user with no grant sees no panel (by
+design); revoking hides it again on their next page load.
