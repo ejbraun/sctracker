@@ -31,12 +31,6 @@ public class Person {
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 
-    // Set by POST /api/plugin/download. NULL means "never downloaded" — the "new plugin version
-    // available" banner (see PluginDllVersion) shows for this case too, same as a stale non-null
-    // timestamp, since there's nothing here yet to compare against the current build.
-    @Column(name = "last_plugin_download_at")
-    private Instant lastPluginDownloadAt;
-
     // Gates POST /report-run-failure and POST /report-run-mvp (the latter has no permission check
     // of its own — it just reuses this flag). Granted/revoked by an admin via PATCH
     // /api/admin/users/{id}/can-report-failures (AdminUserController).
@@ -44,10 +38,11 @@ public class Person {
     private boolean canReportFailures;
 
     // Stamped by MachineKeyAuthenticationService on every machine-key request — the timestamp and
-    // the X-Plugin-Version the plugin reported. Distinct from lastPluginDownloadAt (a website
-    // click): this is the plugin actually talking to the backend. Written via
-    // PersonRepository.recordPluginSeen (a bulk UPDATE by id), so there are no setters. A non-null
-    // lastPluginSeenAt with a null lastSeenPluginVersion is a client too old to send the header.
+    // the X-Plugin-Version the plugin reported (the plugin actually talking to the backend).
+    // Written via PersonRepository.recordPluginSeen (a bulk UPDATE by id), so there are no setters.
+    // A non-null lastPluginSeenAt with a null lastSeenPluginVersion is a client too old to send the
+    // header. lastSeenPluginVersion vs. the current manifest version drives both the 426 upload gate
+    // (PluginVersionMetadataLoader) and the website's update banner (PluginVersionService.isOutdated).
     @Column(name = "last_plugin_seen_at")
     private Instant lastPluginSeenAt;
 
@@ -88,14 +83,6 @@ public class Person {
 
     public Instant getCreatedAt() {
         return createdAt;
-    }
-
-    public Instant getLastPluginDownloadAt() {
-        return lastPluginDownloadAt;
-    }
-
-    public void setLastPluginDownloadAt(Instant lastPluginDownloadAt) {
-        this.lastPluginDownloadAt = lastPluginDownloadAt;
     }
 
     public boolean isCanReportFailures() {

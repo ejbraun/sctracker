@@ -9,9 +9,10 @@ import java.time.Instant;
  * {@code compiledAt} and {@code sha256} are always current for the dll they sit next to.
  *
  * <p>{@code name} and {@code sha256} are tolerated-absent (older manifests) — a null {@code sha256}
- * just means {@link PluginArtifactCache} can't detect a dll change and {@code plugin_dll_version}
- * won't advance. {@code version} drives the {@code X-Plugin-Version} enforcement gate
- * ({@link PluginVersionMetadataLoader#requireCurrentVersion}).
+ * just means {@link PluginArtifactCache} can't self-check the dll bytes against the manifest.
+ * {@code version} drives the {@code X-Plugin-Version} enforcement gate
+ * ({@link PluginVersionMetadataLoader#requireCurrentVersion}) and the website's "new plugin version
+ * available" banner ({@link PluginVersionService#isOutdated}).
  */
 public record PluginVersionMetadata(String name, int version, Instant compiledAt, String sha256) {
 }

@@ -29,9 +29,8 @@ is the only key the backend special-cases.
 caches each module's manifest JSON (`plugin.storage.module-cache-ttl`, default 15m) but never the
 artifact bytes, which stream from the bucket per request. A changed `sha256` publishes
 `ModuleVersionChangedEvent`; `ModuleVersionInitializer` writes it to the module's `current_*`
-columns (it does **not** touch the `plugin_dll_version` singleton). `ModuleManifestResolver`
-centralises the "sctracker reuses `PluginArtifactCache`, everything else uses `ModuleManifestCache`"
-decision.
+columns. `ModuleManifestResolver` centralises the "sctracker reuses `PluginArtifactCache`,
+everything else uses `ModuleManifestCache`" decision.
 
 ## Endpoints
 

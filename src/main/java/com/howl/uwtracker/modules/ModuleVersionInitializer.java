@@ -10,13 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Writes a {@link ModuleVersionChangedEvent} back to the module's {@code current_version} /
- * {@code current_sha256} / {@code version_detected_at} columns — the per-row analogue of
- * {@link com.howl.uwtracker.plugin.PluginDllVersionInitializer}. Does not touch the
- * {@code plugin_dll_version} singleton.
+ * {@code current_sha256} / {@code version_detected_at} columns.
  *
- * <p>Like its SCTracker sibling this mutates the managed entity inside a {@code @Transactional}
- * boundary and lets the flush persist it; the event is published from {@link ModuleManifestCache}
- * (a different bean) so this listener is invoked through the proxy.
+ * <p>This mutates the managed entity inside a {@code @Transactional} boundary and lets the flush
+ * persist it; the event is published from {@link ModuleManifestCache} (a different bean) so this
+ * listener is invoked through the proxy.
  */
 @Component
 public class ModuleVersionInitializer {

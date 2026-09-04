@@ -3,14 +3,14 @@ import { useAuth } from '../auth/AuthContext';
 import styles from './UpdateBanner.module.css';
 
 /**
- * Shown on every page whenever this person's plugin copy is stale relative to the currently
- * detected dll build — see Person.new_plugin_version_available (backend:
- * AuthController.newPluginVersionAvailable). Also shown to someone who has never downloaded at
- * all (no timestamp recorded means nothing to compare, so it defaults to "go get it").
+ * Shown on every page whenever the build this person's plugin last advertised over X-Plugin-Version
+ * is behind the current manifest version — see Person.new_plugin_version_available (backend:
+ * PluginVersionService.isOutdated). Also shown to someone whose plugin has never authenticated at
+ * all (nothing has reported a version, so it defaults to "go get it").
  *
- * The stakes are spelled out here because UploadRunService silently drops uploads from an outdated
- * build rather than erroring — the plugin itself shows nothing wrong, so this banner is the only
- * place a stale user would ever find out their runs aren't being recorded.
+ * The stakes are spelled out here because an outdated build's uploads are rejected by the server
+ * (426 Upgrade Required) — so this banner is the main place a stale user finds out their runs
+ * aren't being recorded.
  */
 export function UpdateBanner() {
   const { person } = useAuth();

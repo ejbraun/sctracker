@@ -1,34 +1,43 @@
 package com.howl.uwtracker.plugin;
 
 import com.howl.uwtracker.domain.Person;
-import com.howl.uwtracker.domain.PluginDllVersion;
-import com.howl.uwtracker.repository.PluginDllVersionRepository;
 import org.springframework.stereotype.Component;
-
-import java.time.Instant;
 
 @Component
 public class PluginVersionService {
 
-    private final PluginDllVersionRepository pluginDllVersionRepository;
+    private final PluginVersionMetadataLoader pluginVersionMetadataLoader;
 
-    public PluginVersionService(PluginDllVersionRepository pluginDllVersionRepository) {
-        this.pluginDllVersionRepository = pluginDllVersionRepository;
+    public PluginVersionService(PluginVersionMetadataLoader pluginVersionMetadataLoader) {
+        this.pluginVersionMetadataLoader = pluginVersionMetadataLoader;
     }
 
     /**
-     * True if this person has never recorded a plugin download at all (nothing to compare a
-     * timestamp against, so treat it as needing the current build), or if their last download
-     * predates the currently-detected dll build. See PluginDllVersionInitializer for how/when that
-     * detection happens.
+     * Whether to show this person the website's "new plugin version available" banner. Driven by the
+     * build their plugin last advertised over {@code X-Plugin-Version}
+     * ({@code people.last_seen_plugin_version}, stamped by
+     * {@link com.howl.uwtracker.web.MachineKeyAuthenticationService} on every machine-key request),
+     * compared against the current manifest version — the very same comparison
+     * {@link PluginVersionMetadataLoader#requireCurrentVersion} (the 426 upload gate) and the
+     * "Players On An Outdated Plugin" loserboard use, so the banner and the gate can never disagree.
+     *
+     * <p>Fails open when the manifest hasn't loaded (no bucket configured, or unreachable): with no
+     * known current version, nobody is classified as outdated — same posture as
+     * {@code requireCurrentVersion} and {@code LoserboardService.outdatedPlugins}.
+     *
+     * <p>A person whose plugin has never authenticated ({@code last_plugin_seen_at} null) still gets
+     * the banner — nothing has reported a version, so treat it as "go install the current build". A
+     * sighting with a null version (a client too old to send the header) counts as outdated too.
      */
     public boolean isOutdated(Person person) {
-        Instant lastDownload = person.getLastPluginDownloadAt();
-        if (lastDownload == null) {
+        PluginVersionMetadata current = pluginVersionMetadataLoader.getCurrent();
+        if (current == null) {
+            return false;
+        }
+        if (person.getLastPluginSeenAt() == null) {
             return true;
         }
-        return pluginDllVersionRepository.findById(PluginDllVersion.SINGLETON_ID)
-                .map(version -> lastDownload.isBefore(version.getDetectedAt()))
-                .orElse(false);
+        Integer lastSeen = person.getLastSeenPluginVersion();
+        return lastSeen == null || lastSeen < current.version();
     }
 }

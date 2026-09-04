@@ -5,8 +5,9 @@ export interface Person {
   id: number;
   username: string;
   alias: string | null;
-  // True if this person's last plugin download predates the currently detected dll build (see
-  // PluginDllVersionInitializer on the backend), or if they've never recorded a download at all.
+  // True if the build this person's plugin last advertised over X-Plugin-Version is below the
+  // current manifest version, or if their plugin has never authenticated at all (backend:
+  // PluginVersionService.isOutdated).
   new_plugin_version_available: boolean;
   // Membership in the admins table (see AdminAuthInterceptor) — gates the "User Management" nav
   // link/route and every /api/admin/** call. Toggled by an existing admin from User Management

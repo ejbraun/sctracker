@@ -320,9 +320,9 @@ role-gated query already returns correct PBs for `Ranger`/`Derv`. A `role_model 
 No backend action. GWToolboxpp CI publishes `SCTracker.{dll,version.json}` to the plugin storage
 bucket on every `master` build; the running backend picks the new build up within
 `plugin.storage.cache-ttl` (~1h) or on restart — `PluginArtifactCache` re-reads the manifest, so
-`version` (the 426 gate in `MachineKeyAuthenticationService` → `PluginVersionMetadataLoader`) and
-`plugin_dll_version` advance on their own. Just confirm the plugin's `SCTRACKER_PLUGIN_VERSION` was
-bumped for the FoW release if you want old clients gated out.
+`version` (the 426 gate in `MachineKeyAuthenticationService` → `PluginVersionMetadataLoader`, and
+the website banner via `PluginVersionService`) advances on its own. Just confirm the plugin's
+`SCTRACKER_PLUGIN_VERSION` was bumped for the FoW release if you want old clients gated out.
 
 ---
 

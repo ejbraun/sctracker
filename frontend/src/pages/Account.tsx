@@ -40,14 +40,6 @@ export function Account() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['machine-keys'] }),
   });
 
-  // Fire-and-forget alongside the actual browser-native download below — records the timestamp the
-  // "new plugin version available" banner needs, but never blocks/interferes with the download
-  // itself (no preventDefault; the <a download> navigation happens regardless of this succeeding).
-  const recordDownloadMutation = useMutation({
-    mutationFn: () => api.post('/plugin/download'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'me'] }),
-  });
-
   // Top-level, not /api-prefixed (see PluginVersionController) — fetched directly rather than
   // through the api client, same as the /SCTracker.dll link itself. Purely cosmetic (shows which
   // build the download link points at); a failure here just leaves the version number off the link.
@@ -108,7 +100,7 @@ export function Account() {
           machine key (below) into its settings.
         </p>
         <p>
-          <a className={styles.downloadLink} href="/SCTracker.dll" download onClick={() => recordDownloadMutation.mutate()}>
+          <a className={styles.downloadLink} href="/SCTracker.dll" download>
             Download SCTracker.dll{pluginVersionQuery.data && ` (v${pluginVersionQuery.data.version})`}
           </a>
         </p>

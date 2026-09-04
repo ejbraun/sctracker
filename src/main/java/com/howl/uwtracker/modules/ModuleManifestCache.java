@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Lazy TTL-on-read per module id, single-flight per id, fail-open: a fetch error or an
  * unparseable manifest keeps the last good entry (or none). A changed {@code sha256} publishes a
  * {@link ModuleVersionChangedEvent}, which {@link ModuleVersionInitializer} writes back to the
- * module's {@code current_*} columns. SCTracker's {@code plugin_dll_version} singleton is untouched.
+ * module's {@code current_*} columns.
  *
  * <p>As with {@code PluginArtifactCache}, when no bucket is configured there is no
  * {@link ArtifactStorageClient} bean and the cache simply never populates.

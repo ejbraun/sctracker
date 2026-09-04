@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -13,7 +12,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -29,9 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * if there's never been one). Callers see {@code null} from {@link #getManifest()} /
  * {@link #getDll()} when nothing has ever loaded, and translate that to a 503 / fail-open as before.
  *
- * <p>The classpath-resource reads that {@code PluginVersionMetadataLoader} and
- * {@code PluginDllVersionInitializer} used to do at startup are replaced by {@link #prime()} here,
- * plus a {@link PluginDllChangedEvent} this publishes when the manifest's {@code sha256} changes.
+ * <p>The classpath-resource read that {@code PluginVersionMetadataLoader} used to do at startup is
+ * replaced by {@link #prime()} here.
  */
 @Component
 public class PluginArtifactCache {
@@ -43,7 +40,6 @@ public class PluginArtifactCache {
 
     private final ObjectProvider<PluginStorageClient> storageClient;
     private final PluginStorageProperties props;
-    private final ApplicationEventPublisher events;
 
     private volatile PluginVersionMetadata manifest;
     private volatile byte[] dll;
@@ -52,10 +48,9 @@ public class PluginArtifactCache {
     private final AtomicBoolean refreshing = new AtomicBoolean(false);
 
     public PluginArtifactCache(ObjectProvider<PluginStorageClient> storageClient,
-                                PluginStorageProperties props, ApplicationEventPublisher events) {
+                                PluginStorageProperties props) {
         this.storageClient = storageClient;
         this.props = props;
-        this.events = events;
     }
 
     /** Warm the cache once the context is up, so the first request isn't the one that pays for the fetch. */
@@ -123,13 +118,9 @@ public class PluginArtifactCache {
                         a.manifest().sha256());
                 return;
             }
-            String previousSha = manifest == null ? null : manifest.sha256();
             manifest = a.manifest();
             dll = a.dll();
             fetchedAt = Instant.now();
-            if (a.manifest().sha256() != null && !Objects.equals(previousSha, a.manifest().sha256())) {
-                events.publishEvent(new PluginDllChangedEvent(a.manifest().sha256(), fetchedAt));
-            }
         } finally {
             refreshing.set(false);
         }

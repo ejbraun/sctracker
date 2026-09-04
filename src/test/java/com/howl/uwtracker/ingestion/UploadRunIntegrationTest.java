@@ -61,10 +61,8 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
 
     private String issueMachineKey() throws Exception {
         MockHttpSession session = signup("uploader-" + System.nanoTime(), "password123");
-        // Marks this person as running the current plugin build, same as a real GWToolboxdll client
-        // would have by the time it's actually uploading — otherwise every upload here would hit the
-        // outdated-plugin silent-drop path (UploadRunService) instead of exercising ingestion itself.
-        mockMvc.perform(post("/api/plugin/download").session(session)).andExpect(status().isOk());
+        // Every upload below sends X-Plugin-Version: CURRENT_PLUGIN_VERSION, which is what clears the
+        // 426 gate (PluginVersionMetadataLoader.requireCurrentVersion) — no per-person setup needed.
         // UploadRunService rejects an upload with fewer than minRegisteredFor(partySize) registered
         // party members — register enough of validParty()'s names up front so every test here clears
         // that bar by default, same as it already needs a current plugin version to clear the 426 gate.

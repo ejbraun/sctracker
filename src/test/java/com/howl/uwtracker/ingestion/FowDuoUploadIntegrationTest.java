@@ -44,7 +44,6 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
 
     private String issueMachineKey(String... registeredNames) throws Exception {
         MockHttpSession session = signup("fow-uploader-" + System.nanoTime(), "password123");
-        mockMvc.perform(post("/api/plugin/download").session(session)).andExpect(status().isOk());
         for (String name : registeredNames) {
             mockMvc.perform(post("/api/characters")
                             .session(session)

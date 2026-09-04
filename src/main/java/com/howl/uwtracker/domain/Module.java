@@ -17,8 +17,7 @@ import java.time.Instant;
  * <p>{@code publicAccess} (column {@code is_public}) means anyone can download it; otherwise
  * {@code GET /modules/{key}/download} requires an {@code X-Machine-Key} whose person holds a
  * {@link PersonModuleGrant} for this module. The {@code current*} fields are a cheap cache of the
- * artifact's manifest, refreshed by ModuleManifestCache — SCTracker's own singleton
- * {@link PluginDllVersion} table is left untouched.
+ * artifact's manifest, refreshed by ModuleManifestCache.
  *
  * <p>The field is {@code publicAccess}, not {@code isPublic}: Hibernate would derive the property
  * name {@code public} (a Java keyword) from an {@code is}-prefixed boolean field and fail. The

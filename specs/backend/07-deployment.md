@@ -33,7 +33,7 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 
 ## Plugin artifacts (GCS bucket)
 
-`SCTracker.dll` + `SCTracker.version.json` are **not** in the image. The app fetches them from a private GCS bucket at runtime (`com.howl.uwtracker.plugin.GcsPluginStorageClient`), caches for `plugin.storage.cache-ttl` (default 1h), streams the dll at `GET /SCTracker.dll`, and re-detects `plugin_dll_version` when the manifest `sha256` changes — so a plugin-only update needs no backend redeploy.
+`SCTracker.dll` + `SCTracker.version.json` are **not** in the image. The app fetches them from a private GCS bucket at runtime (`com.howl.uwtracker.plugin.GcsPluginStorageClient`), caches for `plugin.storage.cache-ttl` (default 1h), and streams the dll at `GET /SCTracker.dll` — so a plugin-only update needs no backend redeploy. The manifest's `version` drives the 426 upload gate and the website's "new plugin version available" banner; both pick up a new build within the cache TTL.
 
 - **Env var**: `PLUGIN_STORAGE_BUCKET=<bucket>` on the Cloud Run service (`gcloud run services update uwtracker --region us-central1 --update-env-vars PLUGIN_STORAGE_BUCKET=<bucket>`). Blank/unset → plugin storage disabled: `/plugin-version` and `/SCTracker.dll` 503, version enforcement fails open. Optional overrides: `plugin.storage.manifest-object`, `plugin.storage.dll-object`, `plugin.storage.cache-ttl`.
 - **IAM**: the Cloud Run runtime service account needs `roles/storage.objectViewer` on the bucket (a 403 in the logs = this is missing). Auth is ADC via the metadata server — no key file.

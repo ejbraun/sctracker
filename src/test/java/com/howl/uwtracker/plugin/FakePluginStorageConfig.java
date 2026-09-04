@@ -26,8 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>For SCTracker ({@link PluginStorageClient#fetch()}) it returns a fixed manifest at version 10
  * (matching {@code CURRENT_PLUGIN_VERSION} in the upload tests, so {@code X-Plugin-Version: "1"}
  * correctly 426s) plus small fixed dll bytes whose real SHA-256 is the manifest {@code sha256}, so
- * {@link PluginArtifactCache}'s self-check passes and it publishes a {@link PluginDllChangedEvent}
- * at prime — what populates {@code plugin_dll_version} for {@code PluginIntegrationTest}.
+ * {@link PluginArtifactCache}'s self-check passes — this is the current version
+ * {@code PluginIntegrationTest} and {@code OutdatedPluginIntegrationTest} compare a client's
+ * advertised {@code X-Plugin-Version} against.
  *
  * <p>As {@link ArtifactStorageClient} (for the registry-driven module artifacts) it answers any
  * {@code *.version.json} path with a synthetic manifest at {@link #FAKE_VERSION} and every other

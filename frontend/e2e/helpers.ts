@@ -66,7 +66,7 @@ export async function signUp(page: Page, username: string, password = 'password1
 
 /**
  * `getByRole('link', { name: 'Account' })` alone is ambiguous whenever UpdateBanner is showing
- * (every fresh e2e signup has never downloaded the plugin, so it always is) — "Download it from
+ * (every fresh e2e signup's plugin has never authenticated, so it always is) — "Download it from
  * your Account page" matches by substring too, since Playwright's role-name matching isn't exact
  * by default.
  */

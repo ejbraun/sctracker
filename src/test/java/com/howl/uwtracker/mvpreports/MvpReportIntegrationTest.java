@@ -47,11 +47,10 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
         return gameMapRepository.getReferenceById(UNDERWORLD_MAP_ID);
     }
 
-    /** Signs up, marks the plugin as current (avoids a 426), and sets can_report_failures. */
+    /** Signs up and sets can_report_failures. Votes send X-Plugin-Version themselves to clear the 426 gate. */
     private String issueMachineKey(boolean permitted) throws Exception {
         String username = "mvp-reporter-" + System.nanoTime();
         MockHttpSession session = signup(username, "password123");
-        mockMvc.perform(post("/api/plugin/download").session(session)).andExpect(status().isOk());
 
         Person person = personRepository.findByUsername(username).orElseThrow();
         person.setCanReportFailures(permitted);

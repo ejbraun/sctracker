@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- The "new plugin version available" banner no longer works off a website download timestamp
+         (022) compared against a detected dll content hash (023). It now compares the build the
+         plugin last advertised over X-Plugin-Version (people.last_seen_plugin_version, added in 042)
+         against the current manifest version — the same comparison the 426 upload gate
+         (PluginVersionMetadataLoader.requireCurrentVersion) and the "Players On An Outdated Plugin"
+         loserboard already use. That leaves both the plugin_dll_version singleton (023) and
+         people.last_plugin_download_at (022) with no readers or writers: POST /api/plugin/download,
+         PluginController, PluginDllVersion(+Repository/Initializer) and PluginDllChangedEvent are all
+         removed alongside this. -->
+    <changeSet id="049-drop-plugin-dll-version" author="uwtracker">
+        <dropTable tableName="plugin_dll_version"/>
+        <dropColumn tableName="people" columnName="last_plugin_download_at"/>
+    </changeSet>
+
+</databaseChangeLog>
