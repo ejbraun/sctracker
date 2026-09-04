@@ -114,6 +114,9 @@ export function Account() {
   // backend's sort_order; the launcher is a `type: module` and gets its own panel.
   const pluginDownloads = modules.filter((m) => m.type === 'plugin' && m.key !== 'sctracker');
   const launcher = modules.find((m) => m.key === 'gwrl-install');
+  // SCTracker's panel below is otherwise fully hand-written (dedicated /SCTracker.dll route,
+  // /plugin-version for the version number) — this is only consulted for its patch_notes_url.
+  const sctracker = modules.find((m) => m.key === 'sctracker');
 
   function handleRevoke(id: number) {
     if (window.confirm('Revoke this machine key? Uploads using it will stop working.')) {
@@ -170,6 +173,14 @@ export function Account() {
           <a className={styles.downloadLink} href="/SCTracker.dll" download>
             Download SCTracker.dll{pluginVersionQuery.data && ` (v${pluginVersionQuery.data.version})`}
           </a>
+          {sctracker?.patch_notes_url && (
+            <>
+              {' · '}
+              <a className={styles.downloadLink} href={sctracker.patch_notes_url} download>
+                Patch notes
+              </a>
+            </>
+          )}
         </p>
       </Panel>
 

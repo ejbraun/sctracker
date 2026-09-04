@@ -44,6 +44,12 @@ export function Characters() {
     <div>
       <h1>Characters</h1>
       <Panel>
+        <p>
+          You don't need to add your own character here — running an up-to-date plugin with a
+          valid machine key registers it automatically the first time you upload a run. Use this
+          form for anything else: an alt you also play, or registering ahead of time.
+        </p>
+
         <ErrorBanner error={addMutation.error ?? removeMutation.error} />
 
         <form className={styles.form} onSubmit={handleAdd}>
