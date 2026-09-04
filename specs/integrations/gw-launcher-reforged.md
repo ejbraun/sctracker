@@ -163,11 +163,13 @@ the GW1 plugin). Toolbox plugins are built and published by the GWToolbox++ fork
 |---|---|
 | `plugins/<Name>/<Name>.dll` | a Toolbox plugin dll |
 | `plugins/<Name>/<Name>.version.json` | its manifest (schema below) |
+| `plugins/GWToolboxdll/GWToolboxdll.dll` | the toolbox build itself — served as a public plugin under module key `gwtoolbox`; its `.version.json` carries no integer `version` |
 | `launcher/<Name>/<Name>.{zip,exe,dll}` | a launcher component (`gwrl-install` archive, `gwrl-base` exe, `gwrl-<feature>` dll) |
 | `launcher/<Name>/<Name>.version.json` | its manifest — one per component |
 
-Modules built in the GWToolbox fork are already published there by that repo's `cmake.yml`. The
-launcher repo publishes its own `launcher/<Name>/` objects the same way.
+Modules built in the GWToolbox fork are already published there by that repo's `cmake.yml`, which
+also publishes `GWToolboxdll.dll` + its manifest to `plugins/GWToolboxdll/`. The launcher repo
+publishes its own `launcher/<Name>/` objects the same way.
 
 **Manifest schema** (`*.version.json`) — matches gwsctracker's `PluginVersionMetadata`:
 

@@ -11,13 +11,16 @@ suffix from the top-level `GET /plugin-version`).
 
 Below it, download panels driven by `GET /api/account/modules` (`AccountModulesResponse` — the
 logged-in user's public + granted modules, see `specs/backend/08-module-entitlements.md`):
-- **DBBox** — rendered when a `dbbox` entry is present (a public plugin, so always present).
+- **One panel per `type: "plugin"` entry** other than `sctracker` (in the backend's `sort_order`)
+  — e.g. the GWToolbox and DBBox plugin dlls, both public so always present. Copy is the generic
+  "drop the .dll in GWToolbox's Plugins folder" except where `PLUGIN_BLURB` overrides it by key
+  (GWToolboxdll is the toolbox itself, not a drop-in).
 - **Launcher** — rendered only when a `gwrl-install` entry is present, i.e. the user has been
   granted the gated launcher. Missing entry ⇒ no panel.
 
 Each links `entry.download_url` with a `download` attribute (`/api/account/modules/{key}/download`,
-a session-authed stream) and shows `(v{version})` when `entry.version` is set. The query failing
-just omits these panels.
+a session-authed stream) and shows `(v{version})` only when `entry.version` is a positive integer
+(a manifest with no `version` deserializes to 0). The query failing just omits these panels.
 
 ## Machine keys section
 Table listing `GET /api/account/machine-keys`: columns `label`, `created_at`, status (`Active` / `Revoked <date>` derived from `revoked_at`).

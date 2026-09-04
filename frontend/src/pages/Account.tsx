@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
+  AccountModule,
   AccountModulesResponse,
   GeneratedMachineKey,
   MachineKey,
@@ -13,6 +14,36 @@ import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { formatDate } from '../common/format';
 import styles from './Account.module.css';
+
+// SCTracker has its own hand-written panel above the list; every other public `type: plugin`
+// module the user can see gets a generic panel, with per-key copy where the default ("drop the
+// dll in GWToolbox's Plugins folder") doesn't fit — e.g. GWToolboxdll is the toolbox itself.
+const DROP_IN_BLURB =
+  'A GWToolbox++ plugin. Put the .dll in your GWToolbox++ Plugins folder and enable it in the plugin manager.';
+const PLUGIN_BLURB: Record<string, string> = {
+  gwtoolbox:
+    'The GWToolbox++ toolbox build (GWToolboxdll.dll). GW Launcher Reforged injects this; you normally don\'t place it by hand.',
+};
+
+/** `(vN)` only for a real, positive build number — a manifest with no `version` deserializes to 0. */
+function versionSuffix(version: number | null): string {
+  return version != null && version > 0 ? ` (v${version})` : '';
+}
+
+function PluginDownloadPanel({ module }: { module: AccountModule }) {
+  return (
+    <Panel className={styles.section}>
+      <h2>{module.display_name}</h2>
+      <p>{PLUGIN_BLURB[module.key] ?? DROP_IN_BLURB}</p>
+      <p>
+        <a className={styles.downloadLink} href={module.download_url} download>
+          Download {module.display_name}
+          {versionSuffix(module.version)}
+        </a>
+      </p>
+    </Panel>
+  );
+}
 
 /** specs/frontend/02-account.md. */
 export function Account() {
@@ -61,15 +92,17 @@ export function Account() {
     retry: false,
   });
 
-  // The logged-in user's module entitlements — public modules (e.g. the DBBox plugin) plus anything
-  // granted (e.g. the gated GWRL launcher). Drives which download panels below render at all.
+  // The logged-in user's module entitlements — public modules (the GWToolbox / DBBox plugin dlls)
+  // plus anything granted (e.g. the gated GWRL launcher). Drives which download panels render.
   const modulesQuery = useQuery({
     queryKey: ['account', 'modules'],
     queryFn: () => api.get<AccountModulesResponse>('/account/modules'),
   });
-  const moduleByKey = (key: string) => modulesQuery.data?.modules.find((m) => m.key === key);
-  const dbbox = moduleByKey('dbbox');
-  const launcher = moduleByKey('gwrl-install');
+  const modules = modulesQuery.data?.modules ?? [];
+  // Every plugin except SCTracker (which keeps its dedicated /SCTracker.dll panel), in the
+  // backend's sort_order; the launcher is a `type: module` and gets its own panel.
+  const pluginDownloads = modules.filter((m) => m.type === 'plugin' && m.key !== 'sctracker');
+  const launcher = modules.find((m) => m.key === 'gwrl-install');
 
   function handleRevoke(id: number) {
     if (window.confirm('Revoke this machine key? Uploads using it will stop working.')) {
@@ -122,21 +155,9 @@ export function Account() {
         </p>
       </Panel>
 
-      {dbbox && (
-        <Panel className={styles.section}>
-          <h2>{dbbox.display_name}</h2>
-          <p>
-            A GWToolbox++ plugin. Put the <code>.dll</code> in your GWToolbox++ <code>Plugins</code> folder
-            and enable it in the plugin manager.
-          </p>
-          <p>
-            <a className={styles.downloadLink} href={dbbox.download_url} download>
-              Download {dbbox.display_name}
-              {dbbox.version != null && ` (v${dbbox.version})`}
-            </a>
-          </p>
-        </Panel>
-      )}
+      {pluginDownloads.map((module) => (
+        <PluginDownloadPanel key={module.key} module={module} />
+      ))}
 
       {launcher && (
         <Panel className={styles.section}>
@@ -149,7 +170,7 @@ export function Account() {
           <p>
             <a className={styles.downloadLink} href={launcher.download_url} download>
               Download launcher
-              {launcher.version != null && ` (v${launcher.version})`}
+              {versionSuffix(launcher.version)}
             </a>
           </p>
         </Panel>
