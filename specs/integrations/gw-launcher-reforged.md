@@ -61,7 +61,8 @@ X-Machine-Key: <the user's key>
       "is_public": false,
       "version": 3,
       "sha256": "9ab0…",
-      "download_url": "/modules/pp-vanquish/download"
+      "download_url": "/modules/pp-vanquish/download",
+      "patch_notes_url": "/modules/pp-vanquish/patch-notes"
     }
   ]
 }
@@ -77,6 +78,9 @@ X-Machine-Key: <the user's key>
   once. `sha256` is the hex digest of the artifact bytes (also `null` until first seen).
 - `download_url` is **app-relative** — prepend the base URL. Always use the value from the
   response; don't hardcode `/modules/{key}/download`.
+- `patch_notes_url` is **app-relative** and `null` when the module has no patch notes configured —
+  same "always use the value from the response" rule as `download_url`. See
+  `GET /modules/{key}/patch-notes` below.
 
 ### `GET /modules/{key}/download` — fetch one artifact
 
@@ -102,6 +106,26 @@ X-Machine-Key: <key>
 | `ETag: "<sha256>"` | the artifact's sha256, quoted. Compare against what's on disk to skip a redundant download; `Cache-Control: no-cache` means always revalidate, never blind-cache. |
 | `Content-Type` | `application/octet-stream` for dlls |
 
+### `GET /modules/{key}/patch-notes` — fetch one module's patch notes (optional)
+
+```
+GET /modules/pp-vanquish/patch-notes
+X-Machine-Key: <key>
+```
+
+Same auth/entitlement rule as `GET /modules/{key}/download` (401/403/404 identically), plus:
+
+| Status | Meaning |
+|---|---|
+| `404` | (also) the module exists but has no patch notes configured — check `patch_notes_url` before calling this rather than treating every 404 as "unknown module" |
+| `200` | body is the whole patch notes text, `Content-Type: text/plain` |
+
+Not part of GWRL's required sync loop (§3) — this is for an optional "what's new" surface (e.g. a
+changelog view before/after an update). The text accumulates release over release (see §5) but this
+endpoint always returns the **current full contents** of the object, not a diff since your last
+fetch — if you want to show only what's new, track the last version/sha256 you displayed and diff
+client-side, or just show the whole thing.
+
 ### `GET /artifacts` — full catalog (no auth)
 
 ```
@@ -111,7 +135,7 @@ GET /artifacts[?type=plugin|module]
 ```json
 {
   "artifacts": [
-    { "key": "pp-vanquish", "display_name": "…", "type": "plugin", "is_public": false, "version": 3, "compiled_at": "…", "sha256": "…", "download_url": "/modules/pp-vanquish/download" }
+    { "key": "pp-vanquish", "display_name": "…", "type": "plugin", "is_public": false, "version": 3, "compiled_at": "…", "sha256": "…", "download_url": "/modules/pp-vanquish/download", "patch_notes_url": "/modules/pp-vanquish/patch-notes" }
   ]
 }
 ```
@@ -163,9 +187,11 @@ the GW1 plugin). Toolbox plugins are built and published by the GWToolbox++ fork
 |---|---|
 | `plugins/<Name>/<Name>.dll` | a Toolbox plugin dll |
 | `plugins/<Name>/<Name>.version.json` | its manifest (schema below) |
+| `plugins/<Name>/<Name>.patch.txt` | **optional** plain-text patch notes for the artifact — see below |
 | `plugins/GWToolboxdll/GWToolboxdll.dll` | the toolbox build itself — served as a public plugin under module key `gwtoolbox`; its `.version.json` carries no integer `version` |
 | `launcher/<Name>/<Name>.{zip,exe,dll}` | a launcher component (`gwrl-install` archive, `gwrl-base` exe, `gwrl-<feature>` dll) |
 | `launcher/<Name>/<Name>.version.json` | its manifest — one per component |
+| `launcher/<Name>/<Name>.patch.txt` | **optional** patch notes — one per component, same convention as plugins |
 
 Modules built in the GWToolbox fork are already published there by that repo's `cmake.yml`, which
 also publishes `GWToolboxdll.dll` + its manifest to `plugins/GWToolboxdll/`. The launcher repo
@@ -186,14 +212,32 @@ publishes its own `launcher/<Name>/` objects the same way.
 - `compiled_at` — ISO-8601 UTC.
 - `sha256` — hex digest of the sibling dll's bytes.
 
+**Patch notes (`*.patch.txt`, optional):** plain text, no schema — gwsctracker serves whatever's at
+that path verbatim (`text/plain`). The convention (see the GWToolbox++ fork's `AGENTS.md`) is to
+**append** an entry to this file, in source control, every time you bump the artifact's version:
+
+```
+## v<N> - YYYY-MM-DD
+- What changed, one bullet per notable change.
+```
+
+each publish then **overwrites** the bucket object with the file's current accumulated contents —
+the append-only history lives in your git log, not in the bucket object itself, and gwsctracker
+has no append/merge logic of its own (it just serves the current file). Skip the file entirely for
+an artifact you don't want patch notes for; `patch_notes_url` in every API response is `null` for
+those.
+
 **Upload rules:**
 - **Bytes first, manifest second.** Upload `<Name>.dll`, then `<Name>.version.json`. A gwsctracker
   refresh racing the two uploads then sees a manifest that lags the bytes by at most one cycle,
-  never one that points ahead of them.
+  never one that points ahead of them. `<Name>.patch.txt` has no such ordering constraint — it's
+  never read atomically with the manifest — but publishing it alongside the other two in the same
+  CI run (as the GWToolbox++ fork's `cmake.yml` does) is the simplest way to keep it in sync.
 - `gcloud storage cp <file> gs://$BUCKET/plugins/<Name>/<Name>.dll --cache-control=no-cache` (the
   `--cache-control` flag keeps any CDN layer from stacking staleness on gwsctracker's own cache TTL).
 - No backend redeploy needed — gwsctracker picks up a new manifest within its cache TTL (15 min
-  for modules) and re-reads `current_version` / `current_sha256`.
+  for modules) and re-reads `current_version` / `current_sha256`. Patch notes are never cached —
+  every `GET /modules/{key}/patch-notes` reads the bucket object fresh.
 
 **IAM:** the publishing CI service account needs `roles/storage.objectAdmin` **on that bucket
 only**. Evan grants it (or shares the existing `GCP_SA_KEY` used by the GWToolbox fork).
@@ -206,9 +250,10 @@ A published artifact isn't usable until an admin registers it as a module, then 
 
 **Scan (fastest):** gwsctracker admin → **Modules** → **Scan bucket for new modules**. Every
 `plugins/<Name>/` or `launcher/<Name>/` folder with an artifact but no registry row shows up with
-the paths pre-filled and `type` pre-set (`module` for `launcher/` finds); set the display name,
-leave **Public** unticked (tick it only for a component that must download before the user has a
-key), **Import**.
+the paths pre-filled and `type` pre-set (`module` for `launcher/` finds) — `patch_notes_object` is
+pre-filled too when a `<Name>.patch.txt` already exists in the folder, left blank otherwise; set the
+display name, leave **Public** unticked (tick it only for a component that must download before the
+user has a key), **Import**.
 
 **Manual:** **Modules** → *Add a module*:
 - `module_key` = the slug (e.g. `sctracker`, `pp-vanquish`, `gwrl-install`)
@@ -216,6 +261,8 @@ key), **Import**.
 - `bucket_prefix` = `plugins/<Name>` or `launcher/<Name>`
 - `artifact_object` = `<Name>.dll` / `<Name>.zip` / `<Name>.exe`
 - `manifest_object` = `<bucket_prefix>/<Name>.version.json`
+- `patch_notes_object` = `<bucket_prefix>/<Name>.patch.txt` (optional — leave blank if the artifact
+  has no patch notes)
 - `is_public` = unchecked
 
 Then: **User Management** → expand the user → **Modules** → **Grant**. Revoke from the same place;

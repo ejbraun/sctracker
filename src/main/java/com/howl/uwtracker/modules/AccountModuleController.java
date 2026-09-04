@@ -43,7 +43,7 @@ public class AccountModuleController {
             @RequestParam(value = "type", required = false) ModuleType type) {
         List<Entry> entries = entitlementService.forPerson(personId, type).modules().stream()
                 .map(e -> new Entry(e.key(), e.displayName(), e.type(), e.isPublic(), e.version(), e.sha256(),
-                        accountDownloadUrl(e.key())))
+                        accountDownloadUrl(e.key()), accountPatchNotesUrl(e)))
                 .toList();
         return ResponseEntity.ok(new ModuleEntitlementsResponse(entries));
     }
@@ -53,10 +53,23 @@ public class AccountModuleController {
         return ModuleDownloadHttp.stream(downloadService.openForPerson(key, personId));
     }
 
+    @GetMapping("/{key}/patch-notes")
+    public ResponseEntity<byte[]> patchNotes(@CurrentPersonId Long personId, @PathVariable String key) {
+        return ModulePatchNotesHttp.stream(downloadService.openPatchNotesForPerson(key, personId));
+    }
+
     /** SCTracker keeps its dedicated public route; everything else the account page fetches through here. */
     private static String accountDownloadUrl(String moduleKey) {
         return ModuleKeys.SCTRACKER.equals(moduleKey)
                 ? "/SCTracker.dll"
                 : "/api/account/modules/" + moduleKey + "/download";
+    }
+
+    /**
+     * Null when the module has no patch notes configured (mirrored from {@code e.patchNotesUrl()}
+     * being null) — the frontend only renders a link when this is non-null.
+     */
+    private static String accountPatchNotesUrl(Entry e) {
+        return e.patchNotesUrl() == null ? null : "/api/account/modules/" + e.key() + "/patch-notes";
     }
 }

@@ -60,9 +60,21 @@ public class FakePluginStorageConfig {
      */
     public static final Map<String, String> LAUNCHER_FOLDERS = new ConcurrentHashMap<>();
 
-    /** Bytes the fake store returns for any non-manifest object path. */
+    /**
+     * Folder names (from {@link #PLUGIN_FOLDERS} or {@link #LAUNCHER_FOLDERS}) that additionally
+     * have a {@code <folder>.patch.txt} sidecar — checked by {@link #objectExists}, so a test opts a
+     * folder into "has patch notes" by adding its name here.
+     */
+    public static final Set<String> FOLDERS_WITH_PATCH_NOTES = ConcurrentHashMap.newKeySet();
+
+    /** Bytes the fake store returns for any non-manifest object path — patch notes included. */
     public static byte[] fakeArtifactBytes(String objectPath) {
         return ("fake-artifact:" + objectPath).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** Bytes the fake store returns for a {@code *.patch.txt} object path. */
+    public static byte[] fakePatchNotesBytes(String objectPath) {
+        return ("fake-patch-notes:" + objectPath).getBytes(StandardCharsets.UTF_8);
     }
 
     /** The {@code sha256} the synthetic manifest at {@code manifestObjectPath} advertises. */
@@ -91,6 +103,9 @@ public class FakePluginStorageConfig {
             if (objectPath.endsWith(".version.json")) {
                 return Optional.of(syntheticManifestJson(objectPath));
             }
+            if (objectPath.endsWith(".patch.txt")) {
+                return Optional.of(fakePatchNotesBytes(objectPath));
+            }
             return Optional.of(fakeArtifactBytes(objectPath));
         }
 
@@ -117,14 +132,18 @@ public class FakePluginStorageConfig {
         public boolean objectExists(String objectPath) {
             for (String folder : PLUGIN_FOLDERS) {
                 if (objectPath.equals("plugins/" + folder + "/" + folder + ".dll")
-                        || objectPath.equals("plugins/" + folder + "/" + folder + ".version.json")) {
+                        || objectPath.equals("plugins/" + folder + "/" + folder + ".version.json")
+                        || (FOLDERS_WITH_PATCH_NOTES.contains(folder)
+                                && objectPath.equals("plugins/" + folder + "/" + folder + ".patch.txt"))) {
                     return true;
                 }
             }
             for (Map.Entry<String, String> entry : LAUNCHER_FOLDERS.entrySet()) {
                 String base = "launcher/" + entry.getKey() + "/";
                 if (objectPath.equals(base + entry.getValue())
-                        || objectPath.equals(base + entry.getKey() + ".version.json")) {
+                        || objectPath.equals(base + entry.getKey() + ".version.json")
+                        || (FOLDERS_WITH_PATCH_NOTES.contains(entry.getKey())
+                                && objectPath.equals(base + entry.getKey() + ".patch.txt"))) {
                     return true;
                 }
             }

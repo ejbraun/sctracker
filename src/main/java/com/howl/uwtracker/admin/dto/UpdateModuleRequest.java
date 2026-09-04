@@ -15,5 +15,6 @@ public record UpdateModuleRequest(
         String artifactObject,
         String manifestObject,
         String contentType,
-        Integer sortOrder) {
+        Integer sortOrder,
+        String patchNotesObject) {
 }

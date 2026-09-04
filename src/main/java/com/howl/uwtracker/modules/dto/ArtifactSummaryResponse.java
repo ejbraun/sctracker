@@ -18,5 +18,7 @@ public record ArtifactSummaryResponse(
         Integer version,
         Instant compiledAt,
         String sha256,
-        String downloadUrl) {
+        String downloadUrl,
+        /** Null when the module has no patch notes configured. */
+        String patchNotesUrl) {
 }

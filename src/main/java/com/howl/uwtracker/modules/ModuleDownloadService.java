@@ -13,6 +13,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.function.Predicate;
 
 /**
@@ -24,7 +25,9 @@ import java.util.function.Predicate;
  * person ({@link #openForPerson}).
  *
  * <p>Bytes stream straight from the bucket per call — nothing is cached in memory — so a revoke
- * takes effect on the very next request.
+ * takes effect on the very next request. {@link #openPatchNotes}/{@link #openPatchNotesForPerson}
+ * are the same entitlement check against a module's optional {@code patch_notes_object} instead of
+ * its artifact — read whole (it's small plain text), not streamed.
  */
 @Service
 public class ModuleDownloadService {
@@ -51,27 +54,45 @@ public class ModuleDownloadService {
     public record ModuleDownload(Module module, ReadableArtifact artifact) {
     }
 
+    public record ModulePatchNotes(Module module, String text) {
+    }
+
     /** Machine-key path: a non-public module needs an {@code X-Machine-Key} (401) whose person holds a grant (403). */
     public ModuleDownload open(String moduleKey, String rawMachineKey) {
-        return open(moduleKey, module -> {
-            Person person = machineKeyAuth.authenticateWithoutVersionCheck(rawMachineKey); // 401
-            return grantRepository.existsByIdPersonIdAndIdModuleId(person.getId(), module.getId());
-        });
+        return open(moduleKey, machineKeyEntitled(rawMachineKey));
     }
 
     /** Session path: a non-public module needs the logged-in person to hold a grant (403 otherwise). */
     public ModuleDownload openForPerson(String moduleKey, Long personId) {
-        return open(moduleKey, module -> grantRepository.existsByIdPersonIdAndIdModuleId(personId, module.getId()));
+        return open(moduleKey, personEntitled(personId));
+    }
+
+    /**
+     * Machine-key path for a module's optional patch notes — same entitlement rule as {@link #open},
+     * plus a 404 when the module has no {@code patch_notes_object} configured at all.
+     */
+    public ModulePatchNotes openPatchNotes(String moduleKey, String rawMachineKey) {
+        return openPatchNotes(moduleKey, machineKeyEntitled(rawMachineKey));
+    }
+
+    /** Session path for a module's optional patch notes — mirrors {@link #openForPerson}. */
+    public ModulePatchNotes openPatchNotesForPerson(String moduleKey, Long personId) {
+        return openPatchNotes(moduleKey, personEntitled(personId));
+    }
+
+    private Predicate<Module> machineKeyEntitled(String rawMachineKey) {
+        return module -> {
+            Person person = machineKeyAuth.authenticateWithoutVersionCheck(rawMachineKey); // 401
+            return grantRepository.existsByIdPersonIdAndIdModuleId(person.getId(), module.getId());
+        };
+    }
+
+    private Predicate<Module> personEntitled(Long personId) {
+        return module -> grantRepository.existsByIdPersonIdAndIdModuleId(personId, module.getId());
     }
 
     private ModuleDownload open(String moduleKey, Predicate<Module> entitled) {
-        Module module = moduleRepository.findByModuleKey(moduleKey)
-                .filter(Module::isEnabled)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "unknown module"));
-
-        if (!module.isPublicAccess() && !entitled.test(module)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "not entitled to this module");
-        }
+        Module module = resolveEntitledModule(moduleKey, entitled);
 
         ArtifactStorageClient client = storageClient.getIfAvailable();
         ReadableArtifact artifact = client == null ? null : client.openObject(module.artifactPath()).orElse(null);
@@ -85,6 +106,32 @@ public class ModuleDownloadService {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "artifact too large to serve");
         }
         return new ModuleDownload(module, artifact);
+    }
+
+    private ModulePatchNotes openPatchNotes(String moduleKey, Predicate<Module> entitled) {
+        Module module = resolveEntitledModule(moduleKey, entitled);
+        if (module.getPatchNotesObject() == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "no patch notes for this module");
+        }
+
+        ArtifactStorageClient client = storageClient.getIfAvailable();
+        byte[] bytes = client == null ? null : client.readObject(module.getPatchNotesObject()).orElse(null);
+        if (bytes == null) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "patch notes unavailable");
+        }
+        return new ModulePatchNotes(module, new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    /** Looks up an enabled module by key and enforces the entitlement predicate — shared by artifact and patch-notes reads. */
+    private Module resolveEntitledModule(String moduleKey, Predicate<Module> entitled) {
+        Module module = moduleRepository.findByModuleKey(moduleKey)
+                .filter(Module::isEnabled)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "unknown module"));
+
+        if (!module.isPublicAccess() && !entitled.test(module)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "not entitled to this module");
+        }
+        return module;
     }
 
     private static void close(ReadableArtifact artifact) {

@@ -104,6 +104,19 @@ class ModuleEntitlementIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void patchNotesUrlIsNullWhenNoneConfiguredAndSetWhenPresent() throws Exception {
+        seedModule("pp-exe", true);
+        seedModuleWithPatchNotes("pp-base", true, "plugin");
+        String key = keyFor("patchuser");
+
+        mockMvc.perform(get("/module-entitlements").header("X-Machine-Key", key))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules[?(@.key == 'pp-exe')].patch_notes_url").value((Object) null))
+                .andExpect(jsonPath("$.modules[?(@.key == 'pp-base')].patch_notes_url")
+                        .value("/modules/pp-base/patch-notes"));
+    }
+
+    @Test
     void filtersByType() throws Exception {
         seedModule("pp-vanquish", true, "plugin");
         seedModule("pp-launcher", true, "module");

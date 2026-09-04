@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Optional patch-notes sidecar per module, same posture as manifest_object: a plain-text
+         object (CI/CD appends to it release over release, then overwrites the bucket object with
+         the accumulated result — the backend just serves whatever's there, no append logic here) at
+         <bucket_prefix>/<Folder>.patch.txt, full path from bucket root like manifest_object, null
+         when the artifact has no patch notes. See specs/backend/08-module-entitlements.md. -->
+    <changeSet id="052-add-modules-patch-notes-object" author="uwtracker">
+        <addColumn tableName="modules">
+            <column name="patch_notes_object" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

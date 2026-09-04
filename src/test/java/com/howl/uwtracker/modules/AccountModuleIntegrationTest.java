@@ -119,4 +119,57 @@ class AccountModuleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/account/modules/nope/download").session(session))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void listOmitsPatchNotesUrlWhenNoneConfigured() throws Exception {
+        seedModule("dbbox", true, "plugin");
+        MockHttpSession session = signup("no-patch-account", "password123");
+
+        mockMvc.perform(get("/api/account/modules").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules[0].patch_notes_url").value((Object) null));
+    }
+
+    @Test
+    void listIncludesPatchNotesUrlWhenConfigured() throws Exception {
+        seedModuleWithPatchNotes("dbbox", true, "plugin");
+        MockHttpSession session = signup("has-patch-account", "password123");
+
+        mockMvc.perform(get("/api/account/modules").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules[0].patch_notes_url").value("/api/account/modules/dbbox/patch-notes"));
+    }
+
+    @Test
+    void patchNotesStreamsTextForAPublicModule() throws Exception {
+        seedModuleWithPatchNotes("dbbox", true, "plugin");
+        MockHttpSession session = signup("patch-text-account", "password123");
+
+        MvcResult result = mockMvc.perform(get("/api/account/modules/dbbox/patch-notes").session(session))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"dbbox.patch.txt\""))
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .isEqualTo(new String(FakePluginStorageConfig.fakePatchNotesBytes("plugins/dbbox/dbbox.patch.txt"),
+                        java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void patchNotesIs404WhenNoneConfigured() throws Exception {
+        seedModule("dbbox", true, "plugin");
+        MockHttpSession session = signup("no-patch-download-account", "password123");
+
+        mockMvc.perform(get("/api/account/modules/dbbox/patch-notes").session(session))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void patchNotesOfAGatedModuleWithoutAGrantIs403() throws Exception {
+        seedModuleWithPatchNotes("gwrl-install", false, "module");
+        MockHttpSession session = signup("patch-nogrant-account", "password123");
+
+        mockMvc.perform(get("/api/account/modules/gwrl-install/patch-notes").session(session))
+                .andExpect(status().isForbidden());
+    }
 }

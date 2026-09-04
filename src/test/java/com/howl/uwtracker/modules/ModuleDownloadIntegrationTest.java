@@ -114,4 +114,52 @@ class ModuleDownloadIntegrationTest extends AbstractIntegrationTest {
         assertThat(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8))
                 .startsWith("fake-artifact:");
     }
+
+    @Test
+    void patchNotesStreamsTextForAPublicModule() throws Exception {
+        seedModuleWithPatchNotes("pp-base", true, "plugin");
+
+        MvcResult result = mockMvc.perform(get("/modules/pp-base/patch-notes"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"pp-base.patch.txt\""))
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .isEqualTo(new String(FakePluginStorageConfig.fakePatchNotesBytes("plugins/pp-base/pp-base.patch.txt"),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void patchNotesIs404WhenNoneConfigured() throws Exception {
+        seedModule("pp-base", true);
+
+        mockMvc.perform(get("/modules/pp-base/patch-notes"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void patchNotesOfAGatedModuleWithoutAKeyIs401() throws Exception {
+        seedModuleWithPatchNotes("pp-vanquish", false, "plugin");
+
+        mockMvc.perform(get("/modules/pp-vanquish/patch-notes"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void patchNotesOfAGatedModuleWithAGrantStreams() throws Exception {
+        long moduleId = seedModuleWithPatchNotes("pp-vanquish", false, "plugin");
+        MockHttpSession session = signup("patch-granted", "password123");
+        String key = generateMachineKey(session, "pp");
+        long personId = personRepository.findByUsername("patch-granted").orElseThrow().getId();
+        grantModule(personId, moduleId);
+
+        mockMvc.perform(get("/modules/pp-vanquish/patch-notes").header("X-Machine-Key", key))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void patchNotesOfAnUnknownModuleIs404() throws Exception {
+        mockMvc.perform(get("/modules/does-not-exist/patch-notes"))
+                .andExpect(status().isNotFound());
+    }
 }

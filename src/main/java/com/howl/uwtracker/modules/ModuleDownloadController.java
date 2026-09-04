@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
  * (it's public) but nothing points callers here for it. The logged-in web user downloads a gated
  * module through {@code GET /api/account/modules/{key}/download} instead — a browser link can't send
  * the {@code X-Machine-Key} header this route needs.
+ *
+ * <p>{@code GET /modules/{key}/patch-notes} is the same entitlement rule against a module's optional
+ * {@code patch_notes_object} instead — 404 when the module has none configured.
  */
 @RestController
 public class ModuleDownloadController {
@@ -32,5 +35,12 @@ public class ModuleDownloadController {
             @PathVariable String key,
             @RequestHeader(value = "X-Machine-Key", required = false) String machineKey) {
         return ModuleDownloadHttp.stream(moduleDownloadService.open(key, machineKey));
+    }
+
+    @GetMapping("/modules/{key}/patch-notes")
+    public ResponseEntity<byte[]> patchNotes(
+            @PathVariable String key,
+            @RequestHeader(value = "X-Machine-Key", required = false) String machineKey) {
+        return ModulePatchNotesHttp.stream(moduleDownloadService.openPatchNotes(key, machineKey));
     }
 }

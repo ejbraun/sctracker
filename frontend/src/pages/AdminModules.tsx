@@ -46,6 +46,7 @@ export function AdminModules() {
                 <th>Bucket prefix</th>
                 <th>Artifact object</th>
                 <th>Manifest object</th>
+                <th>Patch notes object</th>
                 <th>Content type</th>
                 <th>Sort</th>
                 <th>Public</th>
@@ -101,6 +102,7 @@ function DiscoverModules() {
               <th>Display name</th>
               <th>Type</th>
               <th>Manifest</th>
+              <th>Patch notes</th>
               <th>Public</th>
               <th></th>
             </tr>
@@ -139,6 +141,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
         bucket_prefix: candidate.bucket_prefix,
         artifact_object: candidate.artifact_object,
         manifest_object: candidate.manifest_object,
+        patch_notes_object: candidate.patch_notes_object,
         sort_order: 0,
       }),
     onSuccess: onImported,
@@ -171,6 +174,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
           </select>
         </td>
         <td>{candidate.has_manifest ? 'yes' : 'missing'}</td>
+        <td>{candidate.has_patch_notes ? 'yes' : 'missing'}</td>
         <td>
           <input
             type="checkbox"
@@ -190,7 +194,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
       </tr>
       {importMutation.error && (
         <tr>
-          <td colSpan={7}>
+          <td colSpan={8}>
             <ErrorBanner error={importMutation.error} />
           </td>
         </tr>
@@ -208,6 +212,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
     bucket_prefix: module.bucket_prefix,
     artifact_object: module.artifact_object,
     manifest_object: module.manifest_object ?? '',
+    patch_notes_object: module.patch_notes_object ?? '',
     content_type: module.content_type,
     sort_order: String(module.sort_order),
   });
@@ -228,6 +233,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
     draft.bucket_prefix !== module.bucket_prefix ||
     draft.artifact_object !== module.artifact_object ||
     draft.manifest_object !== (module.manifest_object ?? '') ||
+    draft.patch_notes_object !== (module.patch_notes_object ?? '') ||
     draft.content_type !== module.content_type ||
     draft.sort_order !== String(module.sort_order);
 
@@ -237,6 +243,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
       bucket_prefix: draft.bucket_prefix,
       artifact_object: draft.artifact_object,
       manifest_object: draft.manifest_object.trim() === '' ? null : draft.manifest_object,
+      patch_notes_object: draft.patch_notes_object.trim() === '' ? null : draft.patch_notes_object,
       content_type: draft.content_type,
       sort_order: Number(draft.sort_order) || 0,
     });
@@ -272,6 +279,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
         <td>{field('bucket_prefix')}</td>
         <td>{field('artifact_object')}</td>
         <td>{field('manifest_object')}</td>
+        <td>{field('patch_notes_object')}</td>
         <td>{field('content_type')}</td>
         <td>{field('sort_order', 3)}</td>
         <td>
@@ -318,7 +326,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
       </tr>
       {(patchMutation.error || deleteMutation.error) && (
         <tr>
-          <td colSpan={12}>
+          <td colSpan={13}>
             <ErrorBanner error={patchMutation.error ?? deleteMutation.error} />
           </td>
         </tr>
@@ -336,6 +344,7 @@ function CreateModuleForm() {
     bucket_prefix: '',
     artifact_object: '',
     manifest_object: '',
+    patch_notes_object: '',
     content_type: '',
     sort_order: '0',
     is_public: false,
@@ -351,6 +360,7 @@ function CreateModuleForm() {
         bucket_prefix: form.bucket_prefix.trim(),
         artifact_object: form.artifact_object.trim(),
         manifest_object: form.manifest_object.trim() === '' ? null : form.manifest_object.trim(),
+        patch_notes_object: form.patch_notes_object.trim() === '' ? null : form.patch_notes_object.trim(),
         content_type: form.content_type.trim() === '' ? null : form.content_type.trim(),
         sort_order: Number(form.sort_order) || 0,
       }),
@@ -362,6 +372,7 @@ function CreateModuleForm() {
         bucket_prefix: '',
         artifact_object: '',
         manifest_object: '',
+        patch_notes_object: '',
         content_type: '',
         sort_order: '0',
         is_public: false,
@@ -407,6 +418,7 @@ function CreateModuleForm() {
       {input('bucket_prefix', 'bucket prefix, e.g. plugins/Foo')}
       {input('artifact_object', 'artifact object, e.g. Foo.dll')}
       {input('manifest_object', 'manifest object (optional)')}
+      {input('patch_notes_object', 'patch notes object (optional)')}
       {input('content_type', 'content type (optional)')}
       {input('sort_order', 'sort')}
       <label>

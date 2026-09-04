@@ -20,11 +20,13 @@ public record AdminModuleResponse(
         Integer currentVersion,
         String currentSha256,
         Instant versionDetectedAt,
-        int sortOrder) {
+        int sortOrder,
+        String patchNotesObject) {
 
     public static AdminModuleResponse from(Module m) {
         return new AdminModuleResponse(m.getId(), m.getModuleKey(), m.getDisplayName(), m.getType(), m.isPublicAccess(),
                 m.isEnabled(), m.getBucketPrefix(), m.getArtifactObject(), m.getManifestObject(), m.getContentType(),
-                m.getCurrentVersion(), m.getCurrentSha256(), m.getVersionDetectedAt(), m.getSortOrder());
+                m.getCurrentVersion(), m.getCurrentSha256(), m.getVersionDetectedAt(), m.getSortOrder(),
+                m.getPatchNotesObject());
     }
 }

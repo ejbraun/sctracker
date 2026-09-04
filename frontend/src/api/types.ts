@@ -47,6 +47,9 @@ export interface AdminModule {
   current_sha256: string | null;
   version_detected_at: string | null;
   sort_order: number;
+  // Optional <Folder>.patch.txt sidecar, full path from bucket root — same posture as
+  // manifest_object. CI/CD appends to it and overwrites the bucket object each release.
+  patch_notes_object: string | null;
 }
 
 /**
@@ -64,6 +67,9 @@ export interface DiscoveredModule {
   artifact_object: string;
   manifest_object: string | null;
   has_manifest: boolean;
+  // <Folder>.patch.txt, mirroring manifest_object/has_manifest.
+  patch_notes_object: string | null;
+  has_patch_notes: boolean;
 }
 
 /**
@@ -80,6 +86,8 @@ export interface AccountModule {
   version: number | null;
   sha256: string | null;
   download_url: string;
+  // Null when the module has no patch notes configured — render a link only when this is set.
+  patch_notes_url: string | null;
 }
 
 export interface AccountModulesResponse {

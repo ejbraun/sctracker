@@ -8,7 +8,8 @@ import com.howl.uwtracker.domain.ModuleType;
  * candidate for {@code POST /api/admin/modules}. The frontend pre-fills the create form from these
  * fields; the admin still picks the display name and, crucially, whether it's public (nothing in the
  * bucket says). {@code suggestedType} follows the prefix the folder sits under — {@code plugin} for
- * {@code plugins/}, {@code module} for {@code launcher/}.
+ * {@code plugins/}, {@code module} for {@code launcher/}. {@code patchNotesObject} mirrors
+ * {@code manifestObject}: derived as {@code <Folder>.patch.txt} and only non-null when it exists.
  */
 public record DiscoveredModuleResponse(
         String folderName,
@@ -18,5 +19,7 @@ public record DiscoveredModuleResponse(
         String bucketPrefix,
         String artifactObject,
         String manifestObject,
-        boolean hasManifest) {
+        boolean hasManifest,
+        String patchNotesObject,
+        boolean hasPatchNotes) {
 }

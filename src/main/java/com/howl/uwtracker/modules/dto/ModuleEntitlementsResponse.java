@@ -18,6 +18,8 @@ public record ModuleEntitlementsResponse(List<Entry> modules) {
             boolean isPublic,
             Integer version,
             String sha256,
-            String downloadUrl) {
+            String downloadUrl,
+            /** Null when the module has no patch notes configured. */
+            String patchNotesUrl) {
     }
 }

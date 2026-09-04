@@ -43,6 +43,11 @@ public class ModuleMetadataService {
         return ModuleKeys.SCTRACKER.equals(moduleKey) ? "/SCTracker.dll" : "/modules/" + moduleKey + "/download";
     }
 
+    /** App-relative patch-notes path for a module, or {@code null} when it has none configured. */
+    static String patchNotesUrl(Module module) {
+        return module.getPatchNotesObject() == null ? null : "/modules/" + module.getModuleKey() + "/patch-notes";
+    }
+
     private ArtifactSummaryResponse toSummary(Module module) {
         PluginVersionMetadata manifest = manifestResolver.manifestFor(module);
         return new ArtifactSummaryResponse(
@@ -53,6 +58,7 @@ public class ModuleMetadataService {
                 manifest != null ? manifest.version() : module.getCurrentVersion(),
                 manifest != null ? manifest.compiledAt() : null,
                 manifest != null ? manifest.sha256() : module.getCurrentSha256(),
-                downloadUrl(module.getModuleKey()));
+                downloadUrl(module.getModuleKey()),
+                patchNotesUrl(module));
     }
 }

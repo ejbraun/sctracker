@@ -95,6 +95,8 @@ public class ModuleAdminService {
                 }
                 String manifestObject = bucketPrefix + "/" + folder + ".version.json";
                 boolean hasManifest = client.objectExists(manifestObject);
+                String patchNotesObject = bucketPrefix + "/" + folder + ".patch.txt";
+                boolean hasPatchNotes = client.objectExists(patchNotesObject);
                 discovered.add(new DiscoveredModuleResponse(
                         folder,
                         slugify(folder),
@@ -103,7 +105,9 @@ public class ModuleAdminService {
                         bucketPrefix,
                         artifactObject,
                         hasManifest ? manifestObject : null,
-                        hasManifest));
+                        hasManifest,
+                        hasPatchNotes ? patchNotesObject : null,
+                        hasPatchNotes));
             }
         }
         discovered.sort(Comparator.comparing(DiscoveredModuleResponse::folderName, String.CASE_INSENSITIVE_ORDER));
@@ -149,6 +153,7 @@ public class ModuleAdminService {
         if (req.type() != null) {
             module.setType(req.type());
         }
+        module.setPatchNotesObject(blankToNull(req.patchNotesObject()));
         return AdminModuleResponse.from(moduleRepository.save(module));
     }
 
@@ -181,6 +186,12 @@ public class ModuleAdminService {
         if (req.manifestObject() != null) {
             module.setManifestObject(blankToNull(req.manifestObject()));
             pathsChanged = true;
+        }
+        if (req.patchNotesObject() != null) {
+            // Not part of pathsChanged: patch notes aren't manifest-cached (ModuleManifestCache only
+            // ever reads manifestObject), so there's nothing to evict here — the next download just
+            // reads the new path.
+            module.setPatchNotesObject(blankToNull(req.patchNotesObject()));
         }
         if (req.contentType() != null && !req.contentType().isBlank()) {
             module.setContentType(req.contentType().trim());

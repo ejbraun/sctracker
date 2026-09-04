@@ -41,6 +41,18 @@ class ArtifactListIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void patchNotesUrlIsNullWhenNoneConfiguredAndSetWhenPresent() throws Exception {
+        seedModule("pp-exe", true);
+        seedModuleWithPatchNotes("pp-base", true, "plugin");
+
+        mockMvc.perform(get("/artifacts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.artifacts[?(@.key == 'pp-exe')].patch_notes_url").value((Object) null))
+                .andExpect(jsonPath("$.artifacts[?(@.key == 'pp-base')].patch_notes_url")
+                        .value("/modules/pp-base/patch-notes"));
+    }
+
+    @Test
     void filtersByType() throws Exception {
         seedModule("sctracker", true);                // plugin (default)
         seedModule("pp-vanquish", false, "plugin");

@@ -59,6 +59,16 @@ public class Module {
     @Column(name = "manifest_object", length = 255)
     private String manifestObject;
 
+    /**
+     * Full object path from the bucket root of an optional {@code <Folder>.patch.txt} sidecar, or
+     * {@code null} when the artifact has no patch notes — same posture as {@code manifestObject}.
+     * CI/CD appends to this file release over release and overwrites the bucket object with the
+     * accumulated text; the backend only ever serves whatever's currently there (see
+     * {@code ModuleDownloadService#openPatchNotes}), no append/versioning logic on this side.
+     */
+    @Column(name = "patch_notes_object", length = 255)
+    private String patchNotesObject;
+
     @Column(name = "content_type", nullable = false, length = 100)
     private String contentType = "application/octet-stream";
 
@@ -162,6 +172,14 @@ public class Module {
 
     public void setManifestObject(String manifestObject) {
         this.manifestObject = manifestObject;
+    }
+
+    public String getPatchNotesObject() {
+        return patchNotesObject;
+    }
+
+    public void setPatchNotesObject(String patchNotesObject) {
+        this.patchNotesObject = patchNotesObject;
     }
 
     public String getContentType() {

@@ -67,6 +67,7 @@ public class ModuleEntitlementService {
                 module.isPublicAccess(),
                 manifest != null ? manifest.version() : module.getCurrentVersion(),
                 manifest != null ? manifest.sha256() : module.getCurrentSha256(),
-                ModuleMetadataService.downloadUrl(module.getModuleKey()));
+                ModuleMetadataService.downloadUrl(module.getModuleKey()),
+                ModuleMetadataService.patchNotesUrl(module));
     }
 }

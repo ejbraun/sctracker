@@ -56,5 +56,6 @@
     <include file="db/changelog/changes/049-drop-plugin-dll-version.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/050-create-signup-links.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/051-seed-domain-of-anguish.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/052-add-modules-patch-notes-object.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>

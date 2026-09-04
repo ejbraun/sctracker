@@ -43,6 +43,14 @@ function PluginDownloadPanel({ module }: { module: AccountModule }) {
           Download {module.display_name}
           {versionSuffix(module.version)}
         </a>
+        {module.patch_notes_url && (
+          <>
+            {' · '}
+            <a className={styles.downloadLink} href={module.patch_notes_url} download>
+              Patch notes
+            </a>
+          </>
+        )}
       </p>
     </Panel>
   );
@@ -182,6 +190,14 @@ export function Account() {
               Download launcher
               {versionSuffix(launcher.version)}
             </a>
+            {launcher.patch_notes_url && (
+              <>
+                {' · '}
+                <a className={styles.downloadLink} href={launcher.patch_notes_url} download>
+                  Patch notes
+                </a>
+              </>
+            )}
           </p>
         </Panel>
       )}

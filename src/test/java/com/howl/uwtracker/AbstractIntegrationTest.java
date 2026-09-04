@@ -175,6 +175,7 @@ public abstract class AbstractIntegrationTest {
         FakePluginStorageConfig.PLUGIN_FOLDERS.clear();
         FakePluginStorageConfig.EMPTY_DIRS.clear();
         FakePluginStorageConfig.LAUNCHER_FOLDERS.clear();
+        FakePluginStorageConfig.FOLDERS_WITH_PATCH_NOTES.clear();
     }
 
     /**
@@ -280,6 +281,14 @@ public abstract class AbstractIntegrationTest {
                 moduleKey, moduleKey + " module", type, isPublic,
                 "plugins/" + moduleKey, moduleKey + ".dll", "plugins/" + moduleKey + "/" + moduleKey + ".version.json");
         return jdbcTemplate.queryForObject("SELECT id FROM modules WHERE module_key = ?", Long.class, moduleKey);
+    }
+
+    /** Same as the 3-arg overload, plus a {@code patch_notes_object} at the conventional {@code plugins/<key>/<key>.patch.txt} path. */
+    protected long seedModuleWithPatchNotes(String moduleKey, boolean isPublic, String type) {
+        long id = seedModule(moduleKey, isPublic, type);
+        jdbcTemplate.update("UPDATE modules SET patch_notes_object = ? WHERE id = ?",
+                "plugins/" + moduleKey + "/" + moduleKey + ".patch.txt", id);
+        return id;
     }
 
     /** Grants {@code personId} access to {@code moduleId} directly — mirrors the admin grant endpoint. */
