@@ -55,6 +55,23 @@ class MapIntegrationTest extends AbstractIntegrationTest {
                 });
     }
 
+    @Test
+    void includesTheDomainOfAnguishConfigOnceSeeded() throws Exception {
+        seedDomainOfAnguish();
+        MockHttpSession session = signup("doamapviewer", "password123");
+
+        List<MapResponse> maps = fetchMaps(session);
+
+        assertThat(maps).hasSize(2);
+        MapResponse doa = maps.stream().filter(m -> m.id() == DOMAIN_OF_ANGUISH_MAP_ID).findFirst().orElseThrow();
+        assertThat(doa.name()).isEqualTo(DOMAIN_OF_ANGUISH_MAP_NAME);
+        // A single 8-man config with no role model (role-less, like FoW 8-man).
+        assertThat(doa.configs()).singleElement().satisfies(c -> {
+            assertThat(c.partySize()).isEqualTo(8);
+            assertThat(c.roleModel()).isNull();
+        });
+    }
+
     private List<MapResponse> fetchMaps(MockHttpSession session) throws Exception {
         String body = mockMvc.perform(get("/api/maps").session(session))
                 .andExpect(status().isOk())

@@ -689,3 +689,50 @@ Role-less FoW runs show `role` = `null` for every participant, so the run-detail
 displays **primary / secondary profession** per participant (both have been persisted on
 `run_participants` and returned by `GET /api/runs/{id}` since changeset 008 — this is a
 render-only change), and hides the **Role** column entirely when no participant has a role.
+
+## 11. Domain of Anguish (map_id 474)
+
+A third supported map, added the same additive way as §9/§10: **one new `map_configs` row, no
+schema change, no new `RoleDerivation` branch.** DoA is **8-man only** and has **no fixed role
+composition**, so it is exactly the FoW-8-man shape (`role_model = NULL`).
+
+- **map_id `474`** = GWCA's `MapID::Domain_of_Anguish`. The DoA *explorable* shares this map_id
+  with the solo *Ebony Citadel of Mallyx* challenge; only 8-real-player parties reach the backend
+  (the plugin's `IsAcceptablePartySize` rejects the 1-player Mallyx instance), and the backend
+  would reject a non-8 `(474, n)` upload anyway (no `map_configs` row).
+
+### 11.1 Backend
+
+- **Changeset `051-seed-domain-of-anguish.xml`** — `INSERT INTO maps (474, 'Domain of Anguish')`
+  + `INSERT INTO map_configs (474, 8, NULL)`. No `role_objectives`.
+- **No Java changes.** `resolveRoles(members, null)` returns all-`null`; `minRegisteredFor(8) = 4`
+  (unchanged); `RunRepository.findIdsWithFewerThanHalfPartyRegistered` is already size-generic;
+  `MapController` / `MapResponse` return the map from `gameMapRepository.findAll()`;
+  `LeaderboardService.isRoleGated` / `requireConcretePartySize` (and the `LoserboardService`
+  equivalent) already resolve a single-config null-model map to its one size (8) on the un-gated
+  `MIN(duration_ms)` path.
+- Every leaderboard / loserboard / history / section query is already parameterised by
+  `party_size`; no query changes. DoA has exactly one config, so an un-sized
+  `/me/.../sections/...` call resolves to size 8 (no 400).
+
+### 11.2 Plugin (`SCTracker`) — version `12`
+
+- `kTrackedMapIds` gains `Domain_of_Anguish`. GWToolboxdll's `ObjectiveTimerWindow` builds a DoA
+  `ObjectiveSet` from `AddDoAObjectiveSet` (gated on `InstanceLoadFile`'s `map_fileID`, not the
+  `map_id` switch), so the `utc_start` correlation in `ProcessSync` still has an entry to match.
+- `IsAcceptablePartySize` — DoA falls through to the `== 8` default branch (which also rejects the
+  1-player Mallyx instance).
+- `MapSizeHasRoles` rewritten as a `switch`: only `The_Underworld` returns `true`; FoW keeps its
+  duo-only rule; DoA (and any future role-less area) returns `false` → **no post-run vote** for a
+  DoA run.
+- `MapHasDhuumMechanics` unchanged (already UW-only). Version bumped `11 → 12`; the backend's
+  enforced minimum is not raised.
+
+### 11.3 Frontend
+
+- `common/maps.ts`: new `MAPS` entry `{ id: '474', short: 'DoA', name: 'Domain of Anguish',
+  partySizes: [8] }` and `ROLE_MODEL['474:8'] = null`. Nothing else — `defaultPartySize` returns
+  8 automatically, `configHasRoles` is false so the by-role panels auto-hide, and
+  `mapSupportsGambling` is already `'72'`-only.
+- `Dashboard.tsx` step copy updated to mention Domain of Anguish (8-Man). `MapSizePicker` /
+  `LeaderboardPage` / `LoserboardsPage` / `RunDetail` need no change (all data-driven).

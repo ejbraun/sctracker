@@ -24,14 +24,15 @@ export function Dashboard() {
           <li className={styles.step}>
             <div>
               <p className={styles.stepTitle}>Choose a map</p>
-              <p className={styles.stepBody}>The Underworld or The Fissure of Woe.</p>
+              <p className={styles.stepBody}>The Underworld, The Fissure of Woe, or Domain of Anguish.</p>
             </div>
           </li>
           <li className={styles.step}>
             <div>
               <p className={styles.stepTitle}>Choose a party size</p>
               <p className={styles.stepBody}>
-                8-Man for the Underworld; anything from Solo to 8-Man for the Fissure of Woe.
+                8-Man for the Underworld and Domain of Anguish; anything from Solo to 8-Man for the
+                Fissure of Woe.
               </p>
             </div>
           </li>
