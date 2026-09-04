@@ -9,6 +9,7 @@ import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.ParticipantSummary;
 import com.howl.uwtracker.leaderboards.dto.SectionEntryResponse;
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.CharacterFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.OutdatedPluginResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
@@ -95,6 +96,11 @@ public class LoserboardService {
 
     public List<RoleFailureReasonResponse> roleFailureReasons(Integer mapId, Integer partySize, Instant from, Instant to) {
         return loserboardQueryRepository.findRoleFailureReasons(mapId, partySize, from, to);
+    }
+
+    /** The role-based {@link #roleFailureReasons}'s character-name mirror; naturally empty for a role-based config. */
+    public List<CharacterFailureReasonResponse> characterFailureReasons(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return loserboardQueryRepository.findCharacterFailureReasons(mapId, partySize, from, to);
     }
 
     /**

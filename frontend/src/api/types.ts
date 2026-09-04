@@ -257,6 +257,23 @@ export interface RoleMvpAwardEntry {
   avg_awards: number;
 }
 
+// The character-name counterpart of RoleMvpAwardEntry/FailureReasonEntry, for a role-less
+// (map, party_size) config (role_model = NULL — FoW at every size but the duo, Domain of Anguish).
+// No `role` field: a role-less config has none to report.
+export interface CharacterMvpAwardEntry {
+  user: string;
+  total_runs: number;
+  awards: number;
+  avg_awards: number;
+}
+
+export interface CharacterFailureReasonEntry {
+  user: string;
+  total_runs: number;
+  fails: number;
+  avg_fails: number;
+}
+
 // "Loserboards" — a user whose plugin last authenticated (any machine-key call, most reliably the
 // once-per-launch /can-report-run-failure) on a version below the current minimum, within the
 // selected time window. plugin_version is null for a client too old to send X-Plugin-Version. Not

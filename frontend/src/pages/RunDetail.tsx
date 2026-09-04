@@ -34,8 +34,9 @@ export function RunDetail() {
   }
 
   const run = runQuery.data;
-  // Role-less configs (every FoW size except the duo) carry no role for anyone — drop the column
-  // rather than show a table full of "unresolved" placeholders.
+  // Role-less configs (every FoW size except the duo, and Domain of Anguish) carry no role for
+  // anyone — drop the Role column, and skip the MVP/Failure-Reasons RoleBadges too (a name-mode
+  // vote's winner still has role = null; showing "unresolved" next to their name would be wrong).
   const showRoles = run.participants.some((p) => p.role != null);
 
   return (
@@ -86,7 +87,7 @@ export function RunDetail() {
                   'Nobody'
                 ) : (
                   <>
-                    {reason.display_name} <RoleBadge role={reason.role} />
+                    {reason.display_name} {showRoles && <RoleBadge role={reason.role} />}
                   </>
                 )}
               </li>
@@ -102,7 +103,7 @@ export function RunDetail() {
             'Nobody'
           ) : (
             <>
-              {run.mvp_award.display_name} <RoleBadge role={run.mvp_award.role} />
+              {run.mvp_award.display_name} {showRoles && <RoleBadge role={run.mvp_award.role} />}
             </>
           )}
         </Panel>

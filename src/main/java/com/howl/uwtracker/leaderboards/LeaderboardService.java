@@ -5,6 +5,7 @@ import com.howl.uwtracker.domain.MapConfigId;
 import com.howl.uwtracker.domain.Run;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.history.RunSpecifications;
+import com.howl.uwtracker.leaderboards.dto.CharacterMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.GamblingStoneLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
@@ -216,6 +217,11 @@ public class LeaderboardService {
     /** Global ranking only. Naturally empty for a role-less config (every participant's role is null). */
     public List<RoleMvpAwardResponse> roleMvpAwards(Integer mapId, Integer partySize, Instant from, Instant to) {
         return leaderboardQueryRepository.findRoleMvpAwards(mapId, partySize, from, to);
+    }
+
+    /** Global ranking only. The role-based {@link #roleMvpAwards}'s mirror; naturally empty for a role-based config. */
+    public List<CharacterMvpAwardResponse> characterMvpAwards(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return leaderboardQueryRepository.findCharacterMvpAwards(mapId, partySize, from, to);
     }
 
     /** Global ranking only. */

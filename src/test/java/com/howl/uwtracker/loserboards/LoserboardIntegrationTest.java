@@ -8,9 +8,12 @@ import com.howl.uwtracker.domain.Profession;
 import com.howl.uwtracker.domain.RoleObjective;
 import com.howl.uwtracker.domain.RoleObjectiveId;
 import com.howl.uwtracker.domain.Run;
+import com.howl.uwtracker.domain.RunFailureReason;
 import com.howl.uwtracker.domain.RunObjective;
 import com.howl.uwtracker.domain.RunParticipant;
+import com.howl.uwtracker.repository.RunFailureReasonRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 
 import java.time.Instant;
@@ -22,12 +25,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** "Loserboards" against real MySQL — mirrors LeaderboardIntegrationTest's setup style. */
 class LoserboardIntegrationTest extends AbstractIntegrationTest {
 
+    @Autowired
+    private RunFailureReasonRepository runFailureReasonRepository;
+
     private static final int MAP_ID = UNDERWORLD_MAP_ID;
     private static final String OBJECTIVE_NAME = "The Vale";
 
     /** Pre-seeded by 011-seed-supported-maps.xml (reset before every test — see AbstractIntegrationTest). */
     private GameMap map() {
         return gameMapRepository.getReferenceById(MAP_ID);
+    }
+
+    /** Pre-seeded by {@link #seedDomainOfAnguish()} — not reset by cleanDatabase(). */
+    private GameMap mapDoa() {
+        return gameMapRepository.getReferenceById(DOMAIN_OF_ANGUISH_MAP_ID);
     }
 
     private Run seedRun(GameMap map, long durationMs, boolean completed, String endReason, RunParticipant... participants) {
@@ -58,6 +69,11 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
 
     private Person personEntity(String username) {
         return personRepository.save(new Person(username, "irrelevant-hash"));
+    }
+
+    private void seedFailureReason(Run run, String rawName) {
+        RunParticipant participant = runParticipantRepository.findByRun_IdAndRawName(run.getId(), rawName).orElseThrow();
+        runFailureReasonRepository.save(new RunFailureReason(run, participant, null));
     }
 
     @Test
@@ -288,5 +304,68 @@ class LoserboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].participants.length()").value(1))
                 .andExpect(jsonPath("$[0].participants[0].raw_name").value("GatedTank"));
+    }
+
+    @Test
+    void roleFailureReasonsSumsPerRolePerUserOutOfTotalRunsInThatRole() throws Exception {
+        // No prior coverage existed for this endpoint at all — added alongside its new
+        // character-name mirror below.
+        MockHttpSession session = signup("roleblameviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        for (int i = 0; i < 4; i++) {
+            Run run = seedRun(map, 10_000L, false, "wipe", participant(null, "Scapegoat", warrior, "Spiker", 0));
+            if (i % 2 == 0) {
+                seedFailureReason(run, "Scapegoat");
+            }
+        }
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/role-failure-reasons").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].role").value("Spiker"))
+                .andExpect(jsonPath("$[0].user").value("Scapegoat"))
+                .andExpect(jsonPath("$[0].total_runs").value(4))
+                .andExpect(jsonPath("$[0].fails").value(2))
+                .andExpect(jsonPath("$[0].avg_fails").value(0.5));
+    }
+
+    @Test
+    void characterFailureReasonsCountsFailsPerUserOnARoleLessMap() throws Exception {
+        // Domain of Anguish (role_model = NULL) has no role dimension — the character-name board is
+        // what "Blamed By Role" can never be for this map.
+        seedDomainOfAnguish();
+        MockHttpSession session = signup("charblameviewer", "password123");
+        GameMap map = mapDoa();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        for (int i = 0; i < 4; i++) {
+            Run run = seedRun(map, 10_000L, false, "wipe", participant(null, "Scapegoat", warrior, null, 0));
+            if (i % 2 == 0) {
+                seedFailureReason(run, "Scapegoat");
+            }
+        }
+
+        mockMvc.perform(get("/api/loserboards/maps/" + DOMAIN_OF_ANGUISH_MAP_ID + "/character-failure-reasons?partySize=8").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user").value("Scapegoat"))
+                .andExpect(jsonPath("$[0].total_runs").value(4))
+                .andExpect(jsonPath("$[0].fails").value(2))
+                .andExpect(jsonPath("$[0].avg_fails").value(0.5));
+    }
+
+    @Test
+    void characterFailureReasonsIsEmptyForARoleBasedMap() throws Exception {
+        // The self-gating mirror of roleFailureReasons returning nothing for a role-less map: every
+        // participant here has a non-null role, so rp.role IS NULL excludes them all.
+        MockHttpSession session = signup("charblamegateviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        Run run = seedRun(map, 10_000L, false, "wipe", participant(null, "Scapegoat", warrior, "Spiker", 0));
+        seedFailureReason(run, "Scapegoat");
+
+        mockMvc.perform(get("/api/loserboards/maps/" + MAP_ID + "/character-failure-reasons").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 }

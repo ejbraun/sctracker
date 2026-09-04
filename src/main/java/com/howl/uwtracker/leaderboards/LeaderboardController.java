@@ -1,6 +1,7 @@
 package com.howl.uwtracker.leaderboards;
 
 import com.howl.uwtracker.auth.CurrentPersonId;
+import com.howl.uwtracker.leaderboards.dto.CharacterMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.GamblingStoneLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.LeaderboardEntryResponse;
@@ -97,6 +98,14 @@ public class LeaderboardController {
                                                                        @RequestParam(required = false) Instant from,
                                                                        @RequestParam(required = false) Instant to) {
         return ResponseEntity.ok(leaderboardService.roleMvpAwards(mapId, partySize, from, to));
+    }
+
+    @GetMapping("/maps/{mapId}/character-mvp-awards")
+    public ResponseEntity<List<CharacterMvpAwardResponse>> characterMvpAwards(@PathVariable Integer mapId,
+                                                                       @RequestParam(required = false) Integer partySize,
+                                                                       @RequestParam(required = false) Instant from,
+                                                                       @RequestParam(required = false) Instant to) {
+        return ResponseEntity.ok(leaderboardService.characterMvpAwards(mapId, partySize, from, to));
     }
 
     @GetMapping("/maps/{mapId}/gamblers-anonymous")

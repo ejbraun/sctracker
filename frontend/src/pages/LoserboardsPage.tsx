@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
+  CharacterFailureReasonEntry,
   FailureReasonEntry,
   LeaderboardEntry,
   OutdatedPlugin,
@@ -65,6 +66,15 @@ export function LoserboardsPage() {
         `/loserboards/maps/${mapId}/role-failure-reasons?${sizeAndWindow}`,
       ),
     enabled: configHasRoles(mapId, partySize),
+  });
+
+  const characterFailureReasonsQuery = useQuery({
+    queryKey: ['loserboard', 'character-failure-reasons', mapId, partySize, timeWindow],
+    queryFn: () =>
+      api.get<CharacterFailureReasonEntry[]>(
+        `/loserboards/maps/${mapId}/character-failure-reasons?${sizeAndWindow}`,
+      ),
+    enabled: !configHasRoles(mapId, partySize),
   });
 
   const badStreakQuery = useQuery({
@@ -247,6 +257,42 @@ export function LoserboardsPage() {
                 </div>
               );
             })}
+        </Panel>
+        )}
+
+        {/* The character-name mirror of "Blamed By Role", for a config with no role model (FoW at
+            every size but the duo, Domain of Anguish) — a by-role board would be empty there. */}
+        {!configHasRoles(mapId, partySize) && (
+        <Panel className={styles.section}>
+          <h2>Blamed By Character</h2>
+          {characterFailureReasonsQuery.isLoading && <p>Loading…</p>}
+          {characterFailureReasonsQuery.data && characterFailureReasonsQuery.data.filter((r) => r.fails > 0).length === 0 && (
+            <p className={styles.emptyState}>No blames recorded yet.</p>
+          )}
+          {characterFailureReasonsQuery.data && characterFailureReasonsQuery.data.filter((r) => r.fails > 0).length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Total runs</th>
+                  <th>Times Blamed</th>
+                  <th>Blamed/run</th>
+                </tr>
+              </thead>
+              <tbody>
+                {characterFailureReasonsQuery.data
+                  .filter((r) => r.fails > 0)
+                  .map((r) => (
+                    <tr key={r.user}>
+                      <td>{r.user}</td>
+                      <td>{r.total_runs}</td>
+                      <td>{r.fails}</td>
+                      <td>{r.avg_fails.toFixed(2)}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
         </Panel>
         )}
 

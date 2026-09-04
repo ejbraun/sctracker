@@ -1,6 +1,7 @@
 package com.howl.uwtracker.loserboards;
 
 import com.howl.uwtracker.leaderboards.dto.UserStreakResponse;
+import com.howl.uwtracker.loserboards.dto.CharacterFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.OutdatedPluginResponse;
 import com.howl.uwtracker.loserboards.dto.RoleFailureReasonResponse;
 import com.howl.uwtracker.loserboards.dto.RoleUserDeathsResponse;
@@ -150,6 +151,38 @@ public class LoserboardQueryRepository {
                     long fails = rs.getLong("total_fails");
                     double avgFails = totalRuns == 0 ? 0.0 : ((double) fails) / totalRuns;
                     return new RoleFailureReasonResponse(rs.getString("role"), rs.getString("user"), totalRuns, fails, avgFails);
+                },
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+    }
+
+    /**
+     * One row per user who has ever been blamed on a role-less {@code (map, party_size)} config —
+     * the character-name counterpart of {@link #findRoleFailureReasons} for a config with no role
+     * model (see specs/features/fow-and-party-size.md §9.6). Same shape otherwise: starts from
+     * {@code run_participants} (every run played), left-joining {@code run_failure_reasons} on
+     * {@code run_participant_id}, ordered by fails-per-run. {@code rp.role IS NULL} instead of
+     * {@code IS NOT NULL} is what makes this self-gating against a role-based map/size — every row
+     * there has a non-null role, so this query returns nothing for it, same as
+     * {@link #findRoleFailureReasons} returns nothing for a role-less one.
+     */
+    public List<CharacterFailureReasonResponse> findCharacterFailureReasons(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT COALESCE(p.alias, rp.raw_name) AS user, " +
+                        "COUNT(*) AS total_runs, SUM(CASE WHEN rfr.run_participant_id IS NOT NULL THEN 1 ELSE 0 END) AS total_fails " +
+                        "FROM run_participants rp " +
+                        "JOIN runs r ON r.id = rp.run_id " +
+                        "LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "LEFT JOIN people p ON p.id = c.person_id " +
+                        "LEFT JOIN run_failure_reasons rfr ON rfr.run_participant_id = rp.id " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND rp.role IS NULL " +
+                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "GROUP BY COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY (total_fails / total_runs) DESC",
+                (rs, rowNum) -> {
+                    long totalRuns = rs.getLong("total_runs");
+                    long fails = rs.getLong("total_fails");
+                    double avgFails = totalRuns == 0 ? 0.0 : ((double) fails) / totalRuns;
+                    return new CharacterFailureReasonResponse(rs.getString("user"), totalRuns, fails, avgFails);
                 },
                 mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }

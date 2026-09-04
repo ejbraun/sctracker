@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type {
+  CharacterMvpAwardEntry,
   GamblingStoneLeader,
   ItemDropLeader,
   LeaderboardEntry,
@@ -72,6 +73,13 @@ export function LeaderboardPage() {
     queryFn: () =>
       api.get<RoleMvpAwardEntry[]>(`/leaderboards/maps/${mapId}/role-mvp-awards?${sizeAndWindow}`),
     enabled: mapId != null && configHasRoles(mapId, partySize),
+  });
+
+  const characterMvpAwardsQuery = useQuery({
+    queryKey: ['leaderboard', 'character-mvp-awards', mapId, partySize, timeWindow],
+    queryFn: () =>
+      api.get<CharacterMvpAwardEntry[]>(`/leaderboards/maps/${mapId}/character-mvp-awards?${sizeAndWindow}`),
+    enabled: mapId != null && !configHasRoles(mapId, partySize),
   });
 
   const gamblersAnonymousQuery = useQuery({
@@ -440,6 +448,40 @@ export function LeaderboardPage() {
                 </div>
               );
             })}
+        </Panel>
+        )}
+
+        {/* The character-name mirror of "MVP By Role", for a config with no role model (FoW at
+            every size but the duo, Domain of Anguish) — a by-role board would be empty there. */}
+        {!configHasRoles(mapId, partySize) && (
+        <Panel className={styles.section}>
+          <h2>MVP By Character</h2>
+          {characterMvpAwardsQuery.isLoading && <p>Loading…</p>}
+          {characterMvpAwardsQuery.data && characterMvpAwardsQuery.data.length === 0 && (
+            <p className={styles.emptyState}>No runs recorded yet.</p>
+          )}
+          {characterMvpAwardsQuery.data && characterMvpAwardsQuery.data.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Total runs</th>
+                  <th>MVP Awards</th>
+                  <th>Awards/run</th>
+                </tr>
+              </thead>
+              <tbody>
+                {characterMvpAwardsQuery.data.map((r) => (
+                  <tr key={r.user}>
+                    <td>{r.user}</td>
+                    <td>{r.total_runs}</td>
+                    <td>{r.awards}</td>
+                    <td>{r.avg_awards.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Panel>
         )}
 

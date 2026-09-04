@@ -590,6 +590,50 @@ class LeaderboardIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$[1].avg_awards").value(0.0));
     }
 
+    /** Pre-seeded by {@link #seedDomainOfAnguish()} — not reset by cleanDatabase(). */
+    private GameMap mapDoa() {
+        return gameMapRepository.getReferenceById(DOMAIN_OF_ANGUISH_MAP_ID);
+    }
+
+    @Test
+    void characterMvpAwardsCountsAwardsPerUserAndAveragesPerRunOnARoleLessMap() throws Exception {
+        // Domain of Anguish (role_model = NULL) has no role dimension — the character-name board is
+        // what "MVP By Role" can never be for this map.
+        seedDomainOfAnguish();
+        MockHttpSession session = signup("charmvpviewer", "password123");
+        GameMap map = mapDoa();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+
+        for (int i = 0; i < 4; i++) {
+            Run run = seedRun(map, 10_000L, true, participant(null, "Star", warrior, null, 0));
+            if (i % 2 == 0) {
+                seedMvpAward(run, "Star");
+            }
+        }
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + DOMAIN_OF_ANGUISH_MAP_ID + "/character-mvp-awards?partySize=8").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].user").value("Star"))
+                .andExpect(jsonPath("$[0].total_runs").value(4))
+                .andExpect(jsonPath("$[0].awards").value(2))
+                .andExpect(jsonPath("$[0].avg_awards").value(0.5));
+    }
+
+    @Test
+    void characterMvpAwardsIsEmptyForARoleBasedMap() throws Exception {
+        // The self-gating mirror of roleMvpAwards returning nothing for a role-less map: every
+        // participant here has a non-null role, so rp.role IS NULL excludes them all.
+        MockHttpSession session = signup("charmvpgateviewer", "password123");
+        GameMap map = map();
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        Run run = seedRun(map, 10_000L, true, participant(null, "SpikerGuy", warrior, "Spiker", 0));
+        seedMvpAward(run, "SpikerGuy");
+
+        mockMvc.perform(get("/api/leaderboards/maps/" + MAP_ID + "/character-mvp-awards").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
     @Test
     void gamblersAnonymousSumsNetStonesPerUserAcrossCompletedRunsRankedDesc() throws Exception {
         MockHttpSession session = signup("gambleviewer", "password123");

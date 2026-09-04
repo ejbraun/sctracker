@@ -47,6 +47,10 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
         return gameMapRepository.getReferenceById(UNDERWORLD_MAP_ID);
     }
 
+    private GameMap mapDoa() {
+        return gameMapRepository.getReferenceById(DOMAIN_OF_ANGUISH_MAP_ID);
+    }
+
     /** Signs up and sets can_report_failures. Votes send X-Plugin-Version themselves to clear the 426 gate. */
     private String issueMachineKey(boolean permitted) throws Exception {
         String username = "mvp-reporter-" + System.nanoTime();
@@ -66,6 +70,38 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
         Profession warrior = professionRepository.findById(1).orElseThrow();
         for (int i = 0; i < roles.length; i++) {
             runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, roles[i], i, true, false, false, 0, null));
+        }
+        return run;
+    }
+
+    /**
+     * An 8-slot Domain of Anguish run (role_model = NULL, per {@code seedDomainOfAnguish()}) —
+     * every participant's role stays null, so a name-mode vote (targets are raw names, not roles)
+     * is what {@link MvpPersister} must resolve against. Callers must call
+     * {@link #seedDomainOfAnguish()} first.
+     */
+    private Run seedRoleLessRun() {
+        Instant now = Instant.now();
+        Run run = runRepository.save(new Run(mapDoa(), now, 1000L, now, "victory", true, 10_000L, 8));
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        for (int i = 0; i < 8; i++) {
+            runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, null, i, true, false, false, 0, null));
+        }
+        return run;
+    }
+
+    /**
+     * An 8-slot Underworld (trapper-model, role-based) run where every entry still failed to
+     * resolve a role — the edge case {@link MvpPersister} must not mistake for a role-less config
+     * (see its design decision: role-less-ness comes from {@code MapConfig.roleModel}, not from
+     * roster emptiness).
+     */
+    private Run seedRoleBasedRunWithNoResolvedRoles() {
+        Instant now = Instant.now();
+        Run run = runRepository.save(new Run(map(), now, 1000L, now, "victory", true, 10_000L, 8));
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        for (int i = 0; i < 8; i++) {
+            runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, null, i, true, false, false, 0, null));
         }
         return run;
     }
@@ -282,6 +318,62 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
         List<RunMvpAward> awards = awardsForRun(run.getId());
         assertThat(awards).hasSize(1);
         assertThat(awards.get(0).getRunParticipant().getId()).isEqualTo(spiker.getId());
+    }
+
+    @Test
+    void acceptsANameVoteForARoleLessRun() throws Exception {
+        // Submit-time behavior is identical regardless of what the run's config turns out to be —
+        // MvpReportService just collects the string. Proves a raw name isn't somehow rejected there.
+        seedDomainOfAnguish();
+        String key = issueMachineKey(true);
+        Run run = seedRoleLessRun();
+
+        vote(key, run.getId(), List.of("P5")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void persistMajorityWritesTheWinningCharacterParticipantForARoleLessRun() {
+        seedDomainOfAnguish();
+        Run run = seedRoleLessRun();
+        RunParticipant p5 = runParticipantRepository.findByRun_IdAndRawName(run.getId(), "P5").orElseThrow();
+
+        mvpPersister.persistMajority(run.getId(), List.of(
+                new MvpBallot(false, Set.of("P5")),
+                new MvpBallot(false, Set.of("P5")),
+                new MvpBallot(false, Set.of("P1"))));
+
+        List<RunMvpAward> awards = awardsForRun(run.getId());
+        assertThat(awards).hasSize(1);
+        assertThat(awards.get(0).getRunParticipant().getId()).isEqualTo(p5.getId());
+    }
+
+    @Test
+    void persistMajorityDropsBallotsForANameNotInTheRoleLessRun() {
+        seedDomainOfAnguish();
+        Run run = seedRoleLessRun();
+        RunParticipant p5 = runParticipantRepository.findByRun_IdAndRawName(run.getId(), "P5").orElseThrow();
+
+        mvpPersister.persistMajority(run.getId(), List.of(
+                new MvpBallot(false, Set.of("Nonexistent Character")),
+                new MvpBallot(false, Set.of("Nonexistent Character")),
+                new MvpBallot(false, Set.of("P5"))));
+
+        List<RunMvpAward> awards = awardsForRun(run.getId());
+        assertThat(awards).hasSize(1);
+        assertThat(awards.get(0).getRunParticipant().getId()).isEqualTo(p5.getId());
+    }
+
+    @Test
+    void persistMajorityDoesNotSwitchToNameModeForARoleBasedRunWithNoResolvedRoles() {
+        // Every participant's role is null here too, but the (map, party_size) config itself is
+        // TRAPPER, not NULL — MvpPersister must still match against role (an empty roster), not
+        // fall back to raw_name matching just because no role happened to resolve. A ballot naming
+        // a raw name ("P5") is therefore off-roster and gets dropped, same as any other bad role.
+        Run run = seedRoleBasedRunWithNoResolvedRoles();
+
+        mvpPersister.persistMajority(run.getId(), List.of(new MvpBallot(false, Set.of("P5"))));
+
+        assertThat(awardsForRun(run.getId())).isEmpty();
     }
 
     private List<RunMvpAward> awardsForRun(Long runId) {

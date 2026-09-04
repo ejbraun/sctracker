@@ -59,6 +59,12 @@ public class FailureReportService {
      * </ul>
      * Only a bad/missing machine key (401) or a reporter without permission (403) still fails the
      * request. Read-only: the only repository work here is loading the run to open its window.
+     *
+     * <p>{@code request.roles()} holds role names for a role-based run, or character
+     * {@code raw_name}s for a role-less one ({@code map_configs.role_model = NULL}) — this method
+     * doesn't need to know which; it just collects the strings into a {@link Ballot}.
+     * {@link FailureReportPersister} is what resolves the run's actual config and decides which
+     * interpretation applies, at window close.
      */
     @Transactional(readOnly = true)
     public void submit(String rawMachineKey, Integer pluginVersion, ReportRunFailureRequest request) {

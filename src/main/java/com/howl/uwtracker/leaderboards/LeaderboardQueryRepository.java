@@ -1,5 +1,6 @@
 package com.howl.uwtracker.leaderboards;
 
+import com.howl.uwtracker.leaderboards.dto.CharacterMvpAwardResponse;
 import com.howl.uwtracker.leaderboards.dto.GamblingStoneLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.ItemDropLeaderResponse;
 import com.howl.uwtracker.leaderboards.dto.RoleMvpAwardResponse;
@@ -283,6 +284,38 @@ public class LeaderboardQueryRepository {
                     long awards = rs.getLong("total_awards");
                     double avgAwards = totalRuns == 0 ? 0.0 : ((double) awards) / totalRuns;
                     return new RoleMvpAwardResponse(rs.getString("role"), rs.getString("user"), totalRuns, awards, avgAwards);
+                },
+                mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
+    }
+
+    /**
+     * One row per user who has ever earned the MVP award on a role-less {@code (map, party_size)}
+     * config — the character-name counterpart of {@link #findRoleMvpAwards} for a config with no
+     * role model (see specs/features/fow-and-party-size.md §9.6). Same shape otherwise: starts from
+     * {@code run_participants} (every run played), left-joining {@code run_mvp_awards} on {@code
+     * run_participant_id}, ordered by awards-per-run. {@code rp.role IS NULL} instead of {@code IS
+     * NOT NULL} is what makes this self-gating against a role-based map/size — every row there has a
+     * non-null role, so this query returns nothing for it, same as {@link #findRoleMvpAwards} returns
+     * nothing for a role-less one.
+     */
+    public List<CharacterMvpAwardResponse> findCharacterMvpAwards(Integer mapId, Integer partySize, Instant from, Instant to) {
+        return jdbcTemplate.query(
+                "SELECT COALESCE(p.alias, rp.raw_name) AS user, " +
+                        "COUNT(*) AS total_runs, SUM(CASE WHEN rma.run_participant_id IS NOT NULL THEN 1 ELSE 0 END) AS total_awards " +
+                        "FROM run_participants rp " +
+                        "JOIN runs r ON r.id = rp.run_id " +
+                        "LEFT JOIN characters c ON c.id = rp.character_id " +
+                        "LEFT JOIN people p ON p.id = c.person_id " +
+                        "LEFT JOIN run_mvp_awards rma ON rma.run_participant_id = rp.id " +
+                        "WHERE r.map_id = ? AND (? IS NULL OR r.party_size = ?) AND rp.role IS NULL " +
+                        "AND (? IS NULL OR r.utc_start >= ?) AND (? IS NULL OR r.utc_start <= ?) " +
+                        "GROUP BY COALESCE(p.alias, rp.raw_name) " +
+                        "ORDER BY (total_awards / total_runs) DESC",
+                (rs, rowNum) -> {
+                    long totalRuns = rs.getLong("total_runs");
+                    long awards = rs.getLong("total_awards");
+                    double avgAwards = totalRuns == 0 ? 0.0 : ((double) awards) / totalRuns;
+                    return new CharacterMvpAwardResponse(rs.getString("user"), totalRuns, awards, avgAwards);
                 },
                 mapId, partySize, partySize, toTimestamp(from), toTimestamp(from), toTimestamp(to), toTimestamp(to));
     }
