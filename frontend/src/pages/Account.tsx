@@ -15,14 +15,15 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { formatDate } from '../common/format';
 import styles from './Account.module.css';
 
-// SCTracker has its own hand-written panel above the list; every other public `type: plugin`
-// module the user can see gets a generic panel, with per-key copy where the default ("drop the
-// dll in GWToolbox's Plugins folder") doesn't fit — e.g. GWToolboxdll is the toolbox itself.
+// SCTracker has its own hand-written panel above the list — it's the one plugin this site needs.
+// Every other public `type: plugin` module the user can see gets a generic, clearly-optional
+// panel, with per-key copy where the default ("drop the dll in GWToolbox's Plugins folder")
+// doesn't fit — e.g. GWToolboxdll is the toolbox itself.
 const DROP_IN_BLURB =
-  'A GWToolbox++ plugin. Put the .dll in your GWToolbox++ Plugins folder and enable it in the plugin manager.';
+  'Optional — not needed to submit runs. A GWToolbox++ plugin: put the .dll in your GWToolbox++ Plugins folder and enable it in the plugin manager.';
 const PLUGIN_BLURB: Record<string, string> = {
   gwtoolbox:
-    'The GWToolbox++ toolbox build (GWToolboxdll.dll). GW Launcher Reforged injects this; you normally don\'t place it by hand.',
+    'Optional — not needed to submit runs. The GWToolbox++ toolbox build (GWToolboxdll.dll); GW Launcher Reforged injects this, so you normally don\'t place it by hand.',
 };
 
 /** `(vN)` only for a real, positive build number — a manifest with no `version` deserializes to 0. */
@@ -33,7 +34,9 @@ function versionSuffix(version: number | null): string {
 function PluginDownloadPanel({ module }: { module: AccountModule }) {
   return (
     <Panel className={styles.section}>
-      <h2>{module.display_name}</h2>
+      <h2>
+        {module.display_name} <span className={styles.optionalTag}>optional</span>
+      </h2>
       <p>{PLUGIN_BLURB[module.key] ?? DROP_IN_BLURB}</p>
       <p>
         <a className={styles.downloadLink} href={module.download_url} download>
@@ -142,12 +145,19 @@ export function Account() {
       </Panel>
 
       <Panel className={styles.section}>
-        <h2>Plugin</h2>
+        <h2>
+          SCTracker <span className={styles.requiredTag}>required</span>
+        </h2>
         <p>
-          SCTracker is a third-party GWToolbox++ plugin that uploads your runs. Put <code>SCTracker.dll</code>{' '}
-          in your GWToolbox++ <code>Plugins</code> folder, enable it in GWToolbox's plugin manager, then paste a
-          machine key (below) into its settings.
+          This is the only plugin you need — it's what uploads your runs to this site. SCTracker is a
+          third-party GWToolbox++ plugin: put <code>SCTracker.dll</code> in your GWToolbox++ <code>Plugins</code>{' '}
+          folder, enable it in GWToolbox's plugin manager, then paste a machine key (below) into its settings.
         </p>
+        {pluginDownloads.length > 0 && (
+          <p>
+            Any other plugin downloads below are <strong>optional extras</strong> — not required to submit runs.
+          </p>
+        )}
         <p>
           <a className={styles.downloadLink} href="/SCTracker.dll" download>
             Download SCTracker.dll{pluginVersionQuery.data && ` (v${pluginVersionQuery.data.version})`}
