@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { GeneratedMachineKey, MachineKey, Person, PluginVersion } from '../api/types';
+import type {
+  AccountModulesResponse,
+  GeneratedMachineKey,
+  MachineKey,
+  Person,
+  PluginVersion,
+} from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -55,6 +61,16 @@ export function Account() {
     retry: false,
   });
 
+  // The logged-in user's module entitlements — public modules (e.g. the DBBox plugin) plus anything
+  // granted (e.g. the gated GWRL launcher). Drives which download panels below render at all.
+  const modulesQuery = useQuery({
+    queryKey: ['account', 'modules'],
+    queryFn: () => api.get<AccountModulesResponse>('/account/modules'),
+  });
+  const moduleByKey = (key: string) => modulesQuery.data?.modules.find((m) => m.key === key);
+  const dbbox = moduleByKey('dbbox');
+  const launcher = moduleByKey('gwrl-install');
+
   function handleRevoke(id: number) {
     if (window.confirm('Revoke this machine key? Uploads using it will stop working.')) {
       revokeMutation.mutate(id);
@@ -105,6 +121,39 @@ export function Account() {
           </a>
         </p>
       </Panel>
+
+      {dbbox && (
+        <Panel className={styles.section}>
+          <h2>{dbbox.display_name}</h2>
+          <p>
+            A GWToolbox++ plugin. Put the <code>.dll</code> in your GWToolbox++ <code>Plugins</code> folder
+            and enable it in the plugin manager.
+          </p>
+          <p>
+            <a className={styles.downloadLink} href={dbbox.download_url} download>
+              Download {dbbox.display_name}
+              {dbbox.version != null && ` (v${dbbox.version})`}
+            </a>
+          </p>
+        </Panel>
+      )}
+
+      {launcher && (
+        <Panel className={styles.section}>
+          <h2>Launcher</h2>
+          <p>
+            The ProjectPotato / GWRL launcher install archive — everything needed to run it. It syncs the
+            feature modules you're entitled to using a machine key (below). This download is tied to your
+            account.
+          </p>
+          <p>
+            <a className={styles.downloadLink} href={launcher.download_url} download>
+              Download launcher
+              {launcher.version != null && ` (v${launcher.version})`}
+            </a>
+          </p>
+        </Panel>
+      )}
 
       <Panel className={styles.section}>
         <h2>Machine keys</h2>

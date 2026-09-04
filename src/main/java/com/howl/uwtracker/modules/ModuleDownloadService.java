@@ -13,11 +13,15 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.function.Predicate;
+
 /**
- * Resolves a {@code GET /modules/{key}/download} request to an open {@link ReadableArtifact},
- * enforcing entitlement first. Public modules (including the metadata-only {@code sctracker} row,
- * though its real download route is {@code /SCTracker.dll}) skip the key check; every other module
- * requires an {@code X-Machine-Key} whose person holds a grant.
+ * Resolves a module-download request to an open {@link ReadableArtifact}, enforcing entitlement
+ * first. Public modules (including the metadata-only {@code sctracker} row, though its real download
+ * route is {@code /SCTracker.dll}) skip the entitlement check; every other module requires a grant —
+ * for {@code GET /modules/{key}/download} the grant is checked against an {@code X-Machine-Key}'s
+ * person ({@link #open}), for {@code GET /api/account/modules/{key}/download} against the logged-in
+ * person ({@link #openForPerson}).
  *
  * <p>Bytes stream straight from the bucket per call — nothing is cached in memory — so a revoke
  * takes effect on the very next request.
@@ -47,16 +51,26 @@ public class ModuleDownloadService {
     public record ModuleDownload(Module module, ReadableArtifact artifact) {
     }
 
+    /** Machine-key path: a non-public module needs an {@code X-Machine-Key} (401) whose person holds a grant (403). */
     public ModuleDownload open(String moduleKey, String rawMachineKey) {
+        return open(moduleKey, module -> {
+            Person person = machineKeyAuth.authenticateWithoutVersionCheck(rawMachineKey); // 401
+            return grantRepository.existsByIdPersonIdAndIdModuleId(person.getId(), module.getId());
+        });
+    }
+
+    /** Session path: a non-public module needs the logged-in person to hold a grant (403 otherwise). */
+    public ModuleDownload openForPerson(String moduleKey, Long personId) {
+        return open(moduleKey, module -> grantRepository.existsByIdPersonIdAndIdModuleId(personId, module.getId()));
+    }
+
+    private ModuleDownload open(String moduleKey, Predicate<Module> entitled) {
         Module module = moduleRepository.findByModuleKey(moduleKey)
                 .filter(Module::isEnabled)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "unknown module"));
 
-        if (!module.isPublicAccess()) {
-            Person person = machineKeyAuth.authenticateWithoutVersionCheck(rawMachineKey); // 401
-            if (!grantRepository.existsByIdPersonIdAndIdModuleId(person.getId(), module.getId())) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "not entitled to this module");
-            }
+        if (!module.isPublicAccess() && !entitled.test(module)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "not entitled to this module");
         }
 
         ArtifactStorageClient client = storageClient.getIfAvailable();

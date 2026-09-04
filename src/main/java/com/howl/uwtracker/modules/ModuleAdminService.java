@@ -6,6 +6,7 @@ import com.howl.uwtracker.admin.dto.CreateModuleRequest;
 import com.howl.uwtracker.admin.dto.DiscoveredModuleResponse;
 import com.howl.uwtracker.admin.dto.UpdateModuleRequest;
 import com.howl.uwtracker.domain.Module;
+import com.howl.uwtracker.domain.ModuleType;
 import com.howl.uwtracker.plugin.PluginVersionMetadata;
 import com.howl.uwtracker.repository.ModuleRepository;
 import com.howl.uwtracker.web.ApiException;
@@ -24,9 +25,9 @@ import java.util.stream.Collectors;
 
 /**
  * CRUD for the {@code modules} registry, behind {@code /api/admin/modules}, plus {@link #discover()}
- * which scans the bucket for unregistered plugin folders. {@code module_key} is validated to a
+ * which scans the bucket for unregistered artifact folders. {@code module_key} is validated to a
  * dot-free slug (safe in the {@code /modules/{key}/download} path) and is immutable once set. The
- * three seeded keys can't be deleted — disable them instead.
+ * seeded {@code sctracker} key can't be deleted — disable it instead.
  */
 @Service
 public class ModuleAdminService {
@@ -35,7 +36,21 @@ public class ModuleAdminService {
     // Only SCTracker is special: its bytes come from PluginArtifactCache / GET /SCTracker.dll, and
     // ModuleKeys.SCTRACKER / ModuleManifestResolver / ModuleMetadataService key off it.
     private static final Set<String> PROTECTED_KEYS = Set.of("sctracker");
-    private static final String PLUGINS_PREFIX = "plugins/";
+
+    /** Bucket prefixes the scan walks (each ends with {@code /}), and the module type to suggest for
+     *  finds under it — {@code plugins/} holds GWToolbox plugin DLLs, {@code launcher/} holds the
+     *  ProjectPotato / GWRL launcher's own components. */
+    private record ScanPrefix(String prefix, ModuleType suggestedType) {
+    }
+
+    private static final List<ScanPrefix> SCAN_PREFIXES = List.of(
+            new ScanPrefix("plugins/", ModuleType.PLUGIN),
+            new ScanPrefix("launcher/", ModuleType.MODULE));
+
+    /** Artifact filename extensions probed inside a discovered folder, in priority order — a plugin
+     *  is {@code <Folder>.dll}, the launcher install archive {@code <Folder>.zip}, the base exe
+     *  {@code <Folder>.exe}. */
+    private static final List<String> ARTIFACT_EXTENSIONS = List.of(".dll", ".zip", ".exe");
 
     private final ModuleRepository moduleRepository;
     private final ModuleManifestCache moduleManifestCache;
@@ -51,9 +66,11 @@ public class ModuleAdminService {
     }
 
     /**
-     * {@code plugins/<Folder>/} directories in the bucket that contain a {@code <Folder>.dll} but
-     * have no {@code modules} row yet. Empty when no bucket is configured. The admin imports one by
-     * calling {@link #create} with the returned paths (+ a display name and the public flag).
+     * {@code plugins/<Folder>/} and {@code launcher/<Folder>/} directories in the bucket that
+     * contain a recognisable artifact ({@code <Folder>.dll} / {@code .zip} / {@code .exe}) but have
+     * no {@code modules} row yet. Empty when no bucket is configured. The admin imports one by
+     * calling {@link #create} with the returned paths (+ a display name and the public flag);
+     * {@code suggestedType} follows the prefix so a {@code launcher/} find defaults to {@code module}.
      */
     @Transactional(readOnly = true)
     public List<DiscoveredModuleResponse> discover() {
@@ -66,28 +83,42 @@ public class ModuleAdminService {
                 .collect(Collectors.toSet());
 
         List<DiscoveredModuleResponse> discovered = new ArrayList<>();
-        for (String folder : client.listSubdirectories(PLUGINS_PREFIX)) {
-            String bucketPrefix = PLUGINS_PREFIX + folder;
-            if (registeredPrefixes.contains(bucketPrefix)) {
-                continue;
+        for (ScanPrefix scan : SCAN_PREFIXES) {
+            for (String folder : client.listSubdirectories(scan.prefix())) {
+                String bucketPrefix = scan.prefix() + folder;
+                if (registeredPrefixes.contains(bucketPrefix)) {
+                    continue;
+                }
+                String artifactObject = findArtifactObject(client, bucketPrefix, folder);
+                if (artifactObject == null) {
+                    continue; // a stray directory, no recognisable artifact
+                }
+                String manifestObject = bucketPrefix + "/" + folder + ".version.json";
+                boolean hasManifest = client.objectExists(manifestObject);
+                discovered.add(new DiscoveredModuleResponse(
+                        folder,
+                        slugify(folder),
+                        hasManifest ? manifestName(client, manifestObject, folder) : folder,
+                        scan.suggestedType(),
+                        bucketPrefix,
+                        artifactObject,
+                        hasManifest ? manifestObject : null,
+                        hasManifest));
             }
-            String artifactObject = folder + ".dll";
-            if (!client.objectExists(bucketPrefix + "/" + artifactObject)) {
-                continue; // a stray directory, not a module
-            }
-            String manifestObject = bucketPrefix + "/" + folder + ".version.json";
-            boolean hasManifest = client.objectExists(manifestObject);
-            discovered.add(new DiscoveredModuleResponse(
-                    folder,
-                    slugify(folder),
-                    hasManifest ? manifestName(client, manifestObject, folder) : folder,
-                    bucketPrefix,
-                    artifactObject,
-                    hasManifest ? manifestObject : null,
-                    hasManifest));
         }
         discovered.sort(Comparator.comparing(DiscoveredModuleResponse::folderName, String.CASE_INSENSITIVE_ORDER));
         return discovered;
+    }
+
+    /** First of {@code <folder>.dll} / {@code .zip} / {@code .exe} that exists under {@code bucketPrefix}, or null. */
+    private static String findArtifactObject(ArtifactStorageClient client, String bucketPrefix, String folder) {
+        for (String ext : ARTIFACT_EXTENSIONS) {
+            String candidate = folder + ext;
+            if (client.objectExists(bucketPrefix + "/" + candidate)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)

@@ -1,15 +1,20 @@
 package com.howl.uwtracker.admin.dto;
 
+import com.howl.uwtracker.domain.ModuleType;
+
 /**
- * A {@code plugins/<Folder>/} directory found in the storage bucket that has a {@code <Folder>.dll}
- * but no {@code modules} row yet — a candidate for {@code POST /api/admin/modules}. The frontend
- * pre-fills the create form from these fields; the admin still picks the display name and, crucially,
- * whether it's public (nothing in the bucket says).
+ * A {@code <prefix>/<Folder>/} directory found in the storage bucket that has a recognisable
+ * artifact ({@code <Folder>.dll} / {@code .zip} / {@code .exe}) but no {@code modules} row yet — a
+ * candidate for {@code POST /api/admin/modules}. The frontend pre-fills the create form from these
+ * fields; the admin still picks the display name and, crucially, whether it's public (nothing in the
+ * bucket says). {@code suggestedType} follows the prefix the folder sits under — {@code plugin} for
+ * {@code plugins/}, {@code module} for {@code launcher/}.
  */
 public record DiscoveredModuleResponse(
         String folderName,
         String suggestedKey,
         String suggestedDisplayName,
+        ModuleType suggestedType,
         String bucketPrefix,
         String artifactObject,
         String manifestObject,

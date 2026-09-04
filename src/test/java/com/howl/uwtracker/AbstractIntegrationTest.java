@@ -169,6 +169,7 @@ public abstract class AbstractIntegrationTest {
         moduleManifestCache.clear();
         FakePluginStorageConfig.PLUGIN_FOLDERS.clear();
         FakePluginStorageConfig.EMPTY_DIRS.clear();
+        FakePluginStorageConfig.LAUNCHER_FOLDERS.clear();
     }
 
     /**
