@@ -15,6 +15,27 @@
   opacity: 0.75;
 }
 
+/* Inline badges next to a panel heading marking whether a download is needed. */
+.requiredTag,
+.optionalTag {
+  font-family: var(--gw-font-display);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--gw-border-gold);
+  vertical-align: middle;
+}
+
+.requiredTag {
+  background: var(--gw-border-gold);
+  color: var(--gw-panel-dark);
+}
+
+.optionalTag {
+  opacity: 0.7;
+}
+
 /* A filled button; color/text-decoration forced past Panel.module.css's `.panel a` rule (which
    would otherwise tint the label dark-on-dark until :hover). */
 .downloadLink {
