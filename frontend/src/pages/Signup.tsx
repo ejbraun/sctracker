@@ -20,8 +20,12 @@ export function Signup() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
+  // An admin-shared invite link (/signup?invite=<token>) carries the signup key in the URL — hide
+  // the manual field and submit the token instead. Plain /signup (or an empty invite=) is unchanged.
+  const invite = searchParams.get('invite') || null;
+
   const mutation = useMutation({
-    mutationFn: () => api.post<Person>('/signup', { username, password, signup_key: signupKey }),
+    mutationFn: () => api.post<Person>('/signup', { username, password, signup_key: invite ?? signupKey }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['account', 'me'] });
       navigate(searchParams.get('redirect') ?? '/');
@@ -60,10 +64,14 @@ export function Signup() {
             Confirm password
             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
           </label>
-          <label>
-            Signup key
-            <input value={signupKey} onChange={(e) => setSignupKey(e.target.value)} required />
-          </label>
+          {invite ? (
+            <p>Signing up with an invite link.</p>
+          ) : (
+            <label>
+              Signup key
+              <input value={signupKey} onChange={(e) => setSignupKey(e.target.value)} required />
+            </label>
+          )}
           <button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? 'Signing up…' : 'Sign up'}
           </button>

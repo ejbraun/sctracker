@@ -4,12 +4,15 @@ import com.howl.uwtracker.domain.Person;
 import com.howl.uwtracker.domain.SignupKey;
 import com.howl.uwtracker.repository.PersonRepository;
 import com.howl.uwtracker.repository.SignupKeyRepository;
+import com.howl.uwtracker.repository.SignupLinkRepository;
 import com.howl.uwtracker.web.ApiException;
 import com.howl.uwtracker.web.MachineKeyHasher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -19,19 +22,29 @@ public class AuthService {
 
     private final PersonRepository personRepository;
     private final SignupKeyRepository signupKeyRepository;
+    private final SignupLinkRepository signupLinkRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthService(PersonRepository personRepository, SignupKeyRepository signupKeyRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(PersonRepository personRepository, SignupKeyRepository signupKeyRepository,
+                        SignupLinkRepository signupLinkRepository, PasswordEncoder passwordEncoder) {
         this.personRepository = personRepository;
         this.signupKeyRepository = signupKeyRepository;
+        this.signupLinkRepository = signupLinkRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     /**
-     * Signup is invite-gated: a single-use key, hashed the same way machine keys are
-     * ({@link MachineKeyHasher}) since it's a high-entropy generated secret rather than a
-     * user-chosen password. {@code @Transactional} so a failure between creating the person and
-     * marking the key used can't leave one without the other.
+     * Signup is invite-gated. The {@code signupKey} field accepts either flavour of invite, hashed
+     * the same way machine keys are ({@link MachineKeyHasher} — a high-entropy generated secret, not
+     * a user-chosen password):
+     * <ul>
+     *   <li>a single-use {@link SignupKey} (marked used + linked to the new person), or</li>
+     *   <li>a multi-use {@code signup_links} token — redeemed by an atomic
+     *       {@code use_count = use_count + 1 WHERE use_count < max_uses AND revoked_at IS NULL}, so
+     *       an N-use link can't be pushed past N by concurrent signups.</li>
+     * </ul>
+     * Both misses collapse to the same generic {@code 400}. {@code @Transactional} so a later
+     * failure (e.g. a username race) rolls back the person insert <em>and</em> the redemption.
      */
     @Transactional
     public Person signup(String username, String password, String signupKey) {
@@ -47,12 +60,20 @@ public class AuthService {
         if (personRepository.existsByUsername(username)) {
             throw new ApiException(HttpStatus.CONFLICT, "username taken");
         }
-        SignupKey key = signupKeyRepository.findByKeyHashAndUsedAtIsNull(MachineKeyHasher.hash(signupKey))
-                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "invalid or already-used signup key"));
 
-        Person person = personRepository.save(new Person(username, passwordEncoder.encode(password)));
-        key.markUsed(person);
-        signupKeyRepository.save(key);
+        String hash = MachineKeyHasher.hash(signupKey);
+        Optional<SignupKey> singleUseKey = signupKeyRepository.findByKeyHashAndUsedAtIsNull(hash);
+
+        Person person;
+        if (singleUseKey.isPresent()) {
+            person = personRepository.save(new Person(username, passwordEncoder.encode(password)));
+            singleUseKey.get().markUsed(person);
+            signupKeyRepository.save(singleUseKey.get());
+        } else if (signupLinkRepository.tryClaim(hash) == 1) {
+            person = personRepository.save(new Person(username, passwordEncoder.encode(password)));
+        } else {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "invalid or already-used signup key");
+        }
         return person;
     }
 

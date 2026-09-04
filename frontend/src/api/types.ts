@@ -110,6 +110,31 @@ export interface WipeUnregisteredRunsResult {
 }
 
 /**
+ * Row of the admin "Signup Links" table — GET /api/admin/signup-links (specs/backend/03-auth.md).
+ * Never carries the token. Status is derived: revoked_at set → revoked; else use_count >= max_uses
+ * → used up; else active.
+ */
+export interface SignupLink {
+  id: number;
+  label: string | null;
+  max_uses: number;
+  use_count: number;
+  created_at: string;
+  revoked_at: string | null;
+}
+
+/**
+ * POST /api/admin/signup-links — the raw token is returned exactly once. The shareable URL is built
+ * client-side as `${window.location.origin}/signup?invite=${token}`.
+ */
+export interface GeneratedSignupLink {
+  id: number;
+  token: string;
+  label: string | null;
+  max_uses: number;
+}
+
+/**
  * GET /plugin-version — top-level, not under /api (see PluginVersionController), so it's fetched
  * directly rather than through the /api-prefixed api client. Same shape the plugin itself checks
  * against on load.
