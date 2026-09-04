@@ -26,6 +26,11 @@ public class UploadRunService {
 
     private static final Logger log = LoggerFactory.getLogger(UploadRunService.class);
 
+    // GWCA's MapID::Domain_of_Anguish. The plugin's own 8-real-player gate is DoA's pug filter
+    // (see 051-seed-domain-of-anguish.xml) — unlike UW/FoW there's no guild-registration signal to
+    // require, so the registered-character floor below is skipped entirely for this map.
+    private static final int DOMAIN_OF_ANGUISH_MAP_ID = 474;
+
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final MapConfigRepository mapConfigRepository;
     private final PlayerCharacterRepository playerCharacterRepository;
@@ -94,16 +99,19 @@ public class UploadRunService {
         // A "registered character" is one with a characters row (claimed via POST /api/characters or
         // auto-claimed just above) — same lookup UploadRunWriter uses to link a participant to an
         // account. Requiring a size-scaled minimum keeps out pug/scrub groups; unregistered slots
-        // are still allowed, just not a majority of the party.
-        int minRegistered = minRegisteredFor(size);
-        long registeredCount = members.stream()
-                .filter(m -> playerCharacterRepository.existsByCharacterName(m.name()))
-                .count();
-        if (registeredCount < minRegistered) {
-            log.warn("rejecting upload: only {} of {} party members are registered characters (personId={}, mapId={})",
-                    registeredCount, size, uploader.getId(), party.mapId());
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "at least " + minRegistered + " party members must be registered characters");
+        // are still allowed, just not a majority of the party. Domain of Anguish is exempt — see
+        // DOMAIN_OF_ANGUISH_MAP_ID above.
+        if (party.mapId() != DOMAIN_OF_ANGUISH_MAP_ID) {
+            int minRegistered = minRegisteredFor(size);
+            long registeredCount = members.stream()
+                    .filter(m -> playerCharacterRepository.existsByCharacterName(m.name()))
+                    .count();
+            if (registeredCount < minRegistered) {
+                log.warn("rejecting upload: only {} of {} party members are registered characters (personId={}, mapId={})",
+                        registeredCount, size, uploader.getId(), party.mapId());
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "at least " + minRegistered + " party members must be registered characters");
+            }
         }
 
         if (request.objective() == null) {

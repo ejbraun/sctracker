@@ -109,10 +109,12 @@ class DomainOfAnguishUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsAnEightManDoaUploadWithTooFewRegisteredCharacters() throws Exception {
-        // minRegisteredFor(8) = 4; register only 3.
-        String key = issueMachineKey("DoA Runner 0", "DoA Runner 1", "DoA Runner 2");
-        upload(key, request(UTC_START_SECONDS, eight()), 400);
-        assertThat(runRepository.findAll()).isEmpty();
+    void allowsAnEightManDoaUploadWithNoRegisteredCharactersOtherThanTheUploader() throws Exception {
+        // DoA has no registered-character floor — the plugin's own 8-real-player gate is its pug
+        // filter (see 051-seed-domain-of-anguish.xml), so a run uploads even with only the uploader
+        // themselves registered.
+        String key = issueMachineKey("DoA Runner 0");
+        upload(key, request(UTC_START_SECONDS, eight()), 200);
+        assertThat(runRepository.findAll()).hasSize(1);
     }
 }
