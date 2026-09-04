@@ -45,9 +45,9 @@ export function Characters() {
       <h1>Characters</h1>
       <Panel>
         <p>
-          You don't need to add your own character here — running an up-to-date plugin with a
-          valid machine key registers it automatically the first time you upload a run. Use this
-          form for anything else: an alt you also play, or registering ahead of time.
+          You should only need to add a character here if you're not running the plugin —
+          otherwise it's registered automatically the first time you upload a run with an
+          up-to-date plugin and a valid machine key.
         </p>
 
         <ErrorBanner error={addMutation.error ?? removeMutation.error} />
