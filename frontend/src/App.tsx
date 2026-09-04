@@ -18,6 +18,7 @@ import { RunDetail } from './pages/RunDetail';
 import { AdminUsers } from './pages/AdminUsers';
 import { AdminRuns } from './pages/AdminRuns';
 import { AdminModules } from './pages/AdminModules';
+import { AdminSignupLinks } from './pages/AdminSignupLinks';
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ export default function App() {
                   <Route path="/admin/users" element={<AdminUsers />} />
                   <Route path="/admin/runs" element={<AdminRuns />} />
                   <Route path="/admin/modules" element={<AdminModules />} />
+                  <Route path="/admin/signup-links" element={<AdminSignupLinks />} />
                 </Route>
               </Route>
             </Route>

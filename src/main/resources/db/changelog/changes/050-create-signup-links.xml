@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Admin-minted, multi-use invite for POST /api/signup — an alternative to the single-use
+         signup_keys row. One link absorbs up to max_uses signups (default 10, set at creation);
+         redemption is an atomic "use_count = use_count + 1 WHERE use_count < max_uses AND
+         revoked_at IS NULL" so 11 people can't slip through a 10-use link. Soft-revocable like
+         machine_keys. Count only — no per-redeemer record. Only SHA-256(token) hex is stored, so a
+         DB dump can't reconstruct a shareable link. See specs/backend/03-auth.md. -->
+    <changeSet id="050-create-signup-links" author="uwtracker">
+        <createTable tableName="signup_links">
+            <column name="id" type="BIGINT UNSIGNED" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="token_hash" type="CHAR(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_signup_links_token_hash"/>
+            </column>
+            <column name="label" type="VARCHAR(64)"/>
+            <column name="max_uses" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="use_count" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by_person_id" type="BIGINT UNSIGNED"/>
+            <column name="created_at" type="DATETIME(6)" defaultValueComputed="CURRENT_TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="revoked_at" type="DATETIME(6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="signup_links" baseColumnNames="created_by_person_id"
+                                  constraintName="fk_signup_links_created_by"
+                                  referencedTableName="people" referencedColumnNames="id"
+                                  onDelete="SET NULL"/>
+    </changeSet>
+
+</databaseChangeLog>

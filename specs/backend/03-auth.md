@@ -9,10 +9,14 @@ Add `spring-security-crypto` to `pom.xml` (just the crypto module, not `spring-b
 ## Endpoints
 
 ### `POST /api/signup`
-Request: `{ "username": "string", "password": "string" }`
+Request: `{ "username": "string", "password": "string", "signup_key": "string" }`
 - `username` unique (case-sensitive exact match against `people.username`) → `409 { "error": "username taken" }` if not.
 - `password` minimum 8 characters (default; adjust if the team wants a different bar) → `400` otherwise.
-- On success: hash with `BCryptPasswordEncoder`, insert into `people`, start a session (see below), `201 { "id": 1, "username": "..." }`.
+- `signup_key` — signup is invite-gated. The field accepts **either** flavour of invite (both are high-entropy generated secrets, stored only as `SHA-256(raw)` hex, so a DB dump can't reconstruct one):
+  - a **single-use** `signup_keys` row (seeded by migration or minted out-of-band), consumed by setting `used_at` + `used_by_person_id`; or
+  - a **multi-use** `signup_links` token (admin-minted, below), redeemed by an atomic `UPDATE signup_links SET use_count = use_count + 1 WHERE token_hash = ? AND revoked_at IS NULL AND use_count < max_uses` — the `use_count < max_uses` guard is what stops an N-use link letting N+1 people through under concurrency.
+  - The redemption path tries the single-use key first, then the link. Missing/blank → `400 { "error": "signup key required" }`; unknown / already-used / revoked / exhausted → `400 { "error": "invalid or already-used signup key" }` (deliberately one message — doesn't distinguish the cases).
+- On success: hash the password with `BCryptPasswordEncoder`, insert into `people`, redeem the invite, start a session (see below), `201 { "id": 1, "username": "..." }`. The whole thing is one transaction — a later failure rolls back the person insert *and* the redemption.
 
 ### `POST /api/login`
 Request: `{ "username": "string", "password": "string" }`
@@ -64,3 +68,19 @@ Request: `{ "label": "string (optional)" }`
 ### `DELETE /api/account/machine-keys/{id}`
 - Must belong to the requester (`machine_keys.person_id == session personId`), else `403`. Not found → `404`.
 - Sets `revoked_at = NOW()` (soft revoke, not a hard delete — preserves the audit trail for past uploads). `204`.
+
+## Signup links (admin)
+
+`/api/admin/signup-links`, gated by `AdminAuthInterceptor` (401 no session, 403 not an admin). A signup link is the multi-use alternative to a single-use `signup_keys` row — one shareable URL an admin hands out instead of DMing each new member a key. `signup_links` columns: `token_hash CHAR(64)` (unique), `label` (nullable), `max_uses`, `use_count` (default 0), `created_by_person_id` (FK → `people`, `ON DELETE SET NULL`), `created_at`, `revoked_at`. Count only — no per-redeemer record, no time expiry.
+
+### `POST /api/admin/signup-links`
+Request: `{ "label": "string (optional)", "max_uses": 10 }` — `max_uses` optional, defaults to 10, bound 1–100 (`400` otherwise); `label` ≤ 64 chars.
+- Generate 32 random bytes (`SecureRandom`), base64url-encode → the raw token (`MachineKeyHasher`, same as machine keys). Store `SHA-256(token)` hex in `token_hash`, `created_by_person_id` from `@CurrentPersonId`.
+- Response (raw token shown **exactly once**, never retrievable again): `201 { "id": 1, "token": "<raw token>", "label": "...", "max_uses": 10 }`. The frontend builds the shareable URL as `<origin>/signup?invite=<token>`.
+
+### `GET /api/admin/signup-links`
+- `200 [ { "id": 1, "label": "...", "max_uses": 10, "use_count": 3, "created_at": "...", "revoked_at": null }, ... ]`, newest first — never the token or its hash.
+
+### `DELETE /api/admin/signup-links/{id}`
+- Not found → `404 { "error": "signup link not found" }`.
+- Sets `revoked_at = NOW()` (soft revoke — a revoked link stops redeeming but stays in the list). `204`.
