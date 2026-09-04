@@ -1,8 +1,8 @@
 # 08 — Module entitlements & artifact hosting
 
-gwsctracker hosts and gates the **GWToolbox++ plugin** DLLs that the **ProjectPotato (PP) / GWRL**
-launcher (a separate C#/.NET app) manages for a user — a user can download one only if an admin
-granted it — plus the launcher's own components (`gwrl-install` install archive, `gwrl-base`
+gwsctracker hosts and gates the **GWToolbox++ plugin** DLLs that the **GW Launcher Reforged
+(GWRL)** launcher (a separate C#/.NET app) manages for a user — a user can download one only if an
+admin granted it — plus the launcher's own components (`gwrl-install` install archive, `gwrl-base`
 self-update payload, `gwrl-<module>` feature modules), all `type: module`. GWToolbox plugins live
 under `plugins/<Name>/`; launcher components under `launcher/<Name>/` — same one-prefix-per-artifact
 rule. There are no hardcoded keys — modules are registered through the admin API, or discovered (see
@@ -42,12 +42,12 @@ All top-level (not under `/api/**`), per the plugin-facing convention in [00-ove
 |---|---|---|
 | `GET /artifacts` | none | Public list of every enabled module: `{ artifacts: [{ key, display_name, is_public, version, compiled_at, sha256, download_url }] }`. `download_url` is app-relative — `/SCTracker.dll` for `sctracker`, `/modules/{key}/download` otherwise. Models `GET /plugin-version`. |
 | `GET /modules/{key}/download` | `X-Machine-Key` **iff** the module is not public | 404 unknown/disabled; for a gated module 401 (missing/invalid/revoked key) then 403 (key without a grant); 200 streams the bytes from the bucket (`Content-Disposition: attachment`, `ETag` = `current_sha256` when known, `Cache-Control: no-cache`), 503 if the object is unavailable or over `plugin.storage.max-module-download-bytes` (default 64 MiB). No caching — a revoke bites on the next request. |
-| `GET /module-entitlements` | `X-Machine-Key` | PP polls this on start/update. Returns every enabled module that is public or granted to the key's person: `{ modules: [{ key, display_name, type, is_public, version, sha256, download_url }] }`. Closest sibling: `GET /can-report-run-failure`. |
+| `GET /module-entitlements` | `X-Machine-Key` | GWRL polls this on start/update. Returns every enabled module that is public or granted to the key's person: `{ modules: [{ key, display_name, type, is_public, version, sha256, download_url }] }`. Closest sibling: `GET /can-report-run-failure`. |
 
 `MachineKeyAuthenticationService.authenticateWithoutVersionCheck` is the auth used by the gated
-download and the edge endpoint: key-only, **no** `recordPluginSeen` (PP sends no
+download and the edge endpoint: key-only, **no** `recordPluginSeen` (GWRL sends no
 `X-Plugin-Version`; stamping null would corrupt the "Players On An Outdated Plugin" signal) and
-**no** `requireCurrentVersion` (PP versions independently of SCTracker and must never hit its 426
+**no** `requireCurrentVersion` (GWRL versions independently of SCTracker and must never hit its 426
 gate).
 
 ## Account API (`/api/account/**`, session auth)

@@ -1,7 +1,7 @@
-# ProjectPotato ↔ gwsctracker integration
+# GW Launcher Reforged ↔ gwsctracker integration
 
-How the **ProjectPotato (PP)** launcher talks to **gwsctracker** to learn which **GWToolbox++
-plugins** a user is entitled to and to download them.
+How the **GW Launcher Reforged (GWRL)** launcher talks to **gwsctracker** to learn which
+**GWToolbox++ plugins** a user is entitled to and to download them.
 
 > **Scope:** the gated Toolbox plugins (`type: "plugin"`) **and** the launcher's own components
 > (`type: "module"`) — see §7. gwsctracker hosts both.
@@ -13,7 +13,7 @@ plugins** a user is entitled to and to download them.
 - **Contract stability:** these endpoints are top-level (not under `/api/`), the same convention
   the GW1 SDK plugin already relies on — treated as a stable external contract.
 
-PP is configured with the base URL and the user's **machine key**.
+GWRL is configured with the base URL and the user's **machine key**.
 
 ---
 
@@ -21,19 +21,19 @@ PP is configured with the base URL and the user's **machine key**.
 
 | Piece | Owner | Notes |
 |---|---|---|
-| **Machine key** | gwsctracker | The user generates one on their gwsctracker **Account** page and pastes it into PP's config. It maps to their **account** (a user may hold several). PP sends it as the `X-Machine-Key` header. Revoking it on the Account page cuts PP off. |
-| **Module** | gwsctracker registry | The registry's noun for one downloadable artifact — for PP's purposes, a GWToolbox++ plugin DLL. Identified by a lowercase-slug `key` (`^[a-z0-9][a-z0-9-]{0,63}$`) an admin assigns at registration (e.g. `sctracker`, `pp-vanquish`). These plugins are **gated** — a user sees one only if an admin granted it. |
-| **`type`** | gwsctracker registry | Each module is `type: "plugin"` (a GWToolbox++ plugin DLL, loaded by the toolbox) or `type: "module"` (a launcher component, loaded by PP itself — `gwrl-install`, `gwrl-base`, `gwrl-<feature>`). Every response entry carries it, and both list endpoints take an optional `?type=plugin` / `?type=module` filter so each consumer fetches only its kind. |
-| **Entitlement** | gwsctracker admin | Per `(user, module)` grant, managed from the admin **User Management** page. Checked **live** on every call, so a grant or revoke takes effect on PP's next request — no caching, no propagation delay. |
-| **Artifact bytes** | private GCS bucket | gwsctracker proxies them; PP never talks to GCS directly. Plugin DLLs are published under `plugins/<Name>/` — see §5. |
+| **Machine key** | gwsctracker | The user generates one on their gwsctracker **Account** page and pastes it into GWRL's config. It maps to their **account** (a user may hold several). GWRL sends it as the `X-Machine-Key` header. Revoking it on the Account page cuts GWRL off. |
+| **Module** | gwsctracker registry | The registry's noun for one downloadable artifact — for GWRL's purposes, a GWToolbox++ plugin DLL. Identified by a lowercase-slug `key` (`^[a-z0-9][a-z0-9-]{0,63}$`) an admin assigns at registration (e.g. `sctracker`, `pp-vanquish`). These plugins are **gated** — a user sees one only if an admin granted it. |
+| **`type`** | gwsctracker registry | Each module is `type: "plugin"` (a GWToolbox++ plugin DLL, loaded by the toolbox) or `type: "module"` (a launcher component, loaded by GWRL itself — `gwrl-install`, `gwrl-base`, `gwrl-<feature>`). Every response entry carries it, and both list endpoints take an optional `?type=plugin` / `?type=module` filter so each consumer fetches only its kind. |
+| **Entitlement** | gwsctracker admin | Per `(user, module)` grant, managed from the admin **User Management** page. Checked **live** on every call, so a grant or revoke takes effect on GWRL's next request — no caching, no propagation delay. |
+| **Artifact bytes** | private GCS bucket | gwsctracker proxies them; GWRL never talks to GCS directly. Plugin DLLs are published under `plugins/<Name>/` — see §5. |
 
-There is **no plugin-version gate** on these endpoints. PP versions independently of the GW1
+There is **no plugin-version gate** on these endpoints. GWRL versions independently of the GW1
 SCTracker plugin; a missing or stale `X-Plugin-Version` header is ignored here (it will never
 get a `426`).
 
 ---
 
-## 2. Endpoints PP calls
+## 2. Endpoints GWRL calls
 
 ### `GET /module-entitlements` — what this user may use
 
@@ -44,7 +44,7 @@ GET /module-entitlements[?type=plugin|module]
 X-Machine-Key: <the user's key>
 ```
 
-| Status | Meaning | PP should… |
+| Status | Meaning | GWRL should… |
 |---|---|---|
 | `200` | authenticated | use the returned module list (below) |
 | `401` | key missing, blank, unknown, or revoked | deny — show "invalid or revoked key, check your gwsctracker Account page", do not load any gated module |
@@ -70,8 +70,8 @@ X-Machine-Key: <the user's key>
 - `?type=plugin` returns only the toolbox plugins the user is entitled to; `?type=module` only the
   launcher modules; no param returns both. Each entry also carries `type` so you can route locally.
 - The list is **the complete set** the user is entitled to right now: every gated module granted
-  to them (plus any `is_public` modules, which for PP's purposes is usually none). A module that
-  was granted and later **revoked** simply stops appearing — PP should treat "not in the list" as
+  to them (plus any `is_public` modules, which for GWRL's purposes is usually none). A module that
+  was granted and later **revoked** simply stops appearing — GWRL should treat "not in the list" as
   "remove it / stop loading it".
 - `version` is an integer, `null` until gwsctracker has seen the artifact's manifest at least
   once. `sha256` is the hex digest of the artifact bytes (also `null` until first seen).
@@ -121,7 +121,7 @@ It does **not** tell you which gated modules a given user may use — that's `/m
 
 ---
 
-## 3. Recommended PP client flow
+## 3. Recommended GWRL client flow
 
 **On launch / "check for updates" (key required):**
 1. `GET /module-entitlements?type=plugin` with `X-Machine-Key` (and `?type=module` for the
@@ -135,7 +135,7 @@ It does **not** tell you which gated modules a given user may use — that's `/m
 4. Load the modules that are present and current.
 
 **Entitlement is re-checked server-side on every `/module-entitlements` and every
-`/modules/{key}/download`**, so PP doesn't need its own expiry logic — just re-run step 1 on the
+`/modules/{key}/download`**, so GWRL doesn't need its own expiry logic — just re-run step 1 on the
 cadence you want revocations to take effect (launch, and/or a periodic check).
 
 ---
@@ -225,16 +225,16 @@ Then: **User Management** → expand the user → **Modules** → **Grant**. Rev
 
 The launcher's own artifacts are hosted here too, all `type: "module"`, under `launcher/<Name>/`
 (same one-prefix-per-artifact rule as `plugins/<Name>/`, same integer `*.version.json` scheme as
-§5 — one sidecar manifest per artifact). Fixed keys PP is compiled to look for:
+§5 — one sidecar manifest per artifact). Fixed keys GWRL is compiled to look for:
 
 | Key | What | Access |
 |---|---|---|
-| `gwrl-install` | Full install archive — everything needed to run the launcher. | **Gated.** The user gets it from their gwsctracker **Account** page once an admin grants it (a session-authed `GET /api/account/modules/{key}/download`, since a browser link can't send `X-Machine-Key`). Not part of PP's own sync loop. |
+| `gwrl-install` | Full install archive — everything needed to run the launcher. | **Gated.** The user gets it from their gwsctracker **Account** page once an admin grants it (a session-authed `GET /api/account/modules/{key}/download`, since a browser link can't send `X-Machine-Key`). Not part of GWRL's own sync loop. |
 | `gwrl-base` | Launcher self-update payload. | Grant as needed. |
 | `gwrl-<feature>` | Individual launcher feature modules, versioned independently. | Grant per user. |
 
-Once running, PP syncs `gwrl-base` / `gwrl-<feature>` with the same machine-key flow as the Toolbox
+Once running, GWRL syncs `gwrl-base` / `gwrl-<feature>` with the same machine-key flow as the Toolbox
 plugins — `GET /module-entitlements?type=module` on launch / on demand, then
 `GET module.download_url` per entry. `download_url` is app-relative and comes from the response
 (`/modules/{key}/download`); never hardcode it. Entitlement is re-checked server-side per call, so a
-revoke drops the component on PP's next sync.
+revoke drops the component on GWRL's next sync.

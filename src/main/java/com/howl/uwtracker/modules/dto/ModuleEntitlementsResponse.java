@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Body of {@code GET /module-entitlements}: every module the calling machine key's person may use —
- * the public ones plus whatever's been granted. PP enables/downloads exactly this set. Narrow it
+ * the public ones plus whatever's been granted. GWRL enables/downloads exactly this set. Narrow it
  * with {@code ?type=plugin} / {@code ?type=module}.
  */
 public record ModuleEntitlementsResponse(List<Entry> modules) {

@@ -50,11 +50,11 @@ class ModuleSchemaIntegrationTest extends AbstractIntegrationTest {
         });
         assertThat(moduleRepository.existsByModuleKey("nope")).isFalse();
 
-        Module launcher = moduleRepository.save(new Module("pp-launcher", "Launcher module", true,
-                "plugins/PP", "PP.exe", null, null, 0));
+        Module launcher = moduleRepository.save(new Module("gwrl-base", "Launcher component", true,
+                "launcher/gwrl-base", "gwrl-base.exe", null, null, 0));
         launcher.setType(ModuleType.MODULE);
         moduleRepository.save(launcher);
-        assertThat(moduleRepository.findByModuleKey("pp-launcher")).get()
+        assertThat(moduleRepository.findByModuleKey("gwrl-base")).get()
                 .extracting(Module::getType).isEqualTo(ModuleType.MODULE);
     }
 

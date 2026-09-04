@@ -184,12 +184,12 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
     void createWithTypeModuleAndPatchItBackToPlugin() throws Exception {
         MockHttpSession admin = adminSession();
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("pp-launcher", "PP launcher", ModuleType.MODULE, true,
-                                "plugins/PP", "PP.exe", null, null, 0))))
+                        .content(json(new CreateModuleRequest("gwrl-base", "GWRL base", ModuleType.MODULE, true,
+                                "launcher/gwrl-base", "gwrl-base.exe", null, null, 0))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("module"));
 
-        mockMvc.perform(patch("/api/admin/modules/pp-launcher").session(admin).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(patch("/api/admin/modules/gwrl-base").session(admin).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new UpdateModuleRequest(null, ModuleType.PLUGIN, null, null, null, null, null, null, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.type").value("plugin"));

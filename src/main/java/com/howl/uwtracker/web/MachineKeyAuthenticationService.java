@@ -51,11 +51,11 @@ public class MachineKeyAuthenticationService {
 
     /**
      * Key-only authentication for callers that are <em>not</em> the SCTracker plugin — currently the
-     * ProjectPotato launcher hitting {@code GET /module-entitlements} and
+     * GW Launcher Reforged (GWRL) launcher hitting {@code GET /module-entitlements} and
      * {@code GET /modules/{key}/download}. Skips both extras {@link #authenticate} does: no
-     * {@code recordPluginSeen} (PP sends no {@code X-Plugin-Version}; stamping null would corrupt the
-     * "Players On An Outdated Plugin" signal) and no
-     * {@link PluginVersionMetadataLoader#requireCurrentVersion} (PP versions independently of
+     * {@code recordPluginSeen} (GWRL sends no {@code X-Plugin-Version}; stamping null would corrupt
+     * the "Players On An Outdated Plugin" signal) and no
+     * {@link PluginVersionMetadataLoader#requireCurrentVersion} (GWRL versions independently of
      * SCTracker and must never hit its 426 gate).
      *
      * @return the fully-loaded {@link Person} the raw machine key belongs to; 401 if the key is

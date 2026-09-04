@@ -10,10 +10,11 @@ import java.util.Arrays;
  * param on {@code /artifacts} and {@code /module-entitlements}):
  *
  * <ul>
- *   <li>{@link #PLUGIN} — a GWToolbox++ plugin DLL (SCTracker, and ProjectPotato features that run
- *       inside the toolbox). Published under {@code plugins/<Name>/}.</li>
- *   <li>{@link #MODULE} — a ProjectPotato launcher module, loaded by PP itself rather than the
- *       toolbox. Where these are hosted is still open — see specs/integrations/projectpotato.md §7.</li>
+ *   <li>{@link #PLUGIN} — a GWToolbox++ plugin DLL (SCTracker, and GWRL features that run inside
+ *       the toolbox). Published under {@code plugins/<Name>/}.</li>
+ *   <li>{@link #MODULE} — a GW Launcher Reforged (GWRL) launcher component, loaded by the launcher
+ *       itself rather than the toolbox. Published under {@code launcher/<Name>/} — see
+ *       specs/integrations/gw-launcher-reforged.md §7.</li>
  * </ul>
  *
  * <p>Stored lowercase in {@code modules.type} (via {@link ModuleTypeConverter}); same string on the

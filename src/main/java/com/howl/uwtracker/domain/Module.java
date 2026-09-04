@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * One downloadable artifact gwsctracker hosts for the ProjectPotato launcher — see
+ * One downloadable artifact gwsctracker hosts for the GW Launcher Reforged (GWRL) launcher — see
  * specs/backend/08-module-entitlements.md and changeset 043-create-modules.xml.
  *
  * <p>{@code publicAccess} (column {@code is_public}) means anyone can download it; otherwise
@@ -37,7 +37,7 @@ public class Module {
     @Column(name = "display_name", nullable = false, length = 128)
     private String displayName;
 
-    // What kind of artifact this is — a GWToolbox plugin or a ProjectPotato launcher module. Lets a
+    // What kind of artifact this is — a GWToolbox plugin or a GWRL launcher component. Lets a
     // consumer fetch just its kind via ?type= on /artifacts and /module-entitlements.
     @Convert(converter = ModuleTypeConverter.class)
     @Column(name = "type", nullable = false, length = 16)

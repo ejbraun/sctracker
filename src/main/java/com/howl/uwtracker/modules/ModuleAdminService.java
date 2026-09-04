@@ -39,7 +39,7 @@ public class ModuleAdminService {
 
     /** Bucket prefixes the scan walks (each ends with {@code /}), and the module type to suggest for
      *  finds under it — {@code plugins/} holds GWToolbox plugin DLLs, {@code launcher/} holds the
-     *  ProjectPotato / GWRL launcher's own components. */
+     *  GW Launcher Reforged (GWRL) launcher's own components. */
     private record ScanPrefix(String prefix, ModuleType suggestedType) {
     }
 

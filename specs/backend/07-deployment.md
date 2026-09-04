@@ -41,7 +41,7 @@ This is the GCP-recommended pattern for Cloud Run + Cloud SQL — avoids managin
 
 ## Module artifacts (GCS bucket)
 
-The registry-driven module artifacts (SCTracker, the GWToolbox++ plugins PP manages, and the PP/GWRL launcher's own components) are hosted the same way as the bundled SCTracker plugin above — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One object-layout rule:**
+The registry-driven module artifacts (SCTracker, the GWToolbox++ plugins the GW Launcher Reforged (GWRL) launcher manages, and GWRL's own components) are hosted the same way as the bundled SCTracker plugin above — **same bucket** (`PLUGIN_STORAGE_BUCKET`), **same runtime IAM** (`roles/storage.objectViewer`), no new env var. See [08-module-entitlements](08-module-entitlements.md) for the API. **One object-layout rule:**
 
 - `plugins/<Name>/<Name>.dll` + `plugins/<Name>/<Name>.version.json` — one prefix per Toolbox plugin, e.g. `plugins/SCTracker/…`, `plugins/PP-Vanquish/…`.
 - `launcher/<Name>/<Name>.{zip,exe,dll}` + `launcher/<Name>/<Name>.version.json` — one prefix per launcher component (`type: module`), e.g. `launcher/gwrl-install/…`, `launcher/gwrl-base/…`. Published by the launcher repo's own CI, same SA / IAM.

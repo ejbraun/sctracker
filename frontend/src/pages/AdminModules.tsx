@@ -10,8 +10,9 @@ const DISCOVER_KEY = ['admin', 'modules', 'discover'] as const;
 
 /**
  * Admin-only — gated by AdminRoute. Manages the `modules` registry: the artifacts gwsctracker
- * serves for the ProjectPotato launcher. Per-user access to a gated module is granted on the User
- * Management page, not here. current_* columns are read-only (filled from each artifact's manifest).
+ * serves for the GW Launcher Reforged (GWRL) launcher. Per-user access to a gated module is granted
+ * on the User Management page, not here. current_* columns are read-only (filled from each
+ * artifact's manifest).
  */
 export function AdminModules() {
   const modulesQuery = useQuery({
@@ -24,7 +25,7 @@ export function AdminModules() {
       <h1>Modules</h1>
       <Panel>
         <p>
-          The downloadable artifacts gwsctracker hosts for the ProjectPotato launcher. Public modules
+          The downloadable artifacts gwsctracker hosts for the GW Launcher Reforged (GWRL) launcher. Public modules
           download without a key; the rest are gated per user (grant access from{' '}
           <strong>User Management</strong>). <code>sctracker</code> is built in — disable it rather
           than deleting.

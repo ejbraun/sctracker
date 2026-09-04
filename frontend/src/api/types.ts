@@ -35,7 +35,7 @@ export interface AdminModule {
   id: number;
   module_key: string;
   display_name: string;
-  // 'plugin' = a GWToolbox++ plugin DLL; 'module' = a ProjectPotato launcher module.
+  // 'plugin' = a GWToolbox++ plugin DLL; 'module' = a GWRL launcher component.
   type: ModuleType;
   is_public: boolean;
   enabled: boolean;

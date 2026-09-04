@@ -142,7 +142,7 @@ export function Account() {
         <Panel className={styles.section}>
           <h2>Launcher</h2>
           <p>
-            The ProjectPotato / GWRL launcher install archive — everything needed to run it. It syncs the
+            The GW Launcher Reforged (GWRL) install archive — everything needed to run it. It syncs the
             feature modules you're entitled to using a machine key (below). This download is tied to your
             account.
           </p>
