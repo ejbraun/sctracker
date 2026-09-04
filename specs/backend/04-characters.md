@@ -13,6 +13,10 @@ Request: `{ "character_name": "string", "default_role": "string (optional)" }`
 - On success: `201 { "id": 1, "character_name": "...", "default_role": "...", "person_id": 1 }`.
 - **Retroactive backfill**: after inserting, run `UPDATE run_participants SET character_id = ? WHERE character_id IS NULL AND raw_name = ?` — links this character to any past `/upload-run` participant rows that were ingested before the character existed (backed by `idx_run_participants_raw_name` from spec 01). Recommended default so leaderboards/history immediately reflect prior runs; flagged as a judgment call since the requirements didn't specify this explicitly — the alternative is leaving historical rows unlinked until the next time that run happens to be re-uploaded (unlikely to ever happen).
 
+## Auto-registration from `/upload-run`
+
+`POST /upload-run` (spec 02, step 3) registers the uploader's own character on the fly: when `party.character_name` names a party member that no `characters` row covers yet, it's claimed for the machine key's person via `CharacterService.claimIfUnregistered` — the same insert + retroactive `run_participants` backfill as `POST /api/characters`, minus the `409`/`400` (a blank or already-claimed name is a silent no-op, and an already-claimed name is never reassigned). So a new guild member's runs count from their first upload without a separate website step.
+
 ## `DELETE /api/characters/{id}`
 - Must be owned by the requester (`characters.person_id == session personId`), else `403`. Not found → `404`.
 - Hard delete. `run_participants.character_id` referencing it is set to `NULL` automatically (`ON DELETE SET NULL`, spec 01) — historical run/leaderboard data is preserved, just unlinked from any account.

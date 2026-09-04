@@ -72,7 +72,11 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     private static UploadRunRequest request(long utcStartSeconds, List<PartyMemberDto> members) {
-        PartyDto party = new PartyDto(utcStartSeconds, FISSURE_OF_WOE_MAP_ID, "FoW Ranger", "victory", members);
+        return request(utcStartSeconds, "FoW Ranger", members);
+    }
+
+    private static UploadRunRequest request(long utcStartSeconds, String characterName, List<PartyMemberDto> members) {
+        PartyDto party = new PartyDto(utcStartSeconds, FISSURE_OF_WOE_MAP_ID, characterName, "victory", members);
         List<ObjectiveDto> objectives = List.of(
                 new ObjectiveDto("ToC", 2, 1000L, 5000L, 4000L, 0),
                 new ObjectiveDto("Restore", 2, 5000L, 9000L, 4000L, 0),
@@ -140,12 +144,19 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsASoloFowRunWhoseRunnerIsNotRegistered() throws Exception {
-        // minRegisteredFor(1) = 1 — a solo run whose one member isn't a registered character
-        // attributes to nobody, so it's rejected.
-        String key = issueMachineKey();
-        upload(key, request(UTC_START_SECONDS, party(1)), 400);
-        assertThat(runRepository.findAll()).isEmpty();
+    void autoRegistersTheSoloRunnerSoTheRunClearsTheFloor() throws Exception {
+        // minRegisteredFor(1) = 1. The runner isn't pre-registered, but party.character_name names
+        // them ("FoW Ranger"), so /upload-run auto-claims that character for the key's owner — which
+        // is what brings the run up to the floor.
+        MockHttpSession session = signup("fow-solo-runner", "password123");
+        String key = generateMachineKey(session, "GWToolboxdll");
+
+        upload(key, request(UTC_START_SECONDS, party(1)), 200);
+
+        assertThat(runRepository.findAll()).hasSize(1);
+        Long uploaderId = personRepository.findByUsername("fow-solo-runner").orElseThrow().getId();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT person_id FROM characters WHERE character_name = ?", Long.class, "FoW Ranger")).isEqualTo(uploaderId);
     }
 
     @Test
@@ -161,10 +172,12 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsADuoWithNoRegisteredCharacters() throws Exception {
-        // minRegisteredFor(2) = 1, so a duo where neither member is registered is rejected.
+    void rejectsADuoWhoseUploaderCharacterIsNotOneOfThePartyMembers() throws Exception {
+        // minRegisteredFor(2) = 1 and neither member is registered. Auto-claim only fires for a
+        // party.character_name that's actually in the party, so a name that matches nobody leaves
+        // the run below the floor — still rejected.
         String key = issueMachineKey();
-        upload(key, request(UTC_START_SECONDS, duo()), 400);
+        upload(key, request(UTC_START_SECONDS, "Some Bystander", duo()), 400);
         assertThat(runRepository.findAll()).isEmpty();
     }
 

@@ -61,7 +61,29 @@ public class CharacterService {
         if (characterRepository.existsByCharacterName(characterName)) {
             throw new ApiException(HttpStatus.CONFLICT, "character already registered");
         }
+        return CharacterResponse.from(create(personId, characterName));
+    }
 
+    /**
+     * Claims {@code characterName} for {@code personId} if no account has registered it yet — a
+     * silent no-op when the name is blank or already taken (by this person or anyone else; this
+     * never reassigns). Runs the same retroactive {@code run_participants} backfill as {@link #add}.
+     *
+     * <p>Used by {@code /upload-run} to auto-register the uploader's own character
+     * ({@code party.character_name}) on their first upload, so a new guild member's runs count
+     * without a separate website registration step. Returns whether it created a row.
+     */
+    @Transactional
+    public boolean claimIfUnregistered(Long personId, String characterName) {
+        if (characterName == null || characterName.isBlank()
+                || characterRepository.existsByCharacterName(characterName)) {
+            return false;
+        }
+        create(personId, characterName);
+        return true;
+    }
+
+    private PlayerCharacter create(Long personId, String characterName) {
         PlayerCharacter character = characterRepository.save(
                 new PlayerCharacter(personRepository.getReferenceById(personId), characterName));
 
@@ -69,7 +91,7 @@ public class CharacterService {
         // run_participants rows ingested under this raw_name before the character existed.
         runParticipantRepository.backfillCharacter(character, characterName);
 
-        return CharacterResponse.from(character);
+        return character;
     }
 
     @Transactional

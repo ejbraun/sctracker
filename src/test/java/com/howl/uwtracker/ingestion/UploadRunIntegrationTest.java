@@ -82,6 +82,23 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
         return generateMachineKey(session, "GWToolboxdll");
     }
 
+    /** Signs up {@code username}, registers each of {@code registerNames} to it, returns a machine key. */
+    private String issueMachineKeyFor(String username, List<String> registerNames) throws Exception {
+        MockHttpSession session = signup(username, "password123");
+        for (String name : registerNames) {
+            registerCharacter(session, name);
+        }
+        return generateMachineKey(session, "GWToolboxdll");
+    }
+
+    private void registerCharacter(MockHttpSession session, String characterName) throws Exception {
+        mockMvc.perform(post("/api/characters")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateCharacterRequest(characterName))))
+                .andExpect(status().isCreated());
+    }
+
     private static List<PartyMemberDto> validParty() {
         return new ArrayList<>(List.of(
                 new PartyMemberDto("T1", RANGER, ASSASSIN, true, false, false, 0, "t1", List.of(), null),
@@ -547,6 +564,63 @@ class UploadRunIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
         assertThat(runRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void autoRegistersTheUploaderCharacterWhenUnregisteredAndCountsItTowardTheFloor() throws Exception {
+        // Three of the eight pre-registered — one short of minRegisteredFor(8).
+        String key = issueMachineKeyFor("autoclaim-uploader", List.of("T1", "T2", "T3"));
+
+        List<PartyMemberDto> party = validParty();
+        // The uploader's own slot, and slots 4-7, are all unregistered names.
+        party.set(3, new PartyMemberDto("Self Ranger", MESMER, ELEMENTALIST, true, false, false, 0, null, List.of(), null));
+        party.set(4, new PartyMemberDto("UnregLT", MESMER, ASSASSIN, true, false, false, 0, null, List.of(), null));
+        party.set(5, new PartyMemberDto("UnregDerv", DERVISH, WARRIOR, true, false, false, 0, null, List.of(), null));
+        party.set(6, new PartyMemberDto("UnregSoS", RITUALIST, RANGER, true, false, false, 0, null, List.of(), null));
+        party.set(7, new PartyMemberDto("UnregEmo", ELEMENTALIST, MONK, true, false, false, 0, null, List.of(), null));
+        // party.character_name resolves to the uploader's own (unregistered) slot — auto-claimed,
+        // which is what brings the registered count up to the minimum of 4.
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, "Self Ranger", party);
+
+        mockMvc.perform(post("/upload-run")
+                        .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        Long uploaderId = personRepository.findByUsername("autoclaim-uploader").orElseThrow().getId();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM characters WHERE character_name = ?", Integer.class, "Self Ranger")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT person_id FROM characters WHERE character_name = ?", Long.class, "Self Ranger")).isEqualTo(uploaderId);
+        // The freshly-claimed character is linked on this run's participant row too.
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT rp.character_id FROM run_participants rp WHERE rp.raw_name = ?", Long.class, "Self Ranger")).isNotNull();
+    }
+
+    @Test
+    void doesNotClaimACharacterAlreadyRegisteredToAnotherAccount() throws Exception {
+        // Someone else already owns "Interloper".
+        registerCharacter(signup("interloper-owner", "password123"), "Interloper");
+        Long ownerId = personRepository.findByUsername("interloper-owner").orElseThrow().getId();
+
+        String key = issueMachineKeyFor("other-uploader", List.of("T1", "T2", "T3", "T4"));
+        List<PartyMemberDto> party = validParty();
+        party.set(5, new PartyMemberDto("Interloper", DERVISH, WARRIOR, true, false, false, 0, null, List.of(), null));
+        UploadRunRequest request = validRequest(UTC_START_SECONDS, "Interloper", party);
+
+        mockMvc.perform(post("/upload-run")
+                        .header("X-Machine-Key", key)
+                        .header("X-Plugin-Version", CURRENT_PLUGIN_VERSION)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM characters WHERE character_name = ?", Integer.class, "Interloper")).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT person_id FROM characters WHERE character_name = ?", Long.class, "Interloper")).isEqualTo(ownerId);
     }
 
     @Test

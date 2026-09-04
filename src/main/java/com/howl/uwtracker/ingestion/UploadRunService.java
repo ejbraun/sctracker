@@ -1,5 +1,6 @@
 package com.howl.uwtracker.ingestion;
 
+import com.howl.uwtracker.characters.CharacterService;
 import com.howl.uwtracker.domain.MapConfig;
 import com.howl.uwtracker.domain.MapConfigId;
 import com.howl.uwtracker.domain.Person;
@@ -14,6 +15,7 @@ import com.howl.uwtracker.web.ApiException;
 import com.howl.uwtracker.web.MachineKeyAuthenticationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -27,14 +29,17 @@ public class UploadRunService {
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final MapConfigRepository mapConfigRepository;
     private final PlayerCharacterRepository playerCharacterRepository;
+    private final CharacterService characterService;
     private final MapDedupLock mapDedupLock;
     private final UploadRunWriter writer;
 
     public UploadRunService(MachineKeyAuthenticationService machineKeyAuthenticationService, MapConfigRepository mapConfigRepository,
-                             PlayerCharacterRepository playerCharacterRepository, MapDedupLock mapDedupLock, UploadRunWriter writer) {
+                             PlayerCharacterRepository playerCharacterRepository, CharacterService characterService,
+                             MapDedupLock mapDedupLock, UploadRunWriter writer) {
         this.machineKeyAuthenticationService = machineKeyAuthenticationService;
         this.mapConfigRepository = mapConfigRepository;
         this.playerCharacterRepository = playerCharacterRepository;
+        this.characterService = characterService;
         this.mapDedupLock = mapDedupLock;
         this.writer = writer;
     }
@@ -78,8 +83,16 @@ public class UploadRunService {
                             "unsupported map/party-size combination: " + party.mapId() + "/" + size);
                 });
 
-        // A "registered character" is one with a characters row (someone's claimed it via
-        // POST /api/characters) — same lookup UploadRunWriter uses to link a participant to an
+        // Auto-claim the uploader's own character (party.character_name) the first time we see it,
+        // so a new guild member's runs count without a separate website registration step. Only
+        // their own slot, only when that name is actually in the party and unclaimed — never
+        // reassigns a name already on another account. Runs before the floor check below so the
+        // freshly-claimed character counts toward it. A machine key already belongs to a real guild
+        // member, so their own slot always counting is intended, not a hole in the pug filter.
+        maybeClaimUploaderCharacter(uploader, party, members);
+
+        // A "registered character" is one with a characters row (claimed via POST /api/characters or
+        // auto-claimed just above) — same lookup UploadRunWriter uses to link a participant to an
         // account. Requiring a size-scaled minimum keeps out pug/scrub groups; unregistered slots
         // are still allowed, just not a majority of the party.
         int minRegistered = minRegisteredFor(size);
@@ -108,5 +121,27 @@ public class UploadRunService {
 
         return mapDedupLock.withLock(party.mapId(),
                 () -> writer.ingest(party, members, roles, request.objective(), uploader.getId(), roleModel));
+    }
+
+    private void maybeClaimUploaderCharacter(Person uploader, PartyDto party, List<PartyMemberDto> members) {
+        String name = party.characterName();
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        boolean inParty = members.stream().anyMatch(m -> name.equals(m.name()));
+        if (!inParty || playerCharacterRepository.existsByCharacterName(name)) {
+            return;
+        }
+        try {
+            if (characterService.claimIfUnregistered(uploader.getId(), name)) {
+                log.info("auto-claimed uploader character '{}' for personId={} on upload (mapId={})",
+                        name, uploader.getId(), party.mapId());
+            }
+        } catch (DataIntegrityViolationException e) {
+            // A concurrent upload claimed the same name first — it's registered now either way, so
+            // the floor check below and UploadRunWriter's character link will both still see it.
+            log.debug("lost a race auto-claiming character '{}' (personId={}) — already registered",
+                    name, uploader.getId());
+        }
     }
 }
