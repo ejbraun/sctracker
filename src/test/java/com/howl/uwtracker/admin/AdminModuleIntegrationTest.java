@@ -52,12 +52,35 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].folder_name").value("PP-Vanquish"))
                 .andExpect(jsonPath("$[0].suggested_key").value("pp-vanquish"))
+                .andExpect(jsonPath("$[0].suggested_type").value("plugin"))
                 .andExpect(jsonPath("$[0].bucket_prefix").value("plugins/PP-Vanquish"))
                 .andExpect(jsonPath("$[0].artifact_object").value("PP-Vanquish.dll"))
                 .andExpect(jsonPath("$[0].manifest_object").value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
                 .andExpect(jsonPath("$[0].has_manifest").value(true))
                 // suggested display name comes from the (synthetic) manifest's name field
                 .andExpect(jsonPath("$[0].suggested_display_name").value("PP-Vanquish"));
+    }
+
+    @Test
+    void discoverFindsLauncherFoldersAsModulesWithNonDllArtifacts() throws Exception {
+        MockHttpSession admin = adminSession();
+        FakePluginStorageConfig.LAUNCHER_FOLDERS.put("gwrl-install", "gwrl-install.zip");
+        FakePluginStorageConfig.LAUNCHER_FOLDERS.put("gwrl-base", "gwrl-base.exe");
+        // Already registered — discover skips it.
+        seedModuleWithPrefix("gwrl-foo", "launcher/gwrl-foo");
+        FakePluginStorageConfig.LAUNCHER_FOLDERS.put("gwrl-foo", "gwrl-foo.dll");
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].suggested_type").value("module"))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].artifact_object").value("gwrl-install.zip"))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].bucket_prefix").value("launcher/gwrl-install"))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].manifest_object")
+                        .value("launcher/gwrl-install/gwrl-install.version.json"))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-base')].suggested_type").value("module"))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-base')].artifact_object").value("gwrl-base.exe"))
+                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-foo')]").doesNotExist());
     }
 
     @Test

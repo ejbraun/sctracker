@@ -8,8 +8,9 @@ import java.util.Optional;
 
 /**
  * The artifact registry — see specs/backend/08-module-entitlements.md. Rows are managed through the
- * admin module API (AdminModuleController); the three public rows (sctracker, pp-exe, pp-base) are
- * seeded by changeset 045.
+ * admin module API (AdminModuleController); only {@code sctracker} is seeded (changeset 045, moved
+ * to the {@code plugins/SCTracker/} layout by 046) — every other row, plugins and launcher
+ * components alike, is registered at runtime via create or Scan bucket.
  */
 public interface ModuleRepository extends JpaRepository<Module, Long> {
 

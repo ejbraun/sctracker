@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,10 +47,18 @@ public class FakePluginStorageConfig {
     /**
      * Test-settable contents of {@code gs://<bucket>/plugins/} for the bucket-discovery path.
      * {@code PLUGIN_FOLDERS} have both {@code <F>.dll} and {@code <F>.version.json}; {@code EMPTY_DIRS}
-     * are listed but have no dll. {@code AbstractIntegrationTest.cleanDatabase()} clears both.
+     * are listed but have no dll. {@code AbstractIntegrationTest.cleanDatabase()} clears all three.
      */
     public static final Set<String> PLUGIN_FOLDERS = ConcurrentHashMap.newKeySet();
     public static final Set<String> EMPTY_DIRS = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Test-settable contents of {@code gs://<bucket>/launcher/} — folder name to its artifact
+     * filename (e.g. {@code "gwrl-install" -> "gwrl-install.zip"}), each also getting a sibling
+     * {@code <folder>.version.json}. Exercises discovery's non-{@code .dll} extension probing and the
+     * {@code launcher/} → {@code type: module} suggestion.
+     */
+    public static final Map<String, String> LAUNCHER_FOLDERS = new ConcurrentHashMap<>();
 
     /** Bytes the fake store returns for any non-manifest object path. */
     public static byte[] fakeArtifactBytes(String objectPath) {
@@ -93,12 +102,15 @@ public class FakePluginStorageConfig {
 
         @Override
         public List<String> listSubdirectories(String prefix) {
-            if (!"plugins/".equals(prefix)) {
-                return List.of();
+            if ("plugins/".equals(prefix)) {
+                List<String> dirs = new ArrayList<>(PLUGIN_FOLDERS);
+                dirs.addAll(EMPTY_DIRS);
+                return dirs;
             }
-            List<String> dirs = new ArrayList<>(PLUGIN_FOLDERS);
-            dirs.addAll(EMPTY_DIRS);
-            return dirs;
+            if ("launcher/".equals(prefix)) {
+                return new ArrayList<>(LAUNCHER_FOLDERS.keySet());
+            }
+            return List.of();
         }
 
         @Override
@@ -106,6 +118,13 @@ public class FakePluginStorageConfig {
             for (String folder : PLUGIN_FOLDERS) {
                 if (objectPath.equals("plugins/" + folder + "/" + folder + ".dll")
                         || objectPath.equals("plugins/" + folder + "/" + folder + ".version.json")) {
+                    return true;
+                }
+            }
+            for (Map.Entry<String, String> entry : LAUNCHER_FOLDERS.entrySet()) {
+                String base = "launcher/" + entry.getKey() + "/";
+                if (objectPath.equals(base + entry.getValue())
+                        || objectPath.equals(base + entry.getKey() + ".version.json")) {
                     return true;
                 }
             }

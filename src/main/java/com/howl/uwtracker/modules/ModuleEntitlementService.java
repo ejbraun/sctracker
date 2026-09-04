@@ -39,7 +39,16 @@ public class ModuleEntitlementService {
     /** @param type optional filter — {@code null} returns every entitled module regardless of kind. */
     public ModuleEntitlementsResponse forMachineKey(String rawMachineKey, ModuleType type) {
         Person person = machineKeyAuth.authenticateWithoutVersionCheck(rawMachineKey); // 401
-        Set<Long> granted = grantRepository.findModuleIdsByPersonId(person.getId());
+        return forPerson(person.getId(), type);
+    }
+
+    /**
+     * Same entitlement resolution as {@link #forMachineKey}, keyed off an already-authenticated
+     * person id — the session-authenticated {@code GET /api/account/modules} path. Entitlement is a
+     * live DB read here too.
+     */
+    public ModuleEntitlementsResponse forPerson(Long personId, ModuleType type) {
+        Set<Long> granted = grantRepository.findModuleIdsByPersonId(personId);
 
         List<Entry> modules = moduleRepository.findByEnabledTrueOrderBySortOrderAscModuleKeyAsc().stream()
                 .filter(module -> module.isPublicAccess() || granted.contains(module.getId()))

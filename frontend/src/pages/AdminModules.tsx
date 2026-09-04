@@ -98,6 +98,7 @@ function DiscoverModules() {
               <th>Bucket folder</th>
               <th>Key</th>
               <th>Display name</th>
+              <th>Type</th>
               <th>Manifest</th>
               <th>Public</th>
               <th></th>
@@ -124,6 +125,7 @@ function DiscoverModules() {
 function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule; onImported: () => void }) {
   const [key, setKey] = useState(candidate.suggested_key);
   const [displayName, setDisplayName] = useState(candidate.suggested_display_name);
+  const [type, setType] = useState<ModuleType>(candidate.suggested_type);
   const [isPublic, setIsPublic] = useState(false);
 
   const importMutation = useMutation({
@@ -131,6 +133,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
       api.post<AdminModule>('/admin/modules', {
         module_key: key.trim(),
         display_name: displayName.trim(),
+        type,
         is_public: isPublic,
         bucket_prefix: candidate.bucket_prefix,
         artifact_object: candidate.artifact_object,
@@ -156,6 +159,16 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
             onChange={(e) => setDisplayName(e.target.value)}
           />
         </td>
+        <td>
+          <select
+            aria-label={`${candidate.folder_name} type`}
+            value={type}
+            onChange={(e) => setType(e.target.value as ModuleType)}
+          >
+            <option value="plugin">plugin</option>
+            <option value="module">module</option>
+          </select>
+        </td>
         <td>{candidate.has_manifest ? 'yes' : 'missing'}</td>
         <td>
           <input
@@ -176,7 +189,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
       </tr>
       {importMutation.error && (
         <tr>
-          <td colSpan={6}>
+          <td colSpan={7}>
             <ErrorBanner error={importMutation.error} />
           </td>
         </tr>

@@ -50,17 +50,40 @@ export interface AdminModule {
 }
 
 /**
- * GET /api/admin/modules/discover — a plugins/<Folder>/ directory in the bucket that has a dll but
- * no `modules` row yet. The admin picks display_name + is_public and imports via POST /admin/modules.
+ * GET /api/admin/modules/discover — a plugins/<Folder>/ or launcher/<Folder>/ directory in the
+ * bucket that has an artifact (.dll / .zip / .exe) but no `modules` row yet. suggested_type follows
+ * the prefix ('plugin' under plugins/, 'module' under launcher/); the admin can override it, and
+ * still picks display_name + is_public, then imports via POST /admin/modules.
  */
 export interface DiscoveredModule {
   folder_name: string;
   suggested_key: string;
   suggested_display_name: string;
+  suggested_type: ModuleType;
   bucket_prefix: string;
   artifact_object: string;
   manifest_object: string | null;
   has_manifest: boolean;
+}
+
+/**
+ * GET /api/account/modules — the logged-in user's module entitlements (public + whatever's been
+ * granted), the session-authed web counterpart to the machine-key /module-entitlements. download_url
+ * is /SCTracker.dll for sctracker and /api/account/modules/{key}/download for everything else (a
+ * session-authed stream, so a gated module like gwrl-install downloads straight from a browser link).
+ */
+export interface AccountModule {
+  key: string;
+  display_name: string;
+  type: ModuleType;
+  is_public: boolean;
+  version: number | null;
+  sha256: string | null;
+  download_url: string;
+}
+
+export interface AccountModulesResponse {
+  modules: AccountModule[];
 }
 
 /**
