@@ -4,7 +4,8 @@ How the **GW Launcher Reforged (GWRL)** launcher talks to **gwsctracker** to lea
 **GWToolbox++ plugins** a user is entitled to and to download them.
 
 > **Scope:** the gated Toolbox plugins (`type: "plugin"`) **and** the launcher's own components
-> (`type: "module"`) — see §7. gwsctracker hosts both.
+> (`type: "module"`) — see §7. gwsctracker hosts both, and can also register a user's locally-
+> detected characters on their behalf — see §8.
 
 - **gwsctracker side:** [08-module-entitlements](../backend/08-module-entitlements.md) (API),
   [07-deployment](../backend/07-deployment.md) (bucket / IAM).
@@ -309,3 +310,47 @@ public **or** granted to them. Since `gwrl-install` is gated, both of these are 
 The bytes need not exist yet for the panel to appear — `version` shows blank and the download
 `503`s until `launcher/gwrl-install/…` is in the bucket. A user with no grant sees no panel (by
 design); revoking hides it again on their next page load.
+
+---
+
+## 8. Syncing a user's character list
+
+If GWRL's character-sync feature is on and a machine key is configured, GWRL may POST its
+locally-detected GW1 character names so they end up registered on the user's gwsctracker account
+without a manual visit to the **Characters** page.
+
+### `POST /sync-characters`
+
+```
+POST /sync-characters
+X-Machine-Key: <key>
+Content-Type: application/json
+
+["Alt One", "Alt Two"]
+```
+
+- **Body**: a plain JSON array of character name strings — no wrapper object. Blank entries and
+  in-array duplicates are tolerated (silently dropped), so GWRL doesn't need to pre-filter its own
+  detected list.
+- **Auth**: same `X-Machine-Key` header as every other GWRL-facing endpoint, checked the same
+  key-only way as `GET /module-entitlements` (no `X-Plugin-Version` expectation). `401` for a
+  missing, invalid, or revoked key — identical to every other endpoint in this doc.
+- **No other permission gate** — a valid, unrevoked key is enough, same bar as the GW1 SDK plugin's
+  own auto-claim of the uploader's character on `/upload-run`.
+
+**Response — always `200`, even when nothing changed:**
+
+```json
+{ "added": ["Alt One", "Alt Two"] }
+```
+
+`added` is exactly the names from the request that were **newly** registered this call, in the
+order submitted. A name gwsctracker already has on file — for this account *or* any other — is
+silently skipped and never appears in `added`: **this endpoint never reassigns a name away from its
+current owner**, and the response deliberately doesn't say *why* a given name was skipped (already
+yours vs. someone else's), so don't infer account information from an omission. Submitting the same
+name again on a later sync is a safe no-op.
+
+There is nothing to configure server-side for this — no per-user "sync enabled" flag on gwsctracker.
+Whether to call this endpoint at all is entirely a GWRL-local decision (the user's sync toggle); the
+backend just processes whatever list arrives.

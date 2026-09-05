@@ -11,7 +11,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * specs/backend/04-characters.md.
@@ -81,6 +84,34 @@ public class CharacterService {
         }
         create(personId, characterName);
         return true;
+    }
+
+    /**
+     * Bulk version of {@link #claimIfUnregistered} for {@code POST /sync-characters} — GW Launcher
+     * Reforged's locally-detected character list. Same "claim if unclaimed, silent no-op otherwise"
+     * rule per name (never reassigns one already taken, by this person or anyone else), just applied
+     * to a whole list at once. Blank entries and in-list duplicates are dropped before processing;
+     * order-preserving so the response can echo back exactly which names were newly claimed.
+     *
+     * @return the names that were actually newly registered, in submission order.
+     */
+    @Transactional
+    public List<String> syncFromLauncher(Long personId, List<String> characterNames) {
+        if (characterNames == null) {
+            return List.of();
+        }
+        List<String> added = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String raw : characterNames) {
+            String name = raw == null ? null : raw.trim();
+            if (name == null || name.isBlank() || !seen.add(name)) {
+                continue;
+            }
+            if (claimIfUnregistered(personId, name)) {
+                added.add(name);
+            }
+        }
+        return added;
     }
 
     private PlayerCharacter create(Long personId, String characterName) {

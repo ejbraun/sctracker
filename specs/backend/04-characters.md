@@ -1,6 +1,9 @@
 # 04 — Characters
 
-Website-only, session auth required (see [03-auth](03-auth.md)).
+The endpoints below are website-only, session auth required (see [03-auth](03-auth.md)). There are
+also two machine-key-authenticated entry points into the same underlying claim logic, for the GW1
+SDK plugin and the GW Launcher Reforged (GWRL) launcher respectively — see "Auto-registration from
+`/upload-run`" below and `POST /sync-characters` (`specs/integrations/gw-launcher-reforged.md` §8).
 
 ## `GET /api/characters`
 Lists the logged-in person's own characters: `200 [ { "id": 1, "character_name": "...", "default_role": "..." } ]`. No cross-account listing in v1 — this is "my characters" only, not a guild-wide roster browser. Backs the character management page in `specs/frontend/03-characters.md`.
@@ -16,6 +19,18 @@ Request: `{ "character_name": "string", "default_role": "string (optional)" }`
 ## Auto-registration from `/upload-run`
 
 `POST /upload-run` (spec 02, step 3) registers the uploader's own character on the fly: when `party.character_name` names a party member that no `characters` row covers yet, it's claimed for the machine key's person via `CharacterService.claimIfUnregistered` — the same insert + retroactive `run_participants` backfill as `POST /api/characters`, minus the `409`/`400` (a blank or already-claimed name is a silent no-op, and an already-claimed name is never reassigned). So a new guild member's runs count from their first upload without a separate website step.
+
+## `POST /sync-characters` (GWRL, machine-key auth)
+
+Top-level, not under `/api/**` — same plugin/launcher-facing convention as `/upload-run` and
+`/module-entitlements` (`specs/backend/00-overview.md`'s "Routing" section). Bulk sibling of the
+`/upload-run` auto-registration above: body is a plain JSON array of character names; each is
+claimed via `CharacterService.claimIfUnregistered` if unregistered by anyone, silently skipped
+otherwise (blank, duplicate-in-array, or already taken — by this person or anyone else, never
+reassigned). Always `200 { "added": [...] }` listing only the names newly claimed this call, in
+submission order — never a `409`/`400` for vote/report-style content the way `/api/characters`
+would. Auth is `authenticateWithoutVersionCheck` (key-only, no `X-Plugin-Version` gate) — same as
+`GET /module-entitlements`. Full detail: `specs/integrations/gw-launcher-reforged.md` §8.
 
 ## `DELETE /api/characters/{id}`
 - Must be owned by the requester (`characters.person_id == session personId`), else `403`. Not found → `404`.
