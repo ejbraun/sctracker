@@ -52,6 +52,30 @@
   background: var(--gw-border-gold-bright);
 }
 
+.patchNotes {
+  margin-top: 0.5rem;
+}
+
+.patchNotesSummary {
+  cursor: pointer;
+  font-family: var(--gw-font-display);
+  font-size: 0.85rem;
+  color: var(--gw-border-gold);
+}
+
+.patchNotesBox {
+  font-family: monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--gw-bg-dark);
+  border: 1px solid var(--gw-border-gold);
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
 .revealBox {
   border: 2px solid var(--gw-border-gold-bright);
   background: var(--gw-panel-dark);

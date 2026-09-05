@@ -31,6 +31,36 @@ function versionSuffix(version: number | null): string {
   return version != null && version > 0 ? ` (v${version})` : '';
 }
 
+/**
+ * A `<details>` disclosure that lazy-fetches a module's patch notes (plain text, not JSON — a raw
+ * `fetch`, not the `api` client) the first time it's expanded, then shows them in a scrollable box.
+ * `url` is already the full account-scoped path from `AccountModule.patch_notes_url`.
+ */
+function PatchNotes({ url }: { url: string }) {
+  const [open, setOpen] = useState(false);
+
+  const notesQuery = useQuery({
+    queryKey: ['patch-notes', url],
+    queryFn: async () => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('failed to fetch patch notes');
+      }
+      return response.text();
+    },
+    enabled: open,
+  });
+
+  return (
+    <details className={styles.patchNotes} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className={styles.patchNotesSummary}>Patch notes</summary>
+      {notesQuery.isLoading && <p>Loading…</p>}
+      {notesQuery.isError && <p>Couldn't load patch notes.</p>}
+      {notesQuery.data && <pre className={styles.patchNotesBox}>{notesQuery.data}</pre>}
+    </details>
+  );
+}
+
 function PluginDownloadPanel({ module }: { module: AccountModule }) {
   return (
     <Panel className={styles.section}>
@@ -43,15 +73,8 @@ function PluginDownloadPanel({ module }: { module: AccountModule }) {
           Download {module.display_name}
           {versionSuffix(module.version)}
         </a>
-        {module.patch_notes_url && (
-          <>
-            {' · '}
-            <a className={styles.downloadLink} href={module.patch_notes_url} download>
-              Patch notes
-            </a>
-          </>
-        )}
       </p>
+      {module.patch_notes_url && <PatchNotes url={module.patch_notes_url} />}
     </Panel>
   );
 }
@@ -173,15 +196,8 @@ export function Account() {
           <a className={styles.downloadLink} href="/SCTracker.dll" download>
             Download SCTracker.dll{pluginVersionQuery.data && ` (v${pluginVersionQuery.data.version})`}
           </a>
-          {sctracker?.patch_notes_url && (
-            <>
-              {' · '}
-              <a className={styles.downloadLink} href={sctracker.patch_notes_url} download>
-                Patch notes
-              </a>
-            </>
-          )}
         </p>
+        {sctracker?.patch_notes_url && <PatchNotes url={sctracker.patch_notes_url} />}
       </Panel>
 
       {pluginDownloads.map((module) => (
@@ -201,15 +217,8 @@ export function Account() {
               Download launcher
               {versionSuffix(launcher.version)}
             </a>
-            {launcher.patch_notes_url && (
-              <>
-                {' · '}
-                <a className={styles.downloadLink} href={launcher.patch_notes_url} download>
-                  Patch notes
-                </a>
-              </>
-            )}
           </p>
+          {launcher.patch_notes_url && <PatchNotes url={launcher.patch_notes_url} />}
         </Panel>
       )}
 
