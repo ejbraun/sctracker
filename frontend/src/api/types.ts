@@ -23,6 +23,7 @@ export interface AdminUser {
   can_report_failures: boolean;
   // Toggled via PATCH /api/admin/users/{id}/admin — an admin can't revoke their own.
   is_admin: boolean;
+  created_at: string;
 }
 
 /**

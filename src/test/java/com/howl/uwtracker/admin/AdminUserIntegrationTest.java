@@ -16,6 +16,7 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,6 +35,22 @@ class AdminUserIntegrationTest extends AbstractIntegrationTest {
 
     private Person user(String username) {
         return personRepository.save(new Person(username, "irrelevant-hash"));
+    }
+
+    @Test
+    void listIncludesEachUsersCreatedAt() throws Exception {
+        MockHttpSession admin = adminSession();
+        String username = "created-at-" + System.nanoTime();
+        user(username);
+
+        String body = mockMvc.perform(get("/api/admin/users").session(admin))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        var node = java.util.stream.StreamSupport.stream(objectMapper.readTree(body).spliterator(), false)
+                .filter(n -> n.get("username").asText().equals(username))
+                .findFirst().orElseThrow();
+        assertThat(node.get("created_at").asText()).isNotBlank();
     }
 
     @Test
@@ -185,6 +202,64 @@ class AdminUserIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(patch("/api/admin/users/" + target.getId() + "/admin")
                         .session(plain).contentType(MediaType.APPLICATION_JSON).content("{\"is_admin\":true}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deletesAUserAndCascadesEverythingDependentOnThem() throws Exception {
+        MockHttpSession admin = adminSession();
+        Person target = user("deleteme-" + System.nanoTime());
+        long targetId = target.getId();
+        target.setAlias("DeletedAlias" + System.nanoTime());
+        personRepository.save(target);
+        PlayerCharacter character = playerCharacterRepository.save(new PlayerCharacter(target, "Doomed Toon"));
+        grantModule(targetId, seedModule("pp-doomed", false));
+        makeAdmin(targetId);
+
+        GameMap map = gameMapRepository.getReferenceById(UNDERWORLD_MAP_ID);
+        Run run = runRepository.save(new Run(map, Instant.now(), 1000L, Instant.now(), "victory", true, 5000L, 8));
+        Profession warrior = professionRepository.findById(1).orElseThrow();
+        RunParticipant participant = runParticipantRepository.save(
+                new RunParticipant(run, character, "Doomed Toon", warrior, null, "T1", 0, true, false, false, 0, null));
+
+        mockMvc.perform(delete("/api/admin/users/" + targetId).session(admin))
+                .andExpect(status().isNoContent());
+
+        assertThat(personRepository.existsById(targetId)).isFalse();
+        assertThat(playerCharacterRepository.existsById(character.getId())).isFalse();
+        Integer adminRows = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM admins WHERE person_id = ?", Integer.class, targetId);
+        assertThat(adminRows).isZero();
+        // The run and its participant row both survive — only the character link is cleared, same
+        // as removing a single character (ON DELETE SET NULL on run_participants.character_id).
+        assertThat(runRepository.existsById(run.getId())).isTrue();
+        Long characterIdAfter = jdbcTemplate.queryForObject(
+                "SELECT character_id FROM run_participants WHERE id = ?", Long.class, participant.getId());
+        assertThat(characterIdAfter).isNull();
+    }
+
+    @Test
+    void anAdminCannotDeleteTheirOwnAccount() throws Exception {
+        String username = "self-delete-" + System.nanoTime();
+        MockHttpSession session = signup(username, "password123");
+        long id = personRepository.findByUsername(username).orElseThrow().getId();
+        makeAdmin(id);
+
+        mockMvc.perform(delete("/api/admin/users/" + id).session(session))
+                .andExpect(status().isConflict());
+        assertThat(personRepository.existsById(id)).isTrue();
+    }
+
+    @Test
+    void deleteOfAnUnknownUserIs404AndNonAdminIsForbidden() throws Exception {
+        MockHttpSession admin = adminSession();
+        mockMvc.perform(delete("/api/admin/users/99999999").session(admin))
+                .andExpect(status().isNotFound());
+
+        MockHttpSession plain = signup("plain-delete-" + System.nanoTime(), "password123");
+        Person target = user("delete-target-" + System.nanoTime());
+        mockMvc.perform(delete("/api/admin/users/" + target.getId()).session(plain))
+                .andExpect(status().isForbidden());
+        assertThat(personRepository.existsById(target.getId())).isTrue();
     }
 
     @Test

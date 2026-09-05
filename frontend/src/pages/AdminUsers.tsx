@@ -5,6 +5,7 @@ import type { AdminUser, AdminUserModule, CharacterSummary } from '../api/types'
 import { useAuth } from '../auth/AuthContext';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { formatDate } from '../common/format';
 
 /**
  * Admin-only — gated by AdminRoute. Grants/revokes admin + people.can_report_failures inline, and
@@ -33,14 +34,35 @@ export function AdminUsers() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: (id: number) => api.delete<void>(`/admin/users/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  });
+
+  function handleDelete(user: AdminUser) {
+    if (
+      window.confirm(
+        `Delete "${user.username}" entirely? This removes their account, alias, machine keys, ` +
+          `registered characters, and module grants. Past runs stay in history, just unlinked. This can't be undone.`,
+      )
+    ) {
+      deleteUserMutation.mutate(user.id);
+    }
+  }
+
   return (
     <div>
       <h1>User Management</h1>
       <Panel>
-        <p>Grant or revoke admin access and permission to report run failures via the plugin. You can't remove your own admin access.</p>
+        <p>
+          Grant or revoke admin access and permission to report run failures via the plugin. You can't remove your
+          own admin access, or delete your own account. Deleting a user removes their account, alias, machine keys,
+          registered characters, and module grants — past runs stay in history, just unlinked.
+        </p>
 
         <ErrorBanner error={setCanReportFailuresMutation.error} />
         <ErrorBanner error={setAdminMutation.error} />
+        <ErrorBanner error={deleteUserMutation.error} />
 
         {usersQuery.isLoading && <p>Loading…</p>}
         {usersQuery.data && (
@@ -49,11 +71,13 @@ export function AdminUsers() {
               <tr>
                 <th>Username</th>
                 <th>Alias</th>
+                <th>Created</th>
                 <th>Admin</th>
                 <th>Can Report Failures</th>
                 <th></th>
                 <th>Characters</th>
                 <th>Modules</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -62,6 +86,7 @@ export function AdminUsers() {
                   <tr>
                     <td>{user.username}</td>
                     <td>{user.alias ?? '—'}</td>
+                    <td>{formatDate(user.created_at)}</td>
                     <td>
                       {user.is_admin ? 'Yes' : '—'}{' '}
                       <button
@@ -93,17 +118,26 @@ export function AdminUsers() {
                         {modulesExpandedId === user.id ? 'Hide modules' : 'Modules'}
                       </button>
                     </td>
+                    <td>
+                      <button
+                        onClick={() => handleDelete(user)}
+                        disabled={deleteUserMutation.isPending || user.id === person?.id}
+                        title={user.id === person?.id ? "You can't delete your own account" : undefined}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                   {charsExpandedId === user.id && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={9}>
                         <UserCharacters personId={user.id} />
                       </td>
                     </tr>
                   )}
                   {modulesExpandedId === user.id && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={9}>
                         <UserModules personId={user.id} />
                       </td>
                     </tr>

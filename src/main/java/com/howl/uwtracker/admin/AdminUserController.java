@@ -79,4 +79,10 @@ public class AdminUserController {
         adminUserService.revokeModule(personId, moduleKey);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/{personId}")
+    public ResponseEntity<Void> delete(@CurrentPersonId Long actingAdminPersonId, @PathVariable Long personId) {
+        adminUserService.delete(personId, actingAdminPersonId);
+        return ResponseEntity.noContent().build();
+    }
 }

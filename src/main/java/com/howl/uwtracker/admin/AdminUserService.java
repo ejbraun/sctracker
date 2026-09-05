@@ -100,6 +100,25 @@ public class AdminUserService {
         moduleGrantService.revoke(personId, moduleKey);
     }
 
+    /**
+     * Hard-deletes a user account. Every dependent row is cleaned up at the DB level, not here —
+     * {@code characters}, {@code machine_keys}, {@code admins}, and {@code person_module_grants}
+     * (as grantee) all have {@code ON DELETE CASCADE} to {@code people}; run history, reports/awards
+     * attribution, {@code granted_by}, and signup-link {@code created_by} all {@code ON DELETE SET
+     * NULL} instead, so past runs and admin-trail records survive with the person reference cleared
+     * (same "unlinked, not deleted" posture as removing a single character). Same self-protection as
+     * {@link #setAdmin} — you can't delete your own account, which incidentally also means an admin
+     * can never delete the last admin (themselves).
+     */
+    public void delete(Long personId, Long actingAdminPersonId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "user not found"));
+        if (personId.equals(actingAdminPersonId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "you can't delete your own account");
+        }
+        personRepository.delete(person);
+    }
+
     private void requireUser(Long personId) {
         if (!personRepository.existsById(personId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "user not found");

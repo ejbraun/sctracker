@@ -69,6 +69,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   background: var(--gw-bg-dark);
+  color: var(--gw-text-on-dark);
   border: 1px solid var(--gw-border-gold);
   padding: 0.75rem;
   margin-top: 0.5rem;
