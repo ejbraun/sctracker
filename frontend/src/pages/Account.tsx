@@ -24,7 +24,7 @@ const DROP_IN_BLURB =
   'Optional — not needed to submit runs. A GWToolbox++ plugin: put the .dll in your GWToolbox++ Plugins folder and enable it in the plugin manager.';
 const PLUGIN_BLURB: Record<string, string> = {
   gwtoolbox:
-    "This is the toolbox itself (GWToolboxdll.dll), not a plugin that runs inside it. GW Launcher Reforged injects this build automatically — you only need this download if you're running GWToolbox++ without GWRL.",
+    "This is the toolbox itself (GWToolboxdll.dll), not a plugin that runs inside it. It's a custom build — a fork of GWToolbox++ that stays synced with upstream but carries additional functionality to work with GW Launcher Reforged, so it will drift from upstream over time. GWRL injects this build automatically — you only need this download if you're running GWToolbox++ without it.",
 };
 const PLUGIN_TAG: Record<string, string> = {
   gwtoolbox: 'toolbox build',
