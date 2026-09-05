@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { AdminModule, DiscoveredModule, ModuleType } from '../api/types';
+import type { AdminModule, BucketScanResponse, DiscoveredModule, ModuleType, ModuleUpdate } from '../api/types';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 
@@ -67,16 +67,23 @@ export function AdminModules() {
   );
 }
 
-/** Scan gs://<bucket>/plugins/ for folders that have a dll but no registry row, and import them. */
+/**
+ * Scan gs://<bucket>/plugins/ (and launcher/) for two things at once: folders with a dll but no
+ * registry row (import them), and already-registered modules whose folder has a manifest/patch-notes
+ * file the row doesn't reference yet (fill it in with one click).
+ */
 function DiscoverModules() {
   const queryClient = useQueryClient();
   const [scanned, setScanned] = useState(false);
 
   const discoverQuery = useQuery({
     queryKey: DISCOVER_KEY,
-    queryFn: () => api.get<DiscoveredModule[]>('/admin/modules/discover'),
+    queryFn: () => api.get<BucketScanResponse>('/admin/modules/discover'),
     enabled: scanned,
   });
+
+  const discovered = discoverQuery.data?.discovered ?? [];
+  const updates = discoverQuery.data?.updates ?? [];
 
   return (
     <div>
@@ -87,41 +94,113 @@ function DiscoverModules() {
         }}
         disabled={discoverQuery.isFetching}
       >
-        {discoverQuery.isFetching ? 'Scanning…' : 'Scan bucket for new modules'}
+        {discoverQuery.isFetching ? 'Scanning…' : 'Scan bucket'}
       </button>
 
-      {scanned && discoverQuery.data && discoverQuery.data.length === 0 && (
-        <p>No unregistered plugin folders in the bucket.</p>
+      {scanned && discoverQuery.data && discovered.length === 0 && updates.length === 0 && (
+        <p>Nothing new in the bucket.</p>
       )}
-      {discoverQuery.data && discoverQuery.data.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Bucket folder</th>
-              <th>Key</th>
-              <th>Display name</th>
-              <th>Type</th>
-              <th>Manifest</th>
-              <th>Patch notes</th>
-              <th>Public</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {discoverQuery.data.map((candidate) => (
-              <DiscoveredRow
-                key={candidate.folder_name}
-                candidate={candidate}
-                onImported={() => {
-                  queryClient.invalidateQueries({ queryKey: MODULES_KEY });
-                  discoverQuery.refetch();
-                }}
-              />
-            ))}
-          </tbody>
-        </table>
+
+      {discovered.length > 0 && (
+        <div>
+          <h3>New modules</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Bucket folder</th>
+                <th>Key</th>
+                <th>Display name</th>
+                <th>Type</th>
+                <th>Manifest</th>
+                <th>Patch notes</th>
+                <th>Public</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {discovered.map((candidate) => (
+                <DiscoveredRow
+                  key={candidate.folder_name}
+                  candidate={candidate}
+                  onImported={() => {
+                    queryClient.invalidateQueries({ queryKey: MODULES_KEY });
+                    discoverQuery.refetch();
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {updates.length > 0 && (
+        <div>
+          <h3>Updates available</h3>
+          <p>Already-registered modules with a manifest or patch notes file the row doesn't have yet.</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Bucket prefix</th>
+                <th>Manifest</th>
+                <th>Patch notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {updates.map((update) => (
+                <ModuleUpdateRow
+                  key={update.module_key}
+                  update={update}
+                  onUpdated={() => {
+                    queryClient.invalidateQueries({ queryKey: MODULES_KEY });
+                    discoverQuery.refetch();
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
+  );
+}
+
+function ModuleUpdateRow({ update, onUpdated }: { update: ModuleUpdate; onUpdated: () => void }) {
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      api.patch<AdminModule>(`/admin/modules/${update.module_key}`, {
+        manifest_object: update.proposed_manifest_object,
+        patch_notes_object: update.proposed_patch_notes_object,
+      }),
+    onSuccess: onUpdated,
+  });
+
+  return (
+    <Fragment>
+      <tr>
+        <td>
+          <code>{update.module_key}</code>
+        </td>
+        <td>
+          <code>{update.bucket_prefix}</code>
+        </td>
+        <td>{update.proposed_manifest_object ?? '—'}</td>
+        <td>{update.proposed_patch_notes_object ?? '—'}</td>
+        <td>
+          <button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+            Update
+          </button>
+        </td>
+      </tr>
+      {updateMutation.error && (
+        <tr>
+          <td colSpan={5}>
+            <ErrorBanner error={updateMutation.error} />
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 }
 

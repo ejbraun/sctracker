@@ -248,12 +248,18 @@ only**. Evan grants it (or shares the existing `GCP_SA_KEY` used by the GWToolbo
 
 A published artifact isn't usable until an admin registers it as a module, then grants it per user.
 
-**Scan (fastest):** gwsctracker admin → **Modules** → **Scan bucket for new modules**. Every
-`plugins/<Name>/` or `launcher/<Name>/` folder with an artifact but no registry row shows up with
+**Scan (fastest):** gwsctracker admin → **Modules** → **Scan bucket**. Every `plugins/<Name>/` or
+`launcher/<Name>/` folder with an artifact but no registry row shows up under **New modules** with
 the paths pre-filled and `type` pre-set (`module` for `launcher/` finds) — `patch_notes_object` is
 pre-filled too when a `<Name>.patch.txt` already exists in the folder, left blank otherwise; set the
 display name, leave **Public** unticked (tick it only for a component that must download before the
 user has a key), **Import**.
+
+The same scan also checks **already-registered** modules: if a `<Name>.patch.txt` or
+`<Name>.version.json` shows up in the bucket well after the module was first registered (the common
+case for patch notes — see §5), it appears under **Updates available** with the proposed path
+pre-filled; **Update** applies it with no manual typing. Never proposes changing or clearing a field
+that's already set.
 
 **Manual:** **Modules** → *Add a module*:
 - `module_key` = the slug (e.g. `sctracker`, `pp-vanquish`, `gwrl-install`)

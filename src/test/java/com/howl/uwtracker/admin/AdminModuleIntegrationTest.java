@@ -49,16 +49,16 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/admin/modules/discover").session(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].folder_name").value("PP-Vanquish"))
-                .andExpect(jsonPath("$[0].suggested_key").value("pp-vanquish"))
-                .andExpect(jsonPath("$[0].suggested_type").value("plugin"))
-                .andExpect(jsonPath("$[0].bucket_prefix").value("plugins/PP-Vanquish"))
-                .andExpect(jsonPath("$[0].artifact_object").value("PP-Vanquish.dll"))
-                .andExpect(jsonPath("$[0].manifest_object").value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
-                .andExpect(jsonPath("$[0].has_manifest").value(true))
+                .andExpect(jsonPath("$.discovered.length()").value(1))
+                .andExpect(jsonPath("$.discovered[0].folder_name").value("PP-Vanquish"))
+                .andExpect(jsonPath("$.discovered[0].suggested_key").value("pp-vanquish"))
+                .andExpect(jsonPath("$.discovered[0].suggested_type").value("plugin"))
+                .andExpect(jsonPath("$.discovered[0].bucket_prefix").value("plugins/PP-Vanquish"))
+                .andExpect(jsonPath("$.discovered[0].artifact_object").value("PP-Vanquish.dll"))
+                .andExpect(jsonPath("$.discovered[0].manifest_object").value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
+                .andExpect(jsonPath("$.discovered[0].has_manifest").value(true))
                 // suggested display name comes from the (synthetic) manifest's name field
-                .andExpect(jsonPath("$[0].suggested_display_name").value("PP-Vanquish"));
+                .andExpect(jsonPath("$.discovered[0].suggested_display_name").value("PP-Vanquish"));
     }
 
     @Test
@@ -72,15 +72,15 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/admin/modules/discover").session(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].suggested_type").value("module"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].artifact_object").value("gwrl-install.zip"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].bucket_prefix").value("launcher/gwrl-install"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-install')].manifest_object")
+                .andExpect(jsonPath("$.discovered.length()").value(2))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-install')].suggested_type").value("module"))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-install')].artifact_object").value("gwrl-install.zip"))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-install')].bucket_prefix").value("launcher/gwrl-install"))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-install')].manifest_object")
                         .value("launcher/gwrl-install/gwrl-install.version.json"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-base')].suggested_type").value("module"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-base')].artifact_object").value("gwrl-base.exe"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'gwrl-foo')]").doesNotExist());
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-base')].suggested_type").value("module"))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-base')].artifact_object").value("gwrl-base.exe"))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'gwrl-foo')]").doesNotExist());
     }
 
     @Test
@@ -91,7 +91,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         String discovered = mockMvc.perform(get("/api/admin/modules/discover").session(admin))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        var node = objectMapper.readTree(discovered).get(0);
+        var node = objectMapper.readTree(discovered).get("discovered").get(0);
 
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new CreateModuleRequest(
@@ -102,7 +102,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/admin/modules/discover").session(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.discovered.length()").value(0));
         mockMvc.perform(get("/api/admin/modules").session(admin))
                 .andExpect(jsonPath("$[?(@.module_key == 'pp-vanquish')].bucket_prefix").value("plugins/PP-Vanquish"));
     }
@@ -116,11 +116,11 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/admin/modules/discover").session(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.folder_name == 'SCTracker')].has_patch_notes").value(true))
-                .andExpect(jsonPath("$[?(@.folder_name == 'SCTracker')].patch_notes_object")
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'SCTracker')].has_patch_notes").value(true))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'SCTracker')].patch_notes_object")
                         .value("plugins/SCTracker/SCTracker.patch.txt"))
-                .andExpect(jsonPath("$[?(@.folder_name == 'PP-Vanquish')].has_patch_notes").value(false))
-                .andExpect(jsonPath("$[?(@.folder_name == 'PP-Vanquish')].patch_notes_object").value((Object) null));
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'PP-Vanquish')].has_patch_notes").value(false))
+                .andExpect(jsonPath("$.discovered[?(@.folder_name == 'PP-Vanquish')].patch_notes_object").value((Object) null));
     }
 
     @Test
@@ -128,7 +128,8 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         MockHttpSession admin = adminSession();
         mockMvc.perform(get("/api/admin/modules/discover").session(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.discovered.length()").value(0))
+                .andExpect(jsonPath("$.updates.length()").value(0));
     }
 
     @Test
@@ -136,6 +137,71 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         MockHttpSession plain = signup("plain-discover-" + System.nanoTime(), "password123");
         mockMvc.perform(get("/api/admin/modules/discover").session(plain))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void discoverProposesFillingInAManifestOrPatchNotesAddedAfterRegistration() throws Exception {
+        MockHttpSession admin = adminSession();
+        // Registered with neither sidecar; both later show up in the bucket.
+        seedModuleWithPrefix("pp-vanquish", "plugins/PP-Vanquish");
+        FakePluginStorageConfig.PLUGIN_FOLDERS.add("PP-Vanquish");
+        FakePluginStorageConfig.FOLDERS_WITH_PATCH_NOTES.add("PP-Vanquish");
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updates.length()").value(1))
+                .andExpect(jsonPath("$.updates[0].module_key").value("pp-vanquish"))
+                .andExpect(jsonPath("$.updates[0].bucket_prefix").value("plugins/PP-Vanquish"))
+                .andExpect(jsonPath("$.updates[0].proposed_manifest_object")
+                        .value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
+                .andExpect(jsonPath("$.updates[0].proposed_patch_notes_object")
+                        .value("plugins/PP-Vanquish/PP-Vanquish.patch.txt"));
+    }
+
+    @Test
+    void discoverNeverProposesChangingAFieldThatIsAlreadySet() throws Exception {
+        MockHttpSession admin = adminSession();
+        // seedModule already sets manifest_object; only patch notes is newly available.
+        seedModule("pp-vanquish", true);
+        FakePluginStorageConfig.PLUGIN_FOLDERS.add("pp-vanquish");
+        FakePluginStorageConfig.FOLDERS_WITH_PATCH_NOTES.add("pp-vanquish");
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updates.length()").value(1))
+                .andExpect(jsonPath("$.updates[0].proposed_manifest_object").value((Object) null))
+                .andExpect(jsonPath("$.updates[0].proposed_patch_notes_object")
+                        .value("plugins/pp-vanquish/pp-vanquish.patch.txt"));
+    }
+
+    @Test
+    void discoverOmitsAModuleWithNothingNewToFillIn() throws Exception {
+        MockHttpSession admin = adminSession();
+        seedModule("pp-vanquish", true); // has a manifest already; no patch notes in the bucket
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updates.length()").value(0));
+    }
+
+    @Test
+    void applyingAProposedUpdateFillsInTheField() throws Exception {
+        MockHttpSession admin = adminSession();
+        seedModuleWithPrefix("pp-vanquish", "plugins/PP-Vanquish");
+        FakePluginStorageConfig.PLUGIN_FOLDERS.add("PP-Vanquish");
+        FakePluginStorageConfig.FOLDERS_WITH_PATCH_NOTES.add("PP-Vanquish");
+
+        mockMvc.perform(patch("/api/admin/modules/pp-vanquish").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new UpdateModuleRequest(null, null, null, null, null, null,
+                                "plugins/PP-Vanquish/PP-Vanquish.version.json", null, null,
+                                "plugins/PP-Vanquish/PP-Vanquish.patch.txt"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.manifest_object").value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
+                .andExpect(jsonPath("$.patch_notes_object").value("plugins/PP-Vanquish/PP-Vanquish.patch.txt"));
+
+        mockMvc.perform(get("/api/admin/modules/discover").session(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updates.length()").value(0));
     }
 
     private void seedModuleWithPrefix(String key, String bucketPrefix) {

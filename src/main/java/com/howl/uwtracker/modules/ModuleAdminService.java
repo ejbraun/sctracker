@@ -2,8 +2,10 @@ package com.howl.uwtracker.modules;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.howl.uwtracker.admin.dto.AdminModuleResponse;
+import com.howl.uwtracker.admin.dto.BucketScanResponse;
 import com.howl.uwtracker.admin.dto.CreateModuleRequest;
 import com.howl.uwtracker.admin.dto.DiscoveredModuleResponse;
+import com.howl.uwtracker.admin.dto.ModuleUpdateResponse;
 import com.howl.uwtracker.admin.dto.UpdateModuleRequest;
 import com.howl.uwtracker.domain.Module;
 import com.howl.uwtracker.domain.ModuleType;
@@ -25,9 +27,10 @@ import java.util.stream.Collectors;
 
 /**
  * CRUD for the {@code modules} registry, behind {@code /api/admin/modules}, plus {@link #discover()}
- * which scans the bucket for unregistered artifact folders. {@code module_key} is validated to a
- * dot-free slug (safe in the {@code /modules/{key}/download} path) and is immutable once set. The
- * seeded {@code sctracker} key can't be deleted — disable it instead.
+ * which scans the bucket both for unregistered artifact folders and for fields an existing module
+ * hasn't picked up yet (see {@link #findUpdates}). {@code module_key} is validated to a dot-free
+ * slug (safe in the {@code /modules/{key}/download} path) and is immutable once set. The seeded
+ * {@code sctracker} key can't be deleted — disable it instead.
  */
 @Service
 public class ModuleAdminService {
@@ -66,21 +69,23 @@ public class ModuleAdminService {
     }
 
     /**
-     * {@code plugins/<Folder>/} and {@code launcher/<Folder>/} directories in the bucket that
-     * contain a recognisable artifact ({@code <Folder>.dll} / {@code .zip} / {@code .exe}) but have
-     * no {@code modules} row yet. Empty when no bucket is configured. The admin imports one by
-     * calling {@link #create} with the returned paths (+ a display name and the public flag);
-     * {@code suggestedType} follows the prefix so a {@code launcher/} find defaults to {@code module}.
+     * One bucket walk, two results: {@code discovered} is {@code plugins/<Folder>/} and
+     * {@code launcher/<Folder>/} directories with a recognisable artifact
+     * ({@code <Folder>.dll} / {@code .zip} / {@code .exe}) but no {@code modules} row at all yet —
+     * the admin imports one via {@link #create}. {@code updates} is the opposite direction:
+     * already-registered modules whose bucket folder now has a {@code .version.json} or
+     * {@code .patch.txt} the row doesn't reference yet (e.g. patch notes added well after the
+     * module was first registered) — see {@link #findUpdates}. Both empty when no bucket is
+     * configured.
      */
     @Transactional(readOnly = true)
-    public List<DiscoveredModuleResponse> discover() {
+    public BucketScanResponse discover() {
         ArtifactStorageClient client = storageClient.getIfAvailable();
         if (client == null) {
-            return List.of();
+            return new BucketScanResponse(List.of(), List.of());
         }
-        Set<String> registeredPrefixes = moduleRepository.findAll().stream()
-                .map(Module::getBucketPrefix)
-                .collect(Collectors.toSet());
+        List<Module> allModules = moduleRepository.findAll();
+        Set<String> registeredPrefixes = allModules.stream().map(Module::getBucketPrefix).collect(Collectors.toSet());
 
         List<DiscoveredModuleResponse> discovered = new ArrayList<>();
         for (ScanPrefix scan : SCAN_PREFIXES) {
@@ -111,7 +116,46 @@ public class ModuleAdminService {
             }
         }
         discovered.sort(Comparator.comparing(DiscoveredModuleResponse::folderName, String.CASE_INSENSITIVE_ORDER));
-        return discovered;
+
+        List<ModuleUpdateResponse> updates = findUpdates(client, allModules);
+        return new BucketScanResponse(discovered, updates);
+    }
+
+    /**
+     * For every already-registered module, re-derives the {@code .version.json} / {@code .patch.txt}
+     * paths discovery would compute for its {@code bucketPrefix} and proposes filling in whichever
+     * of the two the row doesn't already have — never proposes changing or clearing a field that's
+     * already set, and never touches {@code artifact_object} at all. Only modules with at least one
+     * proposal are returned.
+     */
+    private List<ModuleUpdateResponse> findUpdates(ArtifactStorageClient client, List<Module> allModules) {
+        List<ModuleUpdateResponse> updates = new ArrayList<>();
+        for (Module module : allModules) {
+            String folder = folderName(module.getBucketPrefix());
+            String proposedManifest = null;
+            if (module.getManifestObject() == null) {
+                String candidate = module.getBucketPrefix() + "/" + folder + ".version.json";
+                proposedManifest = client.objectExists(candidate) ? candidate : null;
+            }
+            String proposedPatchNotes = null;
+            if (module.getPatchNotesObject() == null) {
+                String candidate = module.getBucketPrefix() + "/" + folder + ".patch.txt";
+                proposedPatchNotes = client.objectExists(candidate) ? candidate : null;
+            }
+            if (proposedManifest != null || proposedPatchNotes != null) {
+                updates.add(new ModuleUpdateResponse(
+                        module.getModuleKey(), module.getDisplayName(), module.getBucketPrefix(),
+                        proposedManifest, proposedPatchNotes));
+            }
+        }
+        updates.sort(Comparator.comparing(ModuleUpdateResponse::moduleKey, String.CASE_INSENSITIVE_ORDER));
+        return updates;
+    }
+
+    /** {@code "plugins/PP-Vanquish"} -> {@code "PP-Vanquish"} — the folder name discovery keys sidecar filenames off. */
+    private static String folderName(String bucketPrefix) {
+        int lastSlash = bucketPrefix.lastIndexOf('/');
+        return lastSlash < 0 ? bucketPrefix : bucketPrefix.substring(lastSlash + 1);
     }
 
     /** First of {@code <folder>.dll} / {@code .zip} / {@code .exe} that exists under {@code bucketPrefix}, or null. */

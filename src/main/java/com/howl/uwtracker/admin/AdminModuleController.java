@@ -1,8 +1,8 @@
 package com.howl.uwtracker.admin;
 
 import com.howl.uwtracker.admin.dto.AdminModuleResponse;
+import com.howl.uwtracker.admin.dto.BucketScanResponse;
 import com.howl.uwtracker.admin.dto.CreateModuleRequest;
-import com.howl.uwtracker.admin.dto.DiscoveredModuleResponse;
 import com.howl.uwtracker.admin.dto.UpdateModuleRequest;
 import com.howl.uwtracker.modules.ModuleAdminService;
 import org.springframework.http.HttpStatus;
@@ -34,9 +34,13 @@ public class AdminModuleController {
         return ResponseEntity.ok(moduleAdminService.list());
     }
 
-    /** Bucket scan: {@code plugins/<Folder>/} directories with a dll but no registry row yet. */
+    /**
+     * Bucket scan: {@code discovered} is {@code plugins/<Folder>/} directories with a dll but no
+     * registry row yet; {@code updates} is existing modules whose folder has a manifest/patch-notes
+     * file the row doesn't reference yet.
+     */
     @GetMapping("/discover")
-    public ResponseEntity<List<DiscoveredModuleResponse>> discover() {
+    public ResponseEntity<BucketScanResponse> discover() {
         return ResponseEntity.ok(moduleAdminService.discover());
     }
 

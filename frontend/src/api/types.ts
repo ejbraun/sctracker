@@ -74,6 +74,28 @@ export interface DiscoveredModule {
 }
 
 /**
+ * An already-registered module whose bucket folder now has a manifest or patch-notes file the
+ * registry row doesn't reference yet — the other half of GET /admin/modules/discover, alongside
+ * DiscoveredModule. Never proposes changing/clearing a field that's already set, and never touches
+ * artifact_object. At least one of the two proposed_* fields is non-null. "Update" is just
+ * PATCH /admin/modules/{module_key} with these two fields verbatim (null there already means
+ * "leave alone").
+ */
+export interface ModuleUpdate {
+  module_key: string;
+  display_name: string;
+  bucket_prefix: string;
+  proposed_manifest_object: string | null;
+  proposed_patch_notes_object: string | null;
+}
+
+/** Body of GET /admin/modules/discover. */
+export interface BucketScanResponse {
+  discovered: DiscoveredModule[];
+  updates: ModuleUpdate[];
+}
+
+/**
  * GET /api/account/modules — the logged-in user's module entitlements (public + whatever's been
  * granted), the session-authed web counterpart to the machine-key /module-entitlements. download_url
  * is /SCTracker.dll for sctracker and /api/account/modules/{key}/download for everything else (a
