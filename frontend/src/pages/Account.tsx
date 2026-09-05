@@ -16,14 +16,18 @@ import { formatDate } from '../common/format';
 import styles from './Account.module.css';
 
 // SCTracker has its own hand-written panel above the list — it's the one plugin this site needs.
-// Every other public `type: plugin` module the user can see gets a generic, clearly-optional
-// panel, with per-key copy where the default ("drop the dll in GWToolbox's Plugins folder")
-// doesn't fit — e.g. GWToolboxdll is the toolbox itself.
+// Every other public `type: plugin` module the user can see gets a generic panel, with per-key
+// copy and a per-key badge where the "optional plugin you drop in and enable" default doesn't fit
+// — e.g. GWToolboxdll is the toolbox itself, not a plugin that runs inside it, so it gets its own
+// wording and badge rather than being described (and tagged) the same way as an actual plugin.
 const DROP_IN_BLURB =
   'Optional — not needed to submit runs. A GWToolbox++ plugin: put the .dll in your GWToolbox++ Plugins folder and enable it in the plugin manager.';
 const PLUGIN_BLURB: Record<string, string> = {
   gwtoolbox:
-    'Optional — not needed to submit runs. The GWToolbox++ toolbox build (GWToolboxdll.dll); GW Launcher Reforged injects this, so you normally don\'t place it by hand.',
+    "This is the toolbox itself (GWToolboxdll.dll), not a plugin that runs inside it. GW Launcher Reforged injects this build automatically — you only need this download if you're running GWToolbox++ without GWRL.",
+};
+const PLUGIN_TAG: Record<string, string> = {
+  gwtoolbox: 'toolbox build',
 };
 
 /** `(vN)` only for a real, positive build number — a manifest with no `version` deserializes to 0. */
@@ -65,7 +69,7 @@ function PluginDownloadPanel({ module }: { module: AccountModule }) {
   return (
     <Panel className={styles.section}>
       <h2>
-        {module.display_name} <span className={styles.optionalTag}>optional</span>
+        {module.display_name} <span className={styles.optionalTag}>{PLUGIN_TAG[module.key] ?? 'optional'}</span>
       </h2>
       <p>{PLUGIN_BLURB[module.key] ?? DROP_IN_BLURB}</p>
       <p>
