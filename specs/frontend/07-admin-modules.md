@@ -13,21 +13,29 @@ Per-user access lives on the User Management page, not here.
   after the first click). Lists each unregistered `plugins/<Folder>/` or `launcher/<Folder>/` as a
   row with an editable `suggested_key` / `suggested_display_name`, a `type` `<select>` pre-set from
   `suggested_type` (`module` for `launcher/` finds, `plugin` otherwise), an `is_public` checkbox
-  (**default off**), and an **Import** button → `POST /api/admin/modules` with the pre-derived
-  `bucket_prefix` / `artifact_object` / `manifest_object` plus the chosen `type`. On success it
-  re-scans and the registry list refreshes.
+  (**default off**), a `ui_visible` checkbox (**default on**), and an **Import** button →
+  `POST /api/admin/modules` with the pre-derived `bucket_prefix` / `artifact_object` /
+  `manifest_object` plus the chosen `type`. On success it re-scans and the registry list refreshes.
 - **Table** from `GET /api/admin/modules`: `module_key` (read-only `<code>`); a `type`
   `<select>` (`plugin` / `module`) that `PATCH`es on change; editable inputs for `display_name`,
   `bucket_prefix`, `artifact_object`, `manifest_object`, `content_type`, `sort_order`; toggle
-  buttons for `is_public` (Public/Private) and `enabled` (Enabled/Disabled); read-only
-  `current_version` + `version_detected_at`. A per-row **Save** (enabled only when the row is
-  dirty) → `PATCH /api/admin/modules/{module_key}`. A **Delete** button (with `window.confirm`) →
-  `DELETE /api/admin/modules/{module_key}`, hidden for `sctracker` (the one built-in key; the API
-  409s on it anyway).
+  buttons for `is_public` (Public/Private), `enabled` (Enabled/Disabled), and `ui_visible`
+  (**Shown/Hidden**); read-only `current_version` + `version_detected_at`. A per-row **Save**
+  (enabled only when the row is dirty) → `PATCH /api/admin/modules/{module_key}`. A **Delete**
+  button (with `window.confirm`) → `DELETE /api/admin/modules/{module_key}`, hidden for `sctracker`
+  (the one built-in key; the API 409s on it anyway).
 - **Add a module** form → `POST /api/admin/modules` (for artifacts a scan wouldn't find). `module_key`,
   `display_name`, `bucket_prefix`, `artifact_object` required; `type` select (default `plugin`);
-  `manifest_object` / `content_type` optional; `is_public` checkbox. Server-side validation errors
-  (bad key charset, duplicate, blank field) surface in an `<ErrorBanner>`.
+  `manifest_object` / `content_type` optional; `is_public` checkbox; `ui_visible` ("Shown on site")
+  checkbox (default on). Server-side validation errors (bad key charset, duplicate, blank field)
+  surface in an `<ErrorBanner>`.
+
+**`ui_visible`** (Shown/Hidden): `false` hides the module from `GET /api/account/modules` and the
+`/plugins` / `/launcher` pages, even for a user entitled to it. The machine-key path
+(`GET /module-entitlements`, `GET /modules/{key}/download`) ignores it, so the GWRL launcher still
+sees and downloads it. Set it Hidden for the artifacts only the launcher process should fetch — the
+GWToolbox host DLL it injects, and the `gwrl-base` / `gwrl-<feature>` self-update payloads. Leave
+`gwrl-install` **Shown** — the `/launcher` page depends on it.
 - All mutations invalidate `['admin', 'modules']`.
 
 ## Per-user grants (in User Management)

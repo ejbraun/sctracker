@@ -97,7 +97,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
                         .content(json(new CreateModuleRequest(
                                 node.get("suggested_key").asText(), "Vanquish data", null, false,
                                 node.get("bucket_prefix").asText(), node.get("artifact_object").asText(),
-                                node.get("manifest_object").asText(), null, 0, null))))
+                                node.get("manifest_object").asText(), null, 0, null, null))))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/admin/modules/discover").session(admin))
@@ -194,7 +194,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(patch("/api/admin/modules/pp-vanquish").session(admin).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new UpdateModuleRequest(null, null, null, null, null, null,
                                 "plugins/PP-Vanquish/PP-Vanquish.version.json", null, null,
-                                "plugins/PP-Vanquish/PP-Vanquish.patch.txt"))))
+                                "plugins/PP-Vanquish/PP-Vanquish.patch.txt", null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.manifest_object").value("plugins/PP-Vanquish/PP-Vanquish.version.json"))
                 .andExpect(jsonPath("$.patch_notes_object").value("plugins/PP-Vanquish/PP-Vanquish.patch.txt"));
@@ -219,7 +219,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new CreateModuleRequest("pp-vanquish", "Vanquish aggregation", null, false,
-                                "plugins/pp-vanquish", "pp-vanquish.dll", null, null, 5, null))))
+                                "plugins/pp-vanquish", "pp-vanquish.dll", null, null, 5, null, null))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.module_key").value("pp-vanquish"))
                 .andExpect(jsonPath("$.is_public").value(false))
@@ -231,7 +231,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$[?(@.module_key == 'pp-vanquish')].display_name").value("Vanquish aggregation"));
 
         mockMvc.perform(patch("/api/admin/modules/pp-vanquish").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new UpdateModuleRequest("Vanquish data", null, null, false, null, null, null, null, null, null))))
+                        .content(json(new UpdateModuleRequest("Vanquish data", null, null, false, null, null, null, null, null, null, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.display_name").value("Vanquish data"))
                 .andExpect(jsonPath("$.enabled").value(false));
@@ -247,18 +247,18 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         MockHttpSession admin = adminSession();
 
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("Bad Key!", "x", null, false, "p", "a.dll", null, null, null, null))))
+                        .content(json(new CreateModuleRequest("Bad Key!", "x", null, false, "p", "a.dll", null, null, null, null, null))))
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("pp-ok", "  ", null, false, "p", "a.dll", null, null, null, null))))
+                        .content(json(new CreateModuleRequest("pp-ok", "  ", null, false, "p", "a.dll", null, null, null, null, null))))
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("pp-dup", "First", null, false, "p", "a.dll", null, null, null, null))))
+                        .content(json(new CreateModuleRequest("pp-dup", "First", null, false, "p", "a.dll", null, null, null, null, null))))
                 .andExpect(status().isCreated());
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("pp-dup", "Second", null, false, "p", "a.dll", null, null, null, null))))
+                        .content(json(new CreateModuleRequest("pp-dup", "Second", null, false, "p", "a.dll", null, null, null, null, null))))
                 .andExpect(status().isConflict());
     }
 
@@ -267,12 +267,12 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         MockHttpSession admin = adminSession();
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new CreateModuleRequest("gwrl-base", "GWRL base", ModuleType.MODULE, true,
-                                "launcher/gwrl-base", "gwrl-base.exe", null, null, 0, null))))
+                                "launcher/gwrl-base", "gwrl-base.exe", null, null, 0, null, null))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("module"));
 
         mockMvc.perform(patch("/api/admin/modules/gwrl-base").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new UpdateModuleRequest(null, ModuleType.PLUGIN, null, null, null, null, null, null, null, null))))
+                        .content(json(new UpdateModuleRequest(null, ModuleType.PLUGIN, null, null, null, null, null, null, null, null, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.type").value("plugin"));
     }
@@ -281,7 +281,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
     void typeDefaultsToPluginAndRejectsAnUnknownValue() throws Exception {
         MockHttpSession admin = adminSession();
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("pp-default", "d", null, false, "p", "a.dll", null, null, null, null))))
+                        .content(json(new CreateModuleRequest("pp-default", "d", null, false, "p", "a.dll", null, null, null, null, null))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("plugin"));
 
@@ -297,14 +297,50 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
                         .content(json(new CreateModuleRequest("pp-notes", "Notes", null, false,
-                                "plugins/pp-notes", "pp-notes.dll", null, null, 0, "plugins/pp-notes/pp-notes.patch.txt"))))
+                                "plugins/pp-notes", "pp-notes.dll", null, null, 0, "plugins/pp-notes/pp-notes.patch.txt", null))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.patch_notes_object").value("plugins/pp-notes/pp-notes.patch.txt"));
 
         mockMvc.perform(patch("/api/admin/modules/pp-notes").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new UpdateModuleRequest(null, null, null, null, null, null, null, null, null, ""))))
+                        .content(json(new UpdateModuleRequest(null, null, null, null, null, null, null, null, null, "", null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.patch_notes_object").value((Object) null));
+    }
+
+    @Test
+    void uiVisibleDefaultsToTrueAndCanBeSetAndToggled() throws Exception {
+        MockHttpSession admin = adminSession();
+
+        // Omitted on create -> defaults to shown.
+        mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new CreateModuleRequest("pp-shown", "Shown", null, false,
+                                "plugins/pp-shown", "pp-shown.dll", null, null, 0, null, null))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.ui_visible").value(true));
+
+        // Explicit false on create sticks.
+        mockMvc.perform(post("/api/admin/modules").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new CreateModuleRequest("gwtoolbox", "Toolbox build", null, true,
+                                "plugins/GWToolboxdll", "GWToolboxdll.dll", null, null, 0, null, false))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.ui_visible").value(false));
+
+        // PATCH toggles it back and forth.
+        mockMvc.perform(patch("/api/admin/modules/gwtoolbox").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new UpdateModuleRequest(null, null, null, null, null, null, null, null, null, null, true))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ui_visible").value(true));
+
+        // PATCH with ui_visible omitted leaves it alone.
+        mockMvc.perform(patch("/api/admin/modules/gwtoolbox").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new UpdateModuleRequest("Toolbox", null, null, null, null, null, null, null, null, null, null))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ui_visible").value(true));
+
+        mockMvc.perform(patch("/api/admin/modules/gwtoolbox").session(admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(json(new UpdateModuleRequest(null, null, null, null, null, null, null, null, null, null, false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ui_visible").value(false));
     }
 
     @Test
@@ -315,7 +351,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(delete("/api/admin/modules/sctracker").session(admin))
                 .andExpect(status().isConflict());
         mockMvc.perform(patch("/api/admin/modules/sctracker").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new UpdateModuleRequest(null, null, null, false, null, null, null, null, null, null))))
+                        .content(json(new UpdateModuleRequest(null, null, null, false, null, null, null, null, null, null, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.enabled").value(false));
     }
@@ -324,7 +360,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
     void updateOfAnUnknownModuleIs404() throws Exception {
         MockHttpSession admin = adminSession();
         mockMvc.perform(patch("/api/admin/modules/nope").session(admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new UpdateModuleRequest("x", null, null, null, null, null, null, null, null, null))))
+                        .content(json(new UpdateModuleRequest("x", null, null, null, null, null, null, null, null, null, null))))
                 .andExpect(status().isNotFound());
     }
 
@@ -334,7 +370,7 @@ class AdminModuleIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(get("/api/admin/modules").session(plain)).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/admin/modules").session(plain).contentType(MediaType.APPLICATION_JSON)
-                        .content(json(new CreateModuleRequest("x", "x", null, false, "p", "a.dll", null, null, null, null))))
+                        .content(json(new CreateModuleRequest("x", "x", null, false, "p", "a.dll", null, null, null, null, null))))
                 .andExpect(status().isForbidden());
         mockMvc.perform(delete("/api/admin/modules/x").session(plain)).andExpect(status().isForbidden());
     }

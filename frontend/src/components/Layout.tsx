@@ -61,6 +61,12 @@ export function Layout() {
           <Link className={styles.navLink} to="/account" onClick={closeMenu}>
             Account
           </Link>
+          <Link className={styles.navLink} to="/plugins" onClick={closeMenu}>
+            Plugins
+          </Link>
+          <Link className={styles.navLink} to="/launcher" onClick={closeMenu}>
+            Launcher
+          </Link>
           <Link className={styles.navLink} to="/how-to-use" onClick={closeMenu}>
             How to Use
           </Link>

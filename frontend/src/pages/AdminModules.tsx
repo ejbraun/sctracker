@@ -51,6 +51,7 @@ export function AdminModules() {
                 <th>Sort</th>
                 <th>Public</th>
                 <th>Enabled</th>
+                <th>Shown</th>
                 <th>Version</th>
                 <th></th>
               </tr>
@@ -114,6 +115,7 @@ function DiscoverModules() {
                 <th>Manifest</th>
                 <th>Patch notes</th>
                 <th>Public</th>
+                <th>Shown</th>
                 <th></th>
               </tr>
             </thead>
@@ -209,6 +211,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
   const [displayName, setDisplayName] = useState(candidate.suggested_display_name);
   const [type, setType] = useState<ModuleType>(candidate.suggested_type);
   const [isPublic, setIsPublic] = useState(false);
+  const [uiVisible, setUiVisible] = useState(true);
 
   const importMutation = useMutation({
     mutationFn: () =>
@@ -217,6 +220,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
         display_name: displayName.trim(),
         type,
         is_public: isPublic,
+        ui_visible: uiVisible,
         bucket_prefix: candidate.bucket_prefix,
         artifact_object: candidate.artifact_object,
         manifest_object: candidate.manifest_object,
@@ -263,6 +267,14 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
           />
         </td>
         <td>
+          <input
+            type="checkbox"
+            aria-label={`${candidate.folder_name} shown`}
+            checked={uiVisible}
+            onChange={(e) => setUiVisible(e.target.checked)}
+          />
+        </td>
+        <td>
           <button
             onClick={() => importMutation.mutate()}
             disabled={importMutation.isPending || !key.trim() || !displayName.trim()}
@@ -273,7 +285,7 @@ function DiscoveredRow({ candidate, onImported }: { candidate: DiscoveredModule;
       </tr>
       {importMutation.error && (
         <tr>
-          <td colSpan={8}>
+          <td colSpan={9}>
             <ErrorBanner error={importMutation.error} />
           </td>
         </tr>
@@ -378,6 +390,15 @@ function ModuleRow({ module }: { module: AdminModule }) {
           </button>
         </td>
         <td>
+          <button
+            onClick={() => patchMutation.mutate({ ui_visible: !module.ui_visible })}
+            disabled={patchMutation.isPending}
+            title="Whether the /plugins and /launcher pages show this. The launcher still gets it either way."
+          >
+            {module.ui_visible ? 'Shown' : 'Hidden'}
+          </button>
+        </td>
+        <td>
           {module.current_version ?? '—'}
           {module.version_detected_at && (
             <div>
@@ -405,7 +426,7 @@ function ModuleRow({ module }: { module: AdminModule }) {
       </tr>
       {(patchMutation.error || deleteMutation.error) && (
         <tr>
-          <td colSpan={13}>
+          <td colSpan={14}>
             <ErrorBanner error={patchMutation.error ?? deleteMutation.error} />
           </td>
         </tr>
@@ -427,6 +448,7 @@ function CreateModuleForm() {
     content_type: '',
     sort_order: '0',
     is_public: false,
+    ui_visible: true,
   });
 
   const createMutation = useMutation({
@@ -436,6 +458,7 @@ function CreateModuleForm() {
         display_name: form.display_name.trim(),
         type: form.type,
         is_public: form.is_public,
+        ui_visible: form.ui_visible,
         bucket_prefix: form.bucket_prefix.trim(),
         artifact_object: form.artifact_object.trim(),
         manifest_object: form.manifest_object.trim() === '' ? null : form.manifest_object.trim(),
@@ -455,6 +478,7 @@ function CreateModuleForm() {
         content_type: '',
         sort_order: '0',
         is_public: false,
+        ui_visible: true,
       });
       queryClient.invalidateQueries({ queryKey: MODULES_KEY });
     },
@@ -507,6 +531,14 @@ function CreateModuleForm() {
           onChange={(e) => setForm((f) => ({ ...f, is_public: e.target.checked }))}
         />
         Public
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={form.ui_visible}
+          onChange={(e) => setForm((f) => ({ ...f, ui_visible: e.target.checked }))}
+        />
+        Shown on site
       </label>
       <button type="submit" disabled={!canSubmit || createMutation.isPending}>
         Create module

@@ -44,15 +44,31 @@ public class ModuleEntitlementService {
 
     /**
      * Same entitlement resolution as {@link #forMachineKey}, keyed off an already-authenticated
-     * person id — the session-authenticated {@code GET /api/account/modules} path. Entitlement is a
-     * live DB read here too.
+     * person id — the machine-key {@code GET /module-entitlements} delegates here. Entitlement is a
+     * live DB read. Returns every entitled module regardless of {@code ui_visible}.
      */
     public ModuleEntitlementsResponse forPerson(Long personId, ModuleType type) {
+        return resolve(personId, type, false);
+    }
+
+    /**
+     * Entitlement resolution for the website — the session-authenticated {@code GET
+     * /api/account/modules} path behind the {@code /plugins} and {@code /launcher} pages. Same as
+     * {@link #forPerson} but also drops {@code ui_visible = false} rows (the GWToolbox host DLL, the
+     * {@code gwrl-base} / {@code gwrl-<feature>} self-update payloads) so they never appear on the
+     * site, even for a user entitled to them. The machine-key path deliberately does not call this.
+     */
+    public ModuleEntitlementsResponse forWebUi(Long personId, ModuleType type) {
+        return resolve(personId, type, true);
+    }
+
+    private ModuleEntitlementsResponse resolve(Long personId, ModuleType type, boolean uiVisibleOnly) {
         Set<Long> granted = grantRepository.findModuleIdsByPersonId(personId);
 
         List<Entry> modules = moduleRepository.findByEnabledTrueOrderBySortOrderAscModuleKeyAsc().stream()
                 .filter(module -> module.isPublicAccess() || granted.contains(module.getId()))
                 .filter(module -> type == null || module.getType() == type)
+                .filter(module -> !uiVisibleOnly || module.isUiVisible())
                 .map(this::toEntry)
                 .toList();
         return new ModuleEntitlementsResponse(modules);

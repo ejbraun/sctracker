@@ -40,6 +40,9 @@ export interface AdminModule {
   type: ModuleType;
   is_public: boolean;
   enabled: boolean;
+  // false ⇒ hidden from GET /api/account/modules and the /plugins and /launcher pages even for an
+  // entitled user; the machine-key path still serves it (used for the launcher-internal artifacts).
+  ui_visible: boolean;
   bucket_prefix: string;
   artifact_object: string;
   manifest_object: string | null;

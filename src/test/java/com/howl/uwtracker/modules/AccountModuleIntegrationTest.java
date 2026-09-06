@@ -82,6 +82,59 @@ class AccountModuleIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void uiHiddenPublicModuleIsOmittedFromTheList() throws Exception {
+        seedModule("dbbox", true, "plugin");
+        long hiddenId = seedModule("gwtoolbox", true, "plugin");
+        setModuleUiVisible(hiddenId, false);
+        MockHttpSession session = signup("ui-hidden-public", "password123");
+
+        mockMvc.perform(get("/api/account/modules").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules.length()").value(1))
+                .andExpect(jsonPath("$.modules[0].key").value("dbbox"))
+                .andExpect(jsonPath("$.modules[?(@.key == 'gwtoolbox')]").isEmpty());
+    }
+
+    @Test
+    void uiHiddenGrantedModuleIsAlsoOmitted() throws Exception {
+        long hiddenId = seedModule("gwrl-base", false, "module");
+        setModuleUiVisible(hiddenId, false);
+        MockHttpSession session = signup("ui-hidden-granted", "password123");
+        grantModule(personId("ui-hidden-granted"), hiddenId);
+
+        mockMvc.perform(get("/api/account/modules").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules[?(@.key == 'gwrl-base')]").isEmpty());
+    }
+
+    @Test
+    void typeFilterAndUiVisibleFilterComposeCorrectly() throws Exception {
+        seedModule("gwrl-install", true, "module");
+        long hiddenId = seedModule("gwrl-base", true, "module");
+        setModuleUiVisible(hiddenId, false);
+        MockHttpSession session = signup("ui-hidden-typed", "password123");
+
+        mockMvc.perform(get("/api/account/modules?type=module").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules.length()").value(1))
+                .andExpect(jsonPath("$.modules[0].key").value("gwrl-install"));
+    }
+
+    @Test
+    void uiHiddenModuleStillDownloadsViaTheAccountPathWhenEntitled() throws Exception {
+        // UI-hiding is not access control: an entitled session can still fetch the bytes by direct
+        // URL. The machine-key path (ModuleEntitlementIntegrationTest) is the one that must be
+        // unaffected; this documents that the account download route is a pure entitlement check.
+        long hiddenId = seedModule("gwrl-base", false, "module");
+        setModuleUiVisible(hiddenId, false);
+        MockHttpSession session = signup("ui-hidden-dl", "password123");
+        grantModule(personId("ui-hidden-dl"), hiddenId);
+
+        mockMvc.perform(get("/api/account/modules/gwrl-base/download").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void downloadOfAGrantedGatedModuleStreamsTheBytes() throws Exception {
         long gatedId = seedModule("gwrl-install", false, "module");
         MockHttpSession session = signup("dl-granted", "password123");

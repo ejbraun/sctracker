@@ -198,6 +198,7 @@ public class ModuleAdminService {
             module.setType(req.type());
         }
         module.setPatchNotesObject(blankToNull(req.patchNotesObject()));
+        module.setUiVisible(req.uiVisible() == null || req.uiVisible());
         return AdminModuleResponse.from(moduleRepository.save(module));
     }
 
@@ -217,6 +218,9 @@ public class ModuleAdminService {
         }
         if (req.enabled() != null) {
             module.setEnabled(req.enabled());
+        }
+        if (req.uiVisible() != null) {
+            module.setUiVisible(req.uiVisible());
         }
         boolean pathsChanged = false;
         if (req.bucketPrefix() != null) {

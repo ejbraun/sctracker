@@ -16,5 +16,6 @@ public record UpdateModuleRequest(
         String manifestObject,
         String contentType,
         Integer sortOrder,
-        String patchNotesObject) {
+        String patchNotesObject,
+        Boolean uiVisible) {
 }

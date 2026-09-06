@@ -117,6 +117,37 @@ class ModuleEntitlementIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void uiHiddenModuleIsStillReturnedToTheMachineKey() throws Exception {
+        // ui_visible only gates the website (GET /api/account/modules). The launcher fetches
+        // gwtoolbox / gwrl-base over the machine key and must keep seeing them.
+        long hiddenPublicId = seedModule("gwtoolbox", true, "plugin");
+        setModuleUiVisible(hiddenPublicId, false);
+        long hiddenGatedId = seedModule("gwrl-base", false, "module");
+        setModuleUiVisible(hiddenGatedId, false);
+        String key = keyFor("ui-hidden-machine");
+        grantModule(personId("ui-hidden-machine"), hiddenGatedId);
+
+        mockMvc.perform(get("/module-entitlements").header("X-Machine-Key", key))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.modules.length()").value(2))
+                .andExpect(jsonPath("$.modules[?(@.key == 'gwtoolbox')].is_public").value(true))
+                .andExpect(jsonPath("$.modules[?(@.key == 'gwrl-base')].is_public").value(false));
+        mockMvc.perform(get("/module-entitlements?type=module").header("X-Machine-Key", key))
+                .andExpect(jsonPath("$.modules.length()").value(1))
+                .andExpect(jsonPath("$.modules[0].key").value("gwrl-base"));
+    }
+
+    @Test
+    void uiHiddenModuleStillDownloadsAtModulesKeyDownload() throws Exception {
+        long hiddenId = seedModule("gwtoolbox", true, "plugin");
+        setModuleUiVisible(hiddenId, false);
+        String key = keyFor("ui-hidden-machine-dl");
+
+        mockMvc.perform(get("/modules/gwtoolbox/download").header("X-Machine-Key", key))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void filtersByType() throws Exception {
         seedModule("pp-vanquish", true, "plugin");
         seedModule("pp-launcher", true, "module");

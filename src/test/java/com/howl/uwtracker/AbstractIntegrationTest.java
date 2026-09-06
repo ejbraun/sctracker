@@ -291,6 +291,16 @@ public abstract class AbstractIntegrationTest {
         return id;
     }
 
+    /**
+     * Flips a module's {@code ui_visible} flag. {@code false} hides it from {@code GET
+     * /api/account/modules} and the /plugins and /launcher pages while leaving the machine-key path
+     * ({@code GET /module-entitlements}, {@code GET /modules/{key}/download}) untouched. Rows seeded
+     * by {@link #seedModule} default to visible (the DB column default).
+     */
+    protected void setModuleUiVisible(long moduleId, boolean uiVisible) {
+        jdbcTemplate.update("UPDATE modules SET ui_visible = ? WHERE id = ?", uiVisible, moduleId);
+    }
+
     /** Grants {@code personId} access to {@code moduleId} directly — mirrors the admin grant endpoint. */
     protected void grantModule(long personId, long moduleId) {
         jdbcTemplate.update("INSERT INTO person_module_grants (person_id, module_id, granted_by) VALUES (?, ?, ?)",

@@ -8,6 +8,8 @@ import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { Dashboard } from './pages/Dashboard';
 import { Account } from './pages/Account';
+import { Plugins } from './pages/Plugins';
+import { Launcher } from './pages/Launcher';
 import { HowToUse } from './pages/HowToUse';
 import { Characters } from './pages/Characters';
 import { LeaderboardPage } from './pages/LeaderboardPage';
@@ -36,6 +38,8 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/how-to-use" element={<HowToUse />} />
                 <Route path="/account" element={<Account />} />
+                <Route path="/plugins" element={<Plugins />} />
+                <Route path="/launcher" element={<Launcher />} />
                 <Route path="/characters" element={<Characters />} />
                 <Route path="/leaderboards/:mapId" element={<LeaderboardPage />} />
                 {/* Loserboards is map-scoped in the path now, matching /leaderboards/:mapId. The

@@ -41,7 +41,7 @@ public class AccountModuleController {
     public ResponseEntity<ModuleEntitlementsResponse> list(
             @CurrentPersonId Long personId,
             @RequestParam(value = "type", required = false) ModuleType type) {
-        List<Entry> entries = entitlementService.forPerson(personId, type).modules().stream()
+        List<Entry> entries = entitlementService.forWebUi(personId, type).modules().stream()
                 .map(e -> new Entry(e.key(), e.displayName(), e.type(), e.isPublic(), e.version(), e.sha256(),
                         accountDownloadUrl(e.key()), accountPatchNotesUrl(e)))
                 .toList();

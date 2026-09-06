@@ -49,6 +49,13 @@ public class Module {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    // Whether the website surfaces this artifact. false ⇒ omitted from GET /api/account/modules and
+    // the /plugins and /launcher pages even for an entitled user; the machine-key path
+    // (GET /module-entitlements, GET /modules/{key}/download) ignores it, so the launcher still
+    // fetches it. See changeset 053-add-modules-ui-visible.xml.
+    @Column(name = "ui_visible", nullable = false)
+    private boolean uiVisible = true;
+
     @Column(name = "bucket_prefix", nullable = false, length = 255)
     private String bucketPrefix;
 
@@ -148,6 +155,14 @@ public class Module {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isUiVisible() {
+        return uiVisible;
+    }
+
+    public void setUiVisible(boolean uiVisible) {
+        this.uiVisible = uiVisible;
     }
 
     public String getBucketPrefix() {

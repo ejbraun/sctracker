@@ -13,6 +13,7 @@ public record AdminModuleResponse(
         ModuleType type,
         boolean isPublic,
         boolean enabled,
+        boolean uiVisible,
         String bucketPrefix,
         String artifactObject,
         String manifestObject,
@@ -25,8 +26,8 @@ public record AdminModuleResponse(
 
     public static AdminModuleResponse from(Module m) {
         return new AdminModuleResponse(m.getId(), m.getModuleKey(), m.getDisplayName(), m.getType(), m.isPublicAccess(),
-                m.isEnabled(), m.getBucketPrefix(), m.getArtifactObject(), m.getManifestObject(), m.getContentType(),
-                m.getCurrentVersion(), m.getCurrentSha256(), m.getVersionDetectedAt(), m.getSortOrder(),
-                m.getPatchNotesObject());
+                m.isEnabled(), m.isUiVisible(), m.getBucketPrefix(), m.getArtifactObject(), m.getManifestObject(),
+                m.getContentType(), m.getCurrentVersion(), m.getCurrentSha256(), m.getVersionDetectedAt(),
+                m.getSortOrder(), m.getPatchNotesObject());
     }
 }

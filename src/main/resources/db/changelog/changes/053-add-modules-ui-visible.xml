@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Whether this artifact is shown on the website. false = omitted from GET /api/account/modules
+         and the /plugins and /launcher pages, even for a user who is entitled to it. The machine-key
+         path (GET /module-entitlements, GET /modules/{key}/download) ignores this flag entirely, so
+         the GW Launcher Reforged launcher still sees and downloads it. Use it for artifacts only the
+         launcher process should fetch: the GWToolbox host DLL it injects, and the gwrl-base /
+         gwrl-<feature> self-update payloads. Defaults true so every existing row is unaffected; an
+         admin toggles the launcher-internal rows to hidden after deploy (they are runtime-registered
+         and differ per environment, so no seed touches them). See specs/backend/08-module-entitlements.md. -->
+    <changeSet id="053-add-modules-ui-visible" author="uwtracker">
+        <addColumn tableName="modules">
+            <column name="ui_visible" type="TINYINT(1)" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

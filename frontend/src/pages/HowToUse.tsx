@@ -45,7 +45,7 @@ export function HowToUse() {
             <div>
               <p className={styles.stepTitle}>Download SCTracker.dll</p>
               <p className={styles.stepBody}>
-                Also on the <Link to="/account">Account</Link> page, download the plugin file.
+                On the <Link to="/plugins">Plugins</Link> page, download the plugin file.
               </p>
             </div>
           </li>

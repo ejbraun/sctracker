@@ -285,9 +285,14 @@ The launcher's own artifacts are hosted here too, all `type: "module"`, under `l
 
 | Key | What | Access |
 |---|---|---|
-| `gwrl-install` | Full install archive — everything needed to run the launcher. | **Gated.** The user gets it from their gwsctracker **Account** page once an admin grants it (a session-authed `GET /api/account/modules/{key}/download`, since a browser link can't send `X-Machine-Key`). Not part of GWRL's own sync loop. |
-| `gwrl-base` | Launcher self-update payload. | Grant as needed. |
-| `gwrl-<feature>` | Individual launcher feature modules, versioned independently. | Grant per user. |
+| `gwrl-install` | Full install archive — everything needed to run the launcher. | **Gated, UI-visible.** The user gets it from the gwsctracker **Launcher** page (`/launcher`) once an admin grants it (a session-authed `GET /api/account/modules/{key}/download`, since a browser link can't send `X-Machine-Key`). Not part of GWRL's own sync loop. |
+| `gwrl-base` | Launcher self-update payload. | Grant as needed. **Register with `ui_visible = false`** — only GWRL fetches it, never a human. |
+| `gwrl-<feature>` | Individual launcher feature modules, versioned independently. | Grant per user. **`ui_visible = false`.** |
+
+The GWToolbox host DLL (`gwtoolbox`, `type: plugin`) is likewise registered **`ui_visible = false`** —
+GWRL injects it; a user never places it by hand. `ui_visible` hides a row from `GET
+/api/account/modules` and the `/plugins` / `/launcher` pages only; the machine-key endpoints ignore
+it, so GWRL still sees and downloads every one of these.
 
 Once running, GWRL syncs `gwrl-base` / `gwrl-<feature>` with the same machine-key flow as the Toolbox
 plugins — `GET /module-entitlements?type=module` on launch / on demand, then
@@ -297,19 +302,21 @@ revoke drops the component on GWRL's next sync.
 
 ### Provisioning a user for the launcher (gwsctracker admin — Evan)
 
-The **Launcher** download panel on a user's Account page renders **only** when `gwrl-install` comes
-back from `GET /api/account/modules` for that user — i.e. the row exists, is enabled, and is
-public **or** granted to them. Since `gwrl-install` is gated, both of these are required:
+The **Launcher** page (`/launcher`) shows the download **only** when `gwrl-install` comes back from
+`GET /api/account/modules?type=module` for that user — i.e. the row exists, is enabled, is
+`ui_visible`, and is public **or** granted to them. A user with no grant sees an "ask an admin"
+panel instead. Since `gwrl-install` is gated, both of these are required:
 
 1. **Register `gwrl-install`** — Modules → *Scan bucket* (once `launcher/gwrl-install/…` is
    uploaded) and Import, or *Add a module* manually: `type = module`,
    `bucket_prefix = launcher/gwrl-install`, `artifact_object = gwrl-install.zip`,
-   `manifest_object = launcher/gwrl-install/gwrl-install.version.json`, **Public unchecked**.
+   `manifest_object = launcher/gwrl-install/gwrl-install.version.json`, **Public unchecked**,
+   **Shown on site checked** (unlike `gwrl-base` / `gwrl-<feature>` / `gwtoolbox`).
 2. **Grant it** — User Management → expand the user → Modules → **Grant** `gwrl-install`.
 
-The bytes need not exist yet for the panel to appear — `version` shows blank and the download
-`503`s until `launcher/gwrl-install/…` is in the bucket. A user with no grant sees no panel (by
-design); revoking hides it again on their next page load.
+The bytes need not exist yet for the download to appear — `version` shows blank and it `503`s
+until `launcher/gwrl-install/…` is in the bucket. Revoking hides it again on the user's next page
+load.
 
 ---
 

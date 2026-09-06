@@ -63,6 +63,8 @@ Thin `fetch` wrapper with a `/api` base path: JSON request/response, throws a ty
 | `/` | Dashboard / map picker | protected |
 | `/how-to-use` | Onboarding guide (setup + adding characters) | protected |
 | `/account` | Profile + machine keys | protected |
+| `/plugins` | Plugin downloads (SCTracker + optional plugins) — `specs/frontend/09-downloads.md` | protected |
+| `/launcher` | GW Launcher Reforged install download — `specs/frontend/09-downloads.md` | protected |
 | `/characters` | Character management | protected |
 | `/leaderboards/:mapId` | Leaderboard for a map | protected |
 | `/runs` | Run history (filterable list) | protected |

@@ -46,6 +46,7 @@ class ModuleSchemaIntegrationTest extends AbstractIntegrationTest {
             assertThat(m.getCreatedAt()).isNotNull();
             assertThat(m.getCurrentVersion()).isNull();
             assertThat(m.getType()).isEqualTo(ModuleType.PLUGIN); // column default
+            assertThat(m.isUiVisible()).isTrue(); // column default
             assertThat(m.artifactPath()).isEqualTo("plugins/pp-vanquish/pp-vanquish.dll");
         });
         assertThat(moduleRepository.existsByModuleKey("nope")).isFalse();
