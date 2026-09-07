@@ -144,10 +144,10 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void autoRegistersTheSoloRunnerSoTheRunClearsTheFloor() throws Exception {
-        // minRegisteredFor(1) = 1. The runner isn't pre-registered, but party.character_name names
-        // them ("FoW Ranger"), so /upload-run auto-claims that character for the key's owner — which
-        // is what brings the run up to the floor.
+    void autoRegistersTheSoloRunnersOwnCharacter() throws Exception {
+        // The runner isn't pre-registered, but party.character_name names them ("FoW Ranger"), so
+        // /upload-run auto-claims that character for the key's owner. FoW has no registered-character
+        // floor, but the auto-claim still happens (it's unconditional, before that check).
         MockHttpSession session = signup("fow-solo-runner", "password123");
         String key = generateMachineKey(session, "GWToolboxdll");
 
@@ -172,13 +172,13 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsADuoWhoseUploaderCharacterIsNotOneOfThePartyMembers() throws Exception {
-        // minRegisteredFor(2) = 1 and neither member is registered. Auto-claim only fires for a
-        // party.character_name that's actually in the party, so a name that matches nobody leaves
-        // the run below the floor — still rejected.
+    void acceptsADuoWithNoRegisteredCharacters() throws Exception {
+        // FoW has no registered-character floor (same rule as Domain of Anguish). Neither member is
+        // registered and the uploader name ("Some Bystander") matches nobody in the party, so
+        // auto-claim doesn't fire either — the run still uploads.
         String key = issueMachineKey();
-        upload(key, request(UTC_START_SECONDS, "Some Bystander", duo()), 400);
-        assertThat(runRepository.findAll()).isEmpty();
+        upload(key, request(UTC_START_SECONDS, "Some Bystander", duo()), 200);
+        assertThat(runRepository.findAll()).hasSize(1);
     }
 
     @Test
@@ -216,14 +216,15 @@ class FowDuoUploadIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void rejectsAnEightManFowUploadWithTooFewRegisteredCharacters() throws Exception {
-        // minRegisteredFor(8) = 4; register only 3.
+    void acceptsAnEightManFowUploadWithFewRegisteredCharacters() throws Exception {
+        // FoW has no registered-character floor (same rule as Domain of Anguish) — an 8-man with
+        // only 3 of 8 registered still uploads.
         String key = issueMachineKey("FoW 8man 0", "FoW 8man 1", "FoW 8man 2");
         List<PartyMemberDto> eight = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
             eight.add(new PartyMemberDto("FoW 8man " + i, RANGER, ASSASSIN, true, false, false, 0, null, List.of(), null));
         }
-        upload(key, request(UTC_START_SECONDS, eight), 400);
-        assertThat(runRepository.findAll()).isEmpty();
+        upload(key, request(UTC_START_SECONDS, eight), 200);
+        assertThat(runRepository.findAll()).hasSize(1);
     }
 }

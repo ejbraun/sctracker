@@ -49,7 +49,7 @@ dimension alongside map on Run History, Leaderboards, and Loserboards.
 | "Party size" definition | `party_members.length` (roster length) | user decision |
 | Party-size selector UX | fixed options per map (UW→{8}, FoW→{2}); selector only shown when a map has >1 configured size | user decision |
 | FoW-duo role model | `role` = primary profession: Ranger→`Ranger`, Dervish→`Derv`. **Simple rule is duo-only**; FoW 8-man will be more complex (later phase). | user decision |
-| Registered-character floor | 50% of roster, `ceil(size/2)` → UW 4, FoW-duo **1** | user decision |
+| Registered-character floor | Underworld only (50% of roster, `max(1, floor(size/2))` → UW 4). FoW and DoA exempt at ingest — see §10.1. | user decision |
 | Real-time completion latch for FoW | not needed — ProcessSync `IsRunCompleted` fallback is sufficient | user decision |
 | GWToolboxdll still emits a FoW `ObjectiveSet` | yes (confirmed) | user decision |
 
@@ -653,11 +653,15 @@ schema change").
 - No `RoleDerivation` branch and no `role_objectives` rows: `resolveRoles(members, null)` already
   returns all-`null` at any size, and the role-less sizes use the un-gated
   `MIN(duration_ms)` personal-section query (§9.2).
-- **Registered-character floor** is now `minRegisteredFor(size) = max(1, floor(size/2))` — every
-  run needs at least one registered character. Only the new solo case is affected (was 0, now 1):
-  a solo run whose runner isn't registered attributes to nobody, so it's rejected. Sizes 2–8 are
-  unchanged. `RunRepository.findIdsWithFewerThanHalfPartyRegistered` (the retroactive admin wipe)
-  mirrors this as `HAVING COUNT(...) < GREATEST(1, r.party_size DIV 2)`.
+- **Registered-character floor** — as of the "Exempt the Fissure of Woe from the
+  registered-character floor" change, FoW is exempt at ingest **at every size** (map id 34 is in
+  `UploadRunService.REGISTRATION_FLOOR_EXEMPT_MAP_IDS`, alongside Domain of Anguish 474): an
+  `/upload-run` for FoW is accepted no matter how few of its party are registered. The plugin's own
+  real-player gate is FoW's pug filter. `minRegisteredFor` / the `MIN_REGISTERED = max(1,
+  floor(size/2))` formula now applies to the Underworld only.
+  `RunRepository.findIdsWithFewerThanHalfPartyRegistered` (the retroactive admin wipe) is still
+  map-generic — same as Domain of Anguish, it isn't exempted there — so an admin who runs
+  "wipe unregistered" can still sweep an under-registered FoW run after the fact.
 - Every leaderboard / loserboard / history / section query is already parameterised by
   `party_size`; no query changes. An un-sized `/me/.../sections/...` call for FoW still 400s
   (multi-config map) — unchanged behaviour.
