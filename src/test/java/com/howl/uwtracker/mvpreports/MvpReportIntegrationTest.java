@@ -65,8 +65,17 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
 
     /** 8-slot run with the given roles, party index 0..7 — professions are irrelevant to these tests. */
     private Run seedRun(String... roles) {
+        return seedRun(true, "victory", roles);
+    }
+
+    /** As {@link #seedRun(String...)} but stored as a run that did NOT finish — for the not-completed guard tests. */
+    private Run seedIncompleteRun(String... roles) {
+        return seedRun(false, "wipe", roles);
+    }
+
+    private Run seedRun(boolean completed, String endReason, String... roles) {
         Instant now = Instant.now();
-        Run run = runRepository.save(new Run(map(), now, 1000L, now, "victory", true, 10_000L, 8));
+        Run run = runRepository.save(new Run(map(), now, 1000L, now, endReason, completed, 10_000L, 8));
         Profession warrior = professionRepository.findById(1).orElseThrow();
         for (int i = 0; i < roles.length; i++) {
             runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, roles[i], i, true, false, false, 0, null));
@@ -180,6 +189,31 @@ class MvpReportIntegrationTest extends AbstractIntegrationTest {
         String key = issueMachineKey(true);
 
         vote(key, 999_999L, List.of("Spiker")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void acceptsAndDropsAVoteForARunThatIsNotCompleted() throws Exception {
+        // No MVP for a run that didn't finish — the /upload-run dedup race can still submit one
+        // against it (see MvpReportService.submit). Dropped with a WARN, still 204.
+        String key = issueMachineKey(true);
+        Run run = seedIncompleteRun(FULL_PARTY_ROLES);
+
+        vote(key, run.getId(), List.of("Spiker")).andExpect(status().isNoContent());
+
+        assertThat(awardsForRun(run.getId())).isEmpty();
+    }
+
+    @Test
+    void persistMajorityClearsAStaleAwardForARunThatIsNotCompleted() {
+        // Belt-and-suspenders: a window already open when the submit-time guard shipped still
+        // closes here. Any award a pre-guard vote left on a not-completed run gets cleared.
+        Run run = seedIncompleteRun(FULL_PARTY_ROLES);
+        runMvpAwardRepository.save(new RunMvpAward(run, null, null));
+        assertThat(awardsForRun(run.getId())).hasSize(1);
+
+        mvpPersister.persistMajority(run.getId(), List.of(new MvpBallot(false, Set.of("Spiker"))));
+
+        assertThat(awardsForRun(run.getId())).isEmpty();
     }
 
     @Test

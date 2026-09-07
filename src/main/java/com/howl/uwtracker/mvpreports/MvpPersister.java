@@ -65,6 +65,16 @@ public class MvpPersister {
     @Transactional
     public void persistMajority(Long runId, Collection<MvpBallot> ballots) {
         Run run = runRepository.getReferenceById(runId);
+        // Belt-and-suspenders for MvpReportService.submit's not-completed drop: a window already open
+        // at deploy time still closes here. No MVP for a run that didn't finish — discard the ballots
+        // and clear any stale award a pre-guard vote left behind.
+        if (!run.isCompleted()) {
+            runMvpAwardRepository.deleteByRun_Id(runId);
+            log.warn("mvp voting window closed for run {} but the run is not marked completed "
+                    + "(end_reason={}); discarded {} ballot(s) and cleared any stale award",
+                    runId, run.getEndReason(), ballots.size());
+            return;
+        }
         MapConfig config = mapConfigRepository.findById(new MapConfigId(run.getMap().getId(), run.getPartySize()))
                 .orElseThrow(() -> new IllegalStateException("no map_configs row for run " + runId + " at persist time"));
         boolean roleLess = config.getRoleModel() == null;

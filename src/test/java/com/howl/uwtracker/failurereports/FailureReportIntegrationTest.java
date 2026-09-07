@@ -63,8 +63,17 @@ class FailureReportIntegrationTest extends AbstractIntegrationTest {
 
     /** 8-slot run with the given roles, party index 0..7 — professions are irrelevant to these tests. */
     private Run seedRun(String... roles) {
+        return seedRun(false, "wipe", roles);
+    }
+
+    /** As {@link #seedRun(String...)} but stored as a finished run — for the completed-run guard tests. */
+    private Run seedCompletedRun(String... roles) {
+        return seedRun(true, "completed", roles);
+    }
+
+    private Run seedRun(boolean completed, String endReason, String... roles) {
         Instant now = Instant.now();
-        Run run = runRepository.save(new Run(map(), now, 1000L, now, "wipe", false, 10_000L, 8));
+        Run run = runRepository.save(new Run(map(), now, 1000L, now, endReason, completed, 10_000L, 8));
         Profession warrior = professionRepository.findById(1).orElseThrow();
         for (int i = 0; i < roles.length; i++) {
             runParticipantRepository.save(new RunParticipant(run, null, "P" + i, warrior, null, roles[i], i, true, false, false, 0, null));
@@ -158,6 +167,31 @@ class FailureReportIntegrationTest extends AbstractIntegrationTest {
         String key = issueMachineKey(true);
 
         vote(key, 999_999L, List.of("Spiker")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void acceptsAndDropsAVoteForACompletedRun() throws Exception {
+        // A completed run has no failure to report — the /upload-run dedup race can still submit
+        // one against it (see FailureReportService.submit). Dropped with a WARN, still 204.
+        String key = issueMachineKey(true);
+        Run run = seedCompletedRun(FULL_PARTY_ROLES);
+
+        vote(key, run.getId(), List.of("Spiker")).andExpect(status().isNoContent());
+
+        assertThat(runFailureReasonRepository.findByRun_Id(run.getId())).isEmpty();
+    }
+
+    @Test
+    void persistMajorityClearsStaleFailureRowsForACompletedRun() {
+        // Belt-and-suspenders: a window that was already open when the submit-time guard shipped
+        // still closes here. Any rows a pre-guard vote left on a since-completed run get cleared.
+        Run run = seedCompletedRun(FULL_PARTY_ROLES);
+        runFailureReasonRepository.save(new RunFailureReason(run, null, null));
+        assertThat(runFailureReasonRepository.findByRun_Id(run.getId())).hasSize(1);
+
+        failureReportPersister.persistMajority(run.getId(), List.of(new Ballot(false, Set.of("Spiker"))));
+
+        assertThat(runFailureReasonRepository.findByRun_Id(run.getId())).isEmpty();
     }
 
     @Test

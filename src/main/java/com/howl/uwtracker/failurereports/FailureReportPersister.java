@@ -68,6 +68,16 @@ public class FailureReportPersister {
     @Transactional
     public void persistMajority(Long runId, Collection<Ballot> ballots) {
         Run run = runRepository.getReferenceById(runId);
+        // Belt-and-suspenders for FailureReportService.submit's completed-run drop: a window that was
+        // already open at deploy time still closes here. A completed run can't have failure reasons,
+        // so discard the ballots and clear any stale rows a pre-guard vote left behind.
+        if (run.isCompleted()) {
+            runFailureReasonRepository.deleteByRun_Id(runId);
+            log.warn("failure voting window closed for run {} but the run is marked completed "
+                    + "(end_reason={}); discarded {} ballot(s) and cleared any stale failure rows",
+                    runId, run.getEndReason(), ballots.size());
+            return;
+        }
         MapConfig config = mapConfigRepository.findById(new MapConfigId(run.getMap().getId(), run.getPartySize()))
                 .orElseThrow(() -> new IllegalStateException("no map_configs row for run " + runId + " at persist time"));
         boolean roleLess = config.getRoleModel() == null;

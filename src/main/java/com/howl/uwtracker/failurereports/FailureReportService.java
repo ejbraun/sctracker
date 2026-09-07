@@ -52,6 +52,8 @@ public class FailureReportService {
      * normalized or dropped with a WARN and still returns 204:
      * <ul>
      *   <li>missing / unknown {@code runId} — dropped.</li>
+     *   <li>a {@code runId} whose run is already marked completed — dropped (a completed run has no
+     *       failure to report; happens on the /upload-run dedup race described inline below).</li>
      *   <li>"Nobody" mixed with specific roles — "Nobody" dropped, the specific roles win.</li>
      *   <li>a blamed role not (yet) in the run's roster — accepted; {@link FailureReportPersister}
      *       strips it at window close against the complete roster.</li>
@@ -81,6 +83,18 @@ public class FailureReportService {
         Run run = runRepository.findById(request.runId()).orElse(null);
         if (run == null) {
             log.warn("dropping failure report: run not found (personId={}, runId={})", reporter.getId(), request.runId());
+            return;
+        }
+        // A completed run can't have "failure reasons". This still happens because /upload-run
+        // dedups on (map, utc_start, roster): whichever party member's client publishes first fixes
+        // the run's server-side completed flag from its own objective snapshot, but a different
+        // member whose GWToolboxdll objective file is missing the terminal quest (a late joiner, a
+        // brief disconnect) can still be in "resign" mode locally, open a failure vote, and submit
+        // it against that same run_id. The plugin's real-time FoW-completion latch (SCTracker v15)
+        // narrows this but doesn't fully close it — the authoritative check is here.
+        if (run.isCompleted()) {
+            log.warn("dropping failure report: run {} is marked completed (end_reason={}) — not a failure "
+                    + "(personId={})", run.getId(), run.getEndReason(), reporter.getId());
             return;
         }
 

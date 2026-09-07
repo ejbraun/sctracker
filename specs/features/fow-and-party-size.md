@@ -375,9 +375,22 @@ New helper `MapHasDhuumMechanics(map_id)` (true only for `The_Underworld`), chec
 
 ### 5.4 Voting (failure / MVP) for FoW duos — *implemented*
 
-**Backend: no change** — `FailureReportService` / `MvpReportService` have no party-size gate and
-validate each voted role against `findDistinctRolesByRunId(runId)` (= `{Ranger, Derv}` + `Nobody`
-for a FoW duo).
+**Backend: no party-size gate** — `FailureReportService` / `MvpReportService` validate each voted
+role against `findDistinctRolesByRunId(runId)` (= `{Ranger, Derv}` + `Nobody` for a FoW duo).
+
+**Backend: run-outcome gate (added after the "always shows failure reasons" bug, run 526).**
+`/upload-run` dedups on `(map_id, utc_start, roster)`, and on a dedup hit `UploadRunWriter.ingest`
+reuses the existing `Run` untouched — `completed` / `end_reason` stay whatever the *first*
+publisher's objective snapshot produced. A second party member whose GWToolboxdll objective file is
+missing the terminal quest (late joiner, brief disconnect) can still be locally in `"resign"` mode,
+open a **failure** vote, and submit it against that same `run_id` — landing `run_failure_reasons`
+rows on a run stored as `completed = true`. The plugin's real-time FoW-completion latch (SCTracker
+v15) narrows this but a genuine late joiner still falls back to the file. So the authoritative
+check is server-side: `FailureReportService.submit` drops a vote whose run is `completed`, and
+`MvpReportService.submit` drops one whose run is **not** `completed` (an MVP on a wipe/resign is the
+mirror bug); both persisters repeat the check at window close for windows already open at deploy
+time, clearing any stale rows. Changeset `054-clear-mismatched-run-vote-outcomes.xml` scrubs the
+rows that predate the guard.
 
 **Plugin:**
 

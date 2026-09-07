@@ -49,6 +49,8 @@ public class MvpReportService {
      * <ul>
      *   <li>missing / unknown {@code runId} — dropped (the plugin never does this; it only submits
      *       with a {@code run_id} the server itself just issued).</li>
+     *   <li>a {@code runId} whose run is not marked completed — dropped (no MVP for a run that
+     *       didn't finish; the /upload-run dedup race can produce this, see FailureReportService).</li>
      *   <li>more than one role — first kept, rest dropped.</li>
      *   <li>a role not (yet) in the run's roster — accepted as-is; {@link MvpPersister} filters it
      *       at window close against the by-then-complete roster, so a "T1" vote cast before the
@@ -79,6 +81,15 @@ public class MvpReportService {
         Run run = runRepository.findById(request.runId()).orElse(null);
         if (run == null) {
             log.warn("dropping mvp report: run not found (personId={}, runId={})", reporter.getId(), request.runId());
+            return;
+        }
+        // Mirror of FailureReportService's completed-run drop: an MVP only makes sense for a run
+        // that actually finished. The same /upload-run dedup race (see that method) can hand a
+        // client whose objective snapshot shows completion a run_id whose stored run is marked
+        // incomplete — drop the vote rather than award MVP on a wipe/resign.
+        if (!run.isCompleted()) {
+            log.warn("dropping mvp report: run {} is not marked completed (end_reason={}) (personId={})",
+                    run.getId(), run.getEndReason(), reporter.getId());
             return;
         }
 

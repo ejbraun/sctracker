@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- One-off cleanup for run-vote outcomes that contradict the run's own completed flag.
+         Root cause: /upload-run dedups on (map, utc_start, roster), so whichever party member's
+         client publishes first fixes runs.completed from its own GWToolboxdll objective snapshot,
+         but a different member whose snapshot disagreed (a late joiner / brief disconnect missing
+         the terminal quest) could still be in "resign" mode locally, open a failure vote, and
+         submit it against that same run_id — landing run_failure_reasons rows on a run stored as
+         completed (e.g. run 526). The mirror (an MVP award on a run stored as not-completed) is
+         possible the same way. FailureReportService / MvpReportService now drop such votes at
+         submit time; this clears the rows that predate that guard. -->
+    <changeSet id="054-clear-failure-reasons-on-completed-runs" author="uwtracker">
+        <delete tableName="run_failure_reasons">
+            <where>run_id in (select id from runs where completed = 1)</where>
+        </delete>
+    </changeSet>
+
+    <changeSet id="054-clear-mvp-awards-on-incomplete-runs" author="uwtracker">
+        <delete tableName="run_mvp_awards">
+            <where>run_id in (select id from runs where completed = 0)</where>
+        </delete>
+    </changeSet>
+
+</databaseChangeLog>
