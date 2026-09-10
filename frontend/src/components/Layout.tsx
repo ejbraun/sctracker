@@ -52,6 +52,9 @@ export function Layout() {
           <Link className={styles.navLink} to={`/loserboards/${DEFAULT_MAP_ID}`} onClick={closeMenu}>
             Loserboards
           </Link>
+          <Link className={styles.navLink} to="/jetters" onClick={closeMenu}>
+            Jetter&apos;s Comp
+          </Link>
           <Link className={styles.navLink} to="/runs" onClick={closeMenu}>
             Run History
           </Link>

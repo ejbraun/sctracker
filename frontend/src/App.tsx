@@ -14,6 +14,7 @@ import { HowToUse } from './pages/HowToUse';
 import { Characters } from './pages/Characters';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { LoserboardsPage } from './pages/LoserboardsPage';
+import { JettersCompetition } from './pages/JettersCompetition';
 import { DEFAULT_MAP_ID } from './common/maps';
 import { RunHistory } from './pages/RunHistory';
 import { RunDetail } from './pages/RunDetail';
@@ -46,6 +47,7 @@ export default function App() {
                     bare path redirects to the default map so old links/bookmarks keep working. */}
                 <Route path="/loserboards" element={<Navigate to={`/loserboards/${DEFAULT_MAP_ID}`} replace />} />
                 <Route path="/loserboards/:mapId" element={<LoserboardsPage />} />
+                <Route path="/jetters" element={<JettersCompetition />} />
                 <Route path="/runs" element={<RunHistory />} />
                 <Route path="/runs/:id" element={<RunDetail />} />
                 <Route element={<AdminRoute />}>

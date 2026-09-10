@@ -1,0 +1,71 @@
+.blurb {
+  max-width: 48rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.85;
+}
+
+.rules {
+  margin-bottom: 1.5rem;
+}
+
+.rules ul {
+  margin: 0.25rem 0 0.75rem 1.25rem;
+}
+
+.elite {
+  margin: 0;
+}
+
+.section {
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.subtitle {
+  opacity: 0.7;
+  font-weight: normal;
+}
+
+.gambit {
+  max-width: 48rem;
+  margin: 0.25rem 0 1rem;
+}
+
+.gambitTag {
+  display: inline-block;
+  font-family: var(--gw-font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.45rem;
+  margin-right: 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+.board {
+  width: 100%;
+}
+
+.rank {
+  font-family: var(--gw-font-display);
+  width: 2.5rem;
+}
+
+.duo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
+
+.empty {
+  opacity: 0.7;
+}
+
+.footnote {
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  opacity: 0.65;
+  max-width: 48rem;
+}
