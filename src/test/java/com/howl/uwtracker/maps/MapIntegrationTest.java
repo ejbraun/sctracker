@@ -72,6 +72,26 @@ class MapIntegrationTest extends AbstractIntegrationTest {
         });
     }
 
+    @Test
+    void includesEveryDungeonConfigOnceSeeded() throws Exception {
+        seedDungeons();
+        MockHttpSession session = signup("dungeonmapviewer", "password123");
+
+        List<MapResponse> maps = fetchMaps(session);
+
+        // Underworld + the 18 dungeons.
+        assertThat(maps).hasSize(19);
+        MapResponse cof = maps.stream().filter(m -> m.id() == CATHEDRAL_OF_FLAMES_MAP_ID).findFirst().orElseThrow();
+        assertThat(cof.name()).isEqualTo(CATHEDRAL_OF_FLAMES_MAP_NAME);
+        // Every dungeon has a role-less config for every party size 1-8.
+        assertThat(maps).filteredOn(m -> m.id() != UNDERWORLD_MAP_ID)
+                .allSatisfy(m -> {
+                    assertThat(m.configs()).extracting(c -> c.partySize())
+                            .containsExactly(1, 2, 3, 4, 5, 6, 7, 8);
+                    assertThat(m.configs()).allSatisfy(c -> assertThat(c.roleModel()).isNull());
+                });
+    }
+
     private List<MapResponse> fetchMaps(MockHttpSession session) throws Exception {
         String body = mockMvc.perform(get("/api/maps").session(session))
                 .andExpect(status().isOk())

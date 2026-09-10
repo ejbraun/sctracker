@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Every Eye of the North dungeon GWToolboxdll's ObjectiveTimerWindow tracks, as supported
+         maps, at every party size 1-8. Each (map, size) is role-less (role_model = NULL) - the
+         Domain of Anguish / Fissure-of-Woe-non-duo shape: run_participants.role stays NULL,
+         RoleDerivation.resolveRoles returns all-nulls (no new branch), personal section bests use
+         the un-gated MIN(duration_ms) path, no role_objectives rows. Party size is
+         party_members.length (all-human parties - hero/henchman-assisted low-man runs are dropped
+         client-side by the plugin's real-player gate, same rule as FoW). See
+         specs/features/dungeons.md.
+
+         Multi-level dungeons (2-5 chained instances) are published by the plugin under their
+         ENTRY-level (Level 1) map id, keyed by the entry-level utc_start; the single "run" spans
+         every level. The 1-level cases (Ooze Pit, Secret Lair of the Snowmen, Fronis Irontoe's
+         Lair) and Slavers' Exile (GWToolboxdll only builds an ObjectiveSet for its final level,
+         Slavers_Exile_Level_5) are single-instance, tracked exactly like DoA.
+
+         Map ids are GWCA MapID enum values (GWToolboxpp/Dependencies/GWCA/.../Constants/Maps.h),
+         computed and cross-checked against the enum's explicit anchors (Five_Team_Test = 592,
+         Vloxen_Excavations_Level_1 = 604, Bloodstone_Caves_Level_1 = 612,
+         The_Norn_Fighting_Tournament = 700, Unknown_879 = 879). Confirm against a live
+         party.map_id capture before relying on these in production.
+
+         maps.name must match GWToolboxdll's Resources::GetMapName(Level_1) (the Objective Timer
+         window title) exactly - ingestion's "UPDATE maps SET name=? WHERE name IS NULL" fills it
+         from objective.name on the first upload otherwise. The canonical Guild Wars area names
+         below are almost certainly exact; verify in-game.
+
+         GWCA also carries MapID::Forsaken_Tunnels_Level1 (880) and
+         MapID::Forsaken_Tunnels_Presearing_Level1 (789), which ObjectiveTimerWindow cases on
+         defensively. They are cut / pre-Searing content, not live speed-clear dungeons, so they
+         are deliberately NOT seeded here. -->
+    <changeSet id="055-seed-dungeons" author="uwtracker">
+
+        <!-- multi-level dungeons (plugin multi-instance run) -->
+        <insert tableName="maps"><column name="id" valueNumeric="560"/><column name="name" value="Cathedral of Flames"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="570"/><column name="name" value="Catacombs of Kathandrax"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="573"/><column name="name" value="Rragar's Menagerie"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="578"/><column name="name" value="Oola's Lab"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="581"/><column name="name" value="Shards of Orr"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="584"/><column name="name" value="Arachni's Haunt"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="604"/><column name="name" value="Vloxen Excavations"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="607"/><column name="name" value="Heart of the Shiverpeaks"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="612"/><column name="name" value="Bloodstone Caves"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="615"/><column name="name" value="Bogroot Growths"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="617"/><column name="name" value="Raven's Point"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="628"/><column name="name" value="Sepulchre of Dragrimmar"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="630"/><column name="name" value="Frostmaw's Burrows"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="635"/><column name="name" value="Darkrime Delves"/></insert>
+
+        <!-- single-instance dungeons (tracked like DoA) -->
+        <insert tableName="maps"><column name="id" valueNumeric="576"/><column name="name" value="Ooze Pit"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="623"/><column name="name" value="Slavers' Exile"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="701"/><column name="name" value="Secret Lair of the Snowmen"/></insert>
+        <insert tableName="maps"><column name="id" valueNumeric="704"/><column name="name" value="Fronis Irontoe's Lair"/></insert>
+
+        <!-- (map_id, party_size 1..8, role_model NULL) for every dungeon. One cross-join rather than
+             144 <insert> blocks; role_model defaults to NULL. -->
+        <sql>
+            INSERT INTO map_configs (map_id, party_size, role_model)
+            SELECT d.map_id, s.party_size, NULL
+            FROM (
+                SELECT 560 AS map_id UNION ALL SELECT 570 UNION ALL SELECT 573 UNION ALL SELECT 576
+                UNION ALL SELECT 578 UNION ALL SELECT 581 UNION ALL SELECT 584 UNION ALL SELECT 604
+                UNION ALL SELECT 607 UNION ALL SELECT 612 UNION ALL SELECT 615 UNION ALL SELECT 617
+                UNION ALL SELECT 623 UNION ALL SELECT 628 UNION ALL SELECT 630 UNION ALL SELECT 635
+                UNION ALL SELECT 701 UNION ALL SELECT 704
+            ) d
+            CROSS JOIN (
+                SELECT 1 AS party_size UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+                UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
+            ) s;
+        </sql>
+        <rollback>
+            DELETE FROM map_configs WHERE map_id IN (560,570,573,576,578,581,584,604,607,612,615,617,623,628,630,635,701,704);
+        </rollback>
+
+    </changeSet>
+</databaseChangeLog>

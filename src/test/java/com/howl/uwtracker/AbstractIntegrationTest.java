@@ -95,6 +95,13 @@ public abstract class AbstractIntegrationTest {
     public static final int DOMAIN_OF_ANGUISH_MAP_ID = 474;
     public static final String DOMAIN_OF_ANGUISH_MAP_NAME = "Domain of Anguish";
 
+    /** An Eye of the North dungeon (055-seed-dungeons.xml) — 8-man only, role-less (role_model NULL),
+     *  same shape as Domain of Anguish. Cathedral of Flames is a 3-level dungeon; its entry-level
+     *  map id (Cathedral_of_Flames_Level_1 = 560) is what runs are published under. Not reseeded by
+     *  cleanDatabase(); a test that needs it calls {@link #seedDungeons()}. */
+    public static final int CATHEDRAL_OF_FLAMES_MAP_ID = 560;
+    public static final String CATHEDRAL_OF_FLAMES_MAP_NAME = "Cathedral of Flames";
+
     // Children first, respecting FK order; role_objectives/people have no dependents left after this.
     // "maps" truncates like everything else, but — unlike everything else — cleanDatabase() below
     // reseeds it with the curated set (011-seed-supported-maps.xml) right after: maps is reference
@@ -212,6 +219,28 @@ public abstract class AbstractIntegrationTest {
         jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", DOMAIN_OF_ANGUISH_MAP_ID, DOMAIN_OF_ANGUISH_MAP_NAME);
         jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, 8, NULL)",
                 DOMAIN_OF_ANGUISH_MAP_ID);
+    }
+
+    /**
+     * Seeds every Eye of the North dungeon (maps + their {@code (id, 1..8, NULL)} map_configs
+     * rows), for tests that exercise the dungeon path. Mirrors changeset 055: role-less at every
+     * party size, no role_objectives. Not part of {@link #cleanDatabase()} since most tests don't
+     * need it. {@link #CATHEDRAL_OF_FLAMES_MAP_ID} is the one most tests reach for.
+     */
+    protected void seedDungeons() {
+        // Entry-level map ids, matching 055-seed-dungeons.xml.
+        int[] dungeonMapIds = {560, 570, 573, 576, 578, 581, 584, 604, 607, 612,
+                               615, 617, 623, 628, 630, 635, 701, 704};
+        for (int mapId : dungeonMapIds) {
+            jdbcTemplate.update("INSERT INTO maps (id, name) VALUES (?, ?)", mapId, "Dungeon " + mapId);
+            for (int partySize = 1; partySize <= 8; partySize++) {
+                jdbcTemplate.update("INSERT INTO map_configs (map_id, party_size, role_model) VALUES (?, ?, NULL)",
+                        mapId, partySize);
+            }
+        }
+        // The one test fixtures assert a real name for.
+        jdbcTemplate.update("UPDATE maps SET name = ? WHERE id = ?",
+                CATHEDRAL_OF_FLAMES_MAP_NAME, CATHEDRAL_OF_FLAMES_MAP_ID);
     }
 
     /**

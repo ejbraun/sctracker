@@ -27,13 +27,15 @@ public class UploadRunService {
 
     private static final Logger log = LoggerFactory.getLogger(UploadRunService.class);
 
-    // Maps exempt from the registered-character floor below. Domain of Anguish
-    // (GWCA's MapID::Domain_of_Anguish, see 051-seed-domain-of-anguish.xml) and the Fissure of Woe
-    // (MapID::The_Fissure_of_Woe, see 038-seed-fow.xml) both lean on the plugin's own real-player
-    // gate as their pug filter rather than a guild-registration minimum, so an upload for either is
-    // accepted no matter how few of its party are registered characters. The Underworld still
-    // requires the floor.
-    private static final Set<Integer> REGISTRATION_FLOOR_EXEMPT_MAP_IDS = Set.of(474, 34);
+    // The Underworld is the only supported map that enforces the registered-character floor below.
+    // Every other area - the Fissure of Woe (038-seed-fow.xml), Domain of Anguish
+    // (051-seed-domain-of-anguish.xml), and the Eye of the North dungeons (055-seed-dungeons.xml) -
+    // leans on the plugin's own real-player gate as its pug filter rather than a guild-registration
+    // minimum, so an upload for any of them is accepted no matter how few of its party are
+    // registered characters. An allow-list (not the old exempt-list) so a newly seeded map is
+    // exempt by default; add its id here only if it should enforce the floor.
+    // See specs/features/dungeons.md, fow-and-party-size.md §10.1.
+    private static final Set<Integer> REGISTRATION_FLOOR_ENFORCED_MAP_IDS = Set.of(72);
 
     private final MachineKeyAuthenticationService machineKeyAuthenticationService;
     private final MapConfigRepository mapConfigRepository;
@@ -57,10 +59,10 @@ public class UploadRunService {
      * The registered-character floor for a party of {@code partySize} — 50% of the roster rounded
      * down, but never below 1 (Underworld 8-man → 4). Keeps pug/scrub groups out while still
      * allowing unregistered slots (a guildmate who just hasn't registered yet). Only the Underworld
-     * applies it now — the Fissure of Woe and Domain of Anguish are exempt (see
-     * REGISTRATION_FLOOR_EXEMPT_MAP_IDS). The admin retroactive-wipe cleanup still applies the same
-     * bar per run regardless of map (see RunRepository.findIdsWithFewerThanHalfPartyRegistered). See
-     * specs/features/fow-and-party-size.md.
+     * applies it now — the Fissure of Woe, Domain of Anguish and the Eye of the North dungeons are
+     * exempt (see REGISTRATION_FLOOR_ENFORCED_MAP_IDS). The admin retroactive-wipe cleanup still
+     * applies the same bar per run regardless of map (see
+     * RunRepository.findIdsWithFewerThanHalfPartyRegistered). See specs/features/fow-and-party-size.md.
      */
     public static int minRegisteredFor(int partySize) {
         return Math.max(1, partySize / 2);
@@ -104,9 +106,9 @@ public class UploadRunService {
         // A "registered character" is one with a characters row (claimed via POST /api/characters or
         // auto-claimed just above) — same lookup UploadRunWriter uses to link a participant to an
         // account. Requiring a size-scaled minimum keeps out pug/scrub groups; unregistered slots
-        // are still allowed, just not a majority of the party. The Fissure of Woe and Domain of
-        // Anguish are exempt — see REGISTRATION_FLOOR_EXEMPT_MAP_IDS above.
-        if (!REGISTRATION_FLOOR_EXEMPT_MAP_IDS.contains(party.mapId())) {
+        // are still allowed, just not a majority of the party. Only the Underworld enforces this —
+        // see REGISTRATION_FLOOR_ENFORCED_MAP_IDS above.
+        if (REGISTRATION_FLOOR_ENFORCED_MAP_IDS.contains(party.mapId())) {
             int minRegistered = minRegisteredFor(size);
             long registeredCount = members.stream()
                     .filter(m -> playerCharacterRepository.existsByCharacterName(m.name()))

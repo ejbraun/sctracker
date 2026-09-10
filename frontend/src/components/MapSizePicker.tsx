@@ -1,5 +1,21 @@
-import { MAPS, mapById, defaultPartySize, sizeLabel } from '../common/maps';
+import { MAPS, mapById, defaultPartySize, sizeLabel, type MapChoice } from '../common/maps';
 import styles from './MapSizePicker.module.css';
+
+// MAPS in `group` order, as [groupLabel | '', maps] pairs. A '' label renders its options bare (no
+// <optgroup>), so an ungrouped map still shows. Order follows first appearance in MAPS.
+const MAP_GROUPS: [string, MapChoice[]][] = (() => {
+  const order: string[] = [];
+  const byGroup = new Map<string, MapChoice[]>();
+  for (const m of MAPS) {
+    const key = m.group ?? '';
+    if (!byGroup.has(key)) {
+      byGroup.set(key, []);
+      order.push(key);
+    }
+    byGroup.get(key)!.push(m);
+  }
+  return order.map((key) => [key, byGroup.get(key)!]);
+})();
 
 interface Props {
   mapId: string;
@@ -40,11 +56,23 @@ export function MapSizePicker({ mapId, partySize, onMapChange, onSizeChange }: P
       <label className={styles.field}>
         Map
         <select value={mapId} onChange={(e) => handleMapChange(e.target.value)}>
-          {MAPS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
+          {MAP_GROUPS.map(([label, maps]) =>
+            label ? (
+              <optgroup key={label} label={label}>
+                {maps.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </optgroup>
+            ) : (
+              maps.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))
+            ),
+          )}
         </select>
       </label>
 

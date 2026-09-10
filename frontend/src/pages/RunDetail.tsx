@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { RoleBadge } from '../components/RoleBadge';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { formatDate, formatDuration } from '../common/format';
-import { sizeLabel } from '../common/maps';
+import { mapById, sizeLabel } from '../common/maps';
 import styles from './RunDetail.module.css';
 
 /** specs/frontend/05-run-history.md — "/runs/:id". */
@@ -38,6 +38,11 @@ export function RunDetail() {
   // anyone — drop the Role column, and skip the MVP/Failure-Reasons RoleBadges too (a name-mode
   // vote's winner still has role = null; showing "unresolved" next to their name would be wrong).
   const showRoles = run.participants.some((p) => p.role != null);
+  // A dungeon duo runs a fixed 2-profession comp — the Professions column adds nothing, so hide it
+  // for (dungeon, party_size 2). Every other role-less run still shows professions in place of a
+  // Role column. Display-only; the API still returns primary/secondary_profession.
+  const showProfessions =
+    !(mapById(String(run.map_id))?.group === 'Dungeon' && run.party_size === 2);
 
   return (
     <div>
@@ -115,7 +120,7 @@ export function RunDetail() {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Professions</th>
+              {showProfessions && <th>Professions</th>}
               {showRoles && <th>Role</th>}
               <th>Deaths</th>
             </tr>
@@ -129,10 +134,12 @@ export function RunDetail() {
                 >
                   {participant.character_name ?? participant.raw_name}
                 </td>
-                <td>
-                  {participant.primary_profession}
-                  {participant.secondary_profession ? ` / ${participant.secondary_profession}` : ''}
-                </td>
+                {showProfessions && (
+                  <td>
+                    {participant.primary_profession}
+                    {participant.secondary_profession ? ` / ${participant.secondary_profession}` : ''}
+                  </td>
+                )}
                 {showRoles && (
                   <td>
                     <RoleBadge role={participant.role} />

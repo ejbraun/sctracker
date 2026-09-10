@@ -59,5 +59,6 @@
     <include file="db/changelog/changes/052-add-modules-patch-notes-object.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/053-add-modules-ui-visible.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/054-clear-mismatched-run-vote-outcomes.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/055-seed-dungeons.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
