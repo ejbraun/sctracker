@@ -12,8 +12,18 @@
   margin: 0.25rem 0 0.75rem 1.25rem;
 }
 
-.elite {
-  margin: 0;
+.ruleList {
+  margin: 0.25rem 0 0 1.25rem;
+  max-width: 52rem;
+}
+
+.ruleList li {
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.ruleList li:last-child {
+  margin-bottom: 0;
 }
 
 .section {

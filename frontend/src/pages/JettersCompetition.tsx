@@ -16,6 +16,42 @@ import styles from './JettersCompetition.module.css';
 
 const UNIVERSAL_BANS = ['Whirling Defense', 'Mirrored Stance', 'Necrotic Traversal'];
 
+// The official rule text, verbatim from the competition organizer. Numbered so "refer to rule #15"
+// in rule 13 resolves correctly — rule 1 is the conduct line, rule 15 is the discretion/DQ clause.
+const RULES = [
+  'Don’t be an asshole to others or your partner.',
+  'No scripts can be used.',
+  'Teams must complete the three chosen dungeons — with no more and no less than two team members.',
+  'All dungeons must be completed in Hard Mode. The dungeon is not “complete” until the dungeon ' +
+    'quest does its final update.',
+  'The team with the shortest combined time for all the dungeons will be the winner.',
+  'Each dungeon must be separately timed. (A timer showing minutes and seconds is required) — ' +
+    '/age will not suffice.',
+  'Before entering the dungeon, each party member is required to post their build template in the ' +
+    'team chat before beginning the dungeon (obviously after the recording has started), in order ' +
+    'to check compliance with the listed Gambits.',
+  'Each team needs one person recording the run for proof of completion and time. The person ' +
+    'recording the run should have the timer.',
+  'All submissions should be sent directly to Jetter via Discord PM.',
+  'Party members cannot have duplicate Elite skills (example: only one party member can run Shadow ' +
+    'Form in dungeon 1). You can use the skill again in a subsequent dungeon, but only one party ' +
+    'member at a time can have it per instance.',
+  'All personal consumables and cons are allowed except for: (1) seals or any other consumable ' +
+    'that resets skill usage or gives a morale boost, (2) any/all summoning stones (this includes ' +
+    'the new merchant), (3) Lunars, and (4) Rocks. Four Leaf Clovers are okay to use.',
+  'All party members must have 0 morale before entering the dungeon (no negative or positive ' +
+    'morale).',
+  'All party members must participate in the killing of the final boss of each dungeon (no solo ' +
+    'builds while your teammate AFKs) — unless your team’s strategy is specifically designed ' +
+    'around splitting up, with each party member doing a specific job/role. The goal of this rule ' +
+    'is to keep both party members actively involved: follow it in good faith, or refer to rule #15.',
+  'Only 2 resurrection scrolls are allowed per party member, per dungeon (not 2 per level — 2 for ' +
+    'the entire dungeon).',
+  'If the organizer believes a team tried not to honor the spirit of the competition (loophole ' +
+    'finding, running bars meant to solo the dungeon, scripting), the organizer reserves the right ' +
+    'to disqualify or void that attempt.',
+];
+
 interface CompetitionDungeon {
   mapId: string;
   name: string;
@@ -107,16 +143,21 @@ export function JettersCompetition() {
       </p>
 
       <Panel className={styles.rules}>
-        <h2>Universal bans — every dungeon</h2>
+        <h2>Universal skill bans — every dungeon</h2>
         <ul>
           {UNIVERSAL_BANS.map((s) => (
             <li key={s}>{s}</li>
           ))}
         </ul>
-        <p className={styles.elite}>
-          <strong>No duplicate elite skills</strong> between the two party members, on every
-          dungeon.
-        </p>
+      </Panel>
+
+      <Panel className={styles.rules}>
+        <h2>Official rules</h2>
+        <ol className={styles.ruleList}>
+          {RULES.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ol>
       </Panel>
 
       {DUNGEONS.map((d, i) => (
@@ -133,8 +174,10 @@ export function JettersCompetition() {
       ))}
 
       <p className={styles.footnote}>
-        Runs appear automatically from any completed 2-player clear of these maps. Skill bans are
-        followed on the honour system for the competition — this board does not verify skill usage.
+        This board is a live reference, not the official standings — it auto-lists every completed
+        2-player clear of these maps and does not verify rule or Gambit compliance. Per rule 9,
+        official competition entries are decided from recordings + build templates submitted
+        directly to Jetter via Discord PM.
       </p>
     </div>
   );
