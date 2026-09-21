@@ -32,7 +32,7 @@ Request: `{ "username": "string", "password": "string" }`
 ## Session mechanics
 
 - On successful signup/login: `request.getSession(true).setAttribute("personId", person.getId())`.
-- `SessionAuthInterceptor implements HandlerInterceptor`: in `preHandle`, read `session.getAttribute("personId")`; if absent, `401 { "error": "not authenticated" }`. Registered on `/api/**` except `/api/signup` and `/api/login`. `/upload-run` is authenticated separately via machine key (spec 02) and isn't under `/api/**` at all, so this interceptor never runs on it; static resources (`/`, `/static/**`, `/index.html`, React Router fallback paths) are likewise outside `/api/**` and untouched by it (see [00-overview](00-overview.md)'s `/api` prefix & SPA fallback note).
+- `SessionAuthInterceptor implements HandlerInterceptor`: in `preHandle`, read `session.getAttribute("personId")`; if absent, `401 { "error": "not authenticated" }`. Registered on `/api/**` except `/api/signup`, `/api/login` and `/api/password-reset`. It also rejects sessions older than `people.sessions_valid_after` (see "Password reset" below). `/upload-run` is authenticated separately via machine key (spec 02) and isn't under `/api/**` at all, so this interceptor never runs on it; static resources (`/`, `/static/**`, `/index.html`, React Router fallback paths) are likewise outside `/api/**` and untouched by it (see [00-overview](00-overview.md)'s `/api` prefix & SPA fallback note).
 - Downstream controllers read the current person via a small helper (e.g. `@ModelAttribute` or a `CurrentPerson` argument resolver reading the same session attribute) rather than re-parsing the session manually in every method.
 
 ## Cookie configuration
@@ -84,3 +84,20 @@ Request: `{ "label": "string (optional)", "max_uses": 10 }` — `max_uses` optio
 ### `DELETE /api/admin/signup-links/{id}`
 - Not found → `404 { "error": "signup link not found" }`.
 - Sets `revoked_at = NOW()` (soft revoke — a revoked link stops redeeming but stays in the list). `204`.
+
+## Password reset (admin-issued)
+
+There is no email on `people` and no self-service "forgot password" — an admin mints a link for a specific user and hands it over out of band. `password_reset_tokens` columns: `person_id` (FK → `people`, `ON DELETE CASCADE`), `token_hash CHAR(64)` (unique), `expires_at`, `used_at` (null = live), `created_by_person_id` (FK, `ON DELETE SET NULL`), `created_at`. Tokens are generated and hashed like signup links (`MachineKeyHasher`); only `SHA-256(token)` is stored. TTL is 24h (`PasswordResetService.TOKEN_TTL`).
+
+### `POST /api/admin/users/{personId}/password-reset`
+Gated by `AdminAuthInterceptor`. Unknown user → `404`. Marks every still-live token for that person used (a new link supersedes the old ones), then `201 { "token": "<raw token>", "expires_at": "..." }` — the raw token is shown **exactly once**. The frontend builds `<origin>/reset-password?token=<token>`.
+
+### `POST /api/password-reset`
+Public — excluded from `SessionAuthInterceptor`. Request: `{ "token": "...", "password": "..." }`.
+- Password under 8 characters → `400` (checked first, so a typo doesn't burn the link).
+- Unknown / blank / already-used / expired token → the same generic `400 { "error": "invalid or expired reset link" }`.
+- Redemption is an atomic `UPDATE ... SET used_at = :now WHERE token_hash = :hash AND used_at IS NULL AND expires_at > :now` (`1` row = claimed), in one transaction with the password change.
+- Sets the BCrypt hash and `people.sessions_valid_after = now`. `204`, and **no session is started** — the user logs in normally afterwards.
+
+### Session revocation
+Login stamps the session with `authenticatedAt` (epoch millis). `SessionAuthInterceptor` looks up `people.sessions_valid_after` on each `/api/**` request and rejects (`401`, session invalidated) any session whose `authenticatedAt` is missing or earlier than it. Null `sessions_valid_after` (the default) means no cutoff. This is used instead of deleting `SPRING_SESSION` rows because the session principal is never indexed, so sessions can't be looked up by person.

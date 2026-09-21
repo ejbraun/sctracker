@@ -5,6 +5,8 @@ import com.howl.uwtracker.admin.dto.AdminUserResponse;
 import com.howl.uwtracker.admin.dto.SetAdminRequest;
 import com.howl.uwtracker.admin.dto.SetCanReportFailuresRequest;
 import com.howl.uwtracker.auth.CurrentPersonId;
+import com.howl.uwtracker.auth.PasswordResetService;
+import com.howl.uwtracker.auth.dto.GeneratedPasswordResetResponse;
 import com.howl.uwtracker.characters.dto.CharacterResponse;
 import com.howl.uwtracker.characters.dto.CreateCharacterRequest;
 import org.springframework.http.HttpStatus;
@@ -27,9 +29,17 @@ import java.util.List;
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
+    private final PasswordResetService passwordResetService;
 
-    public AdminUserController(AdminUserService adminUserService) {
+    public AdminUserController(AdminUserService adminUserService, PasswordResetService passwordResetService) {
         this.adminUserService = adminUserService;
+        this.passwordResetService = passwordResetService;
+    }
+
+    @PostMapping("/{personId}/password-reset")
+    public ResponseEntity<GeneratedPasswordResetResponse> createPasswordReset(@CurrentPersonId Long adminPersonId,
+                                                                               @PathVariable Long personId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(passwordResetService.create(personId, adminPersonId));
     }
 
     @GetMapping

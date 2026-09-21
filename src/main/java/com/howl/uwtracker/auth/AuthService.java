@@ -51,9 +51,7 @@ public class AuthService {
         if (username == null || username.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "username required");
         }
-        if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "password must be at least " + MIN_PASSWORD_LENGTH + " characters");
-        }
+        requireValidPassword(password);
         if (signupKey == null || signupKey.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "signup key required");
         }
@@ -75,6 +73,12 @@ public class AuthService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "invalid or already-used signup key");
         }
         return person;
+    }
+
+    static void requireValidPassword(String password) {
+        if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "password must be at least " + MIN_PASSWORD_LENGTH + " characters");
+        }
     }
 
     public Person login(String username, String password) {

@@ -49,6 +49,11 @@ public class Person {
     @Column(name = "last_seen_plugin_version")
     private Integer lastSeenPluginVersion;
 
+    // Sessions that logged in before this instant are rejected (SessionAuthInterceptor). Stamped by
+    // a password reset so the old password's sessions die with it. Null = no cutoff.
+    @Column(name = "sessions_valid_after")
+    private Instant sessionsValidAfter;
+
     protected Person() {
     }
 
@@ -71,6 +76,14 @@ public class Person {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public Instant getSessionsValidAfter() {
+        return sessionsValidAfter;
+    }
+
+    public void setSessionsValidAfter(Instant sessionsValidAfter) {
+        this.sessionsValidAfter = sessionsValidAfter;
     }
 
     public String getAlias() {

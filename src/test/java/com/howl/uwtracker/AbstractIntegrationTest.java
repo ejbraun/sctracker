@@ -117,7 +117,7 @@ public abstract class AbstractIntegrationTest {
     private static final List<String> TABLES_TO_CLEAN = List.of(
             "run_participant_item_drops", "run_failure_reasons", "run_mvp_awards", "run_participants",
             "run_objectives", "runs", "role_objectives", "characters", "machine_keys", "signup_keys",
-            "signup_links", "admins", "person_module_grants", "modules", "people", "map_configs", "maps");
+            "signup_links", "password_reset_tokens", "admins", "person_module_grants", "modules", "people", "map_configs", "maps");
 
     @Autowired
     protected MockMvc mockMvc;

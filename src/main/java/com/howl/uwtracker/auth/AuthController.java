@@ -78,5 +78,6 @@ public class AuthController {
     private void startSession(HttpServletRequest request, Person person) {
         HttpSession session = request.getSession(true);
         session.setAttribute(SessionKeys.PERSON_ID, person.getId());
+        session.setAttribute(SessionKeys.AUTHENTICATED_AT, System.currentTimeMillis());
     }
 }

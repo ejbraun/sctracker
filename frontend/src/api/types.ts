@@ -161,6 +161,12 @@ export interface SignupLink {
  * POST /api/admin/signup-links — the raw token is returned exactly once. The shareable URL is built
  * client-side as `${window.location.origin}/signup?invite=${token}`.
  */
+/** POST /api/admin/users/{id}/password-reset — the raw token is only ever returned here. */
+export interface PasswordResetLink {
+  token: string;
+  expires_at: string;
+}
+
 export interface GeneratedSignupLink {
   id: number;
   token: string;

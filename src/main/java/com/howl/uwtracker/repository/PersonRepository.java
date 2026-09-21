@@ -20,6 +20,10 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
 
     boolean existsByAlias(String alias);
 
+    /** Just the session cutoff (empty = none) — the per-request check in SessionAuthInterceptor. */
+    @Query("select p.sessionsValidAfter from Person p where p.id = :id")
+    Optional<Instant> findSessionsValidAfterById(@Param("id") Long id);
+
     /** Backs the Run History "person" filter dropdown — only people who've bothered to set one are choosable. */
     List<Person> findByAliasIsNotNullOrderByAliasAsc();
 

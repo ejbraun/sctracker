@@ -4,6 +4,7 @@ import com.howl.uwtracker.auth.AdminAuthInterceptor;
 import com.howl.uwtracker.auth.CurrentPersonIdArgumentResolver;
 import com.howl.uwtracker.auth.SessionAuthInterceptor;
 import com.howl.uwtracker.repository.AdminRepository;
+import com.howl.uwtracker.repository.PersonRepository;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,16 +19,18 @@ import java.util.List;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AdminRepository adminRepository;
+    private final PersonRepository personRepository;
 
-    public WebMvcConfig(AdminRepository adminRepository) {
+    public WebMvcConfig(AdminRepository adminRepository, PersonRepository personRepository) {
         this.adminRepository = adminRepository;
+        this.personRepository = personRepository;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new SessionAuthInterceptor())
+        registry.addInterceptor(new SessionAuthInterceptor(personRepository))
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/signup", "/api/login");
+                .excludePathPatterns("/api/signup", "/api/login", "/api/password-reset");
         // Registered after SessionAuthInterceptor (interceptors run in registration order), so an
         // unauthenticated request is already rejected with 401 before this ever runs.
         registry.addInterceptor(new AdminAuthInterceptor(adminRepository))

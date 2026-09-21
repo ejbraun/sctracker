@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Person } from '../api/types';
@@ -12,6 +12,7 @@ export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const passwordReset = (useLocation().state as { passwordReset?: boolean } | null)?.passwordReset;
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -32,6 +33,7 @@ export function Login() {
     <div className={styles.page}>
       <Panel className={styles.form}>
         <h1>Login</h1>
+        {passwordReset && <p role="status">Password updated. Log in with your new password.</p>}
         <ErrorBanner error={mutation.error} />
         <form onSubmit={handleSubmit}>
           <label>

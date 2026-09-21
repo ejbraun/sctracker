@@ -1,11 +1,16 @@
 import { Fragment, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { AdminUser, AdminUserModule, CharacterSummary } from '../api/types';
+import type { AdminUser, AdminUserModule, CharacterSummary, PasswordResetLink } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Panel } from '../components/Panel';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { formatDate } from '../common/format';
+import styles from './AdminUsers.module.css';
+
+function resetUrl(token: string): string {
+  return `${window.location.origin}/reset-password?token=${token}`;
+}
 
 /**
  * Admin-only — gated by AdminRoute. Grants/revokes admin + people.can_report_failures inline, and
@@ -16,6 +21,8 @@ export function AdminUsers() {
   const { person } = useAuth();
   const [charsExpandedId, setCharsExpandedId] = useState<number | null>(null);
   const [modulesExpandedId, setModulesExpandedId] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState<{ user: AdminUser; link: PasswordResetLink } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const usersQuery = useQuery({
     queryKey: ['admin', 'users'],
@@ -39,6 +46,25 @@ export function AdminUsers() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'users'] }),
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: (user: AdminUser) =>
+      api.post<PasswordResetLink>(`/admin/users/${user.id}/password-reset`).then((link) => ({ user, link })),
+    onSuccess: (result) => {
+      setCopied(false);
+      setRevealed(result);
+    },
+  });
+
+  function handleResetPassword(user: AdminUser) {
+    if (
+      window.confirm(
+        `Generate a password reset link for "${user.username}"? Any earlier unused link for them stops working.`,
+      )
+    ) {
+      resetPasswordMutation.mutate(user);
+    }
+  }
+
   function handleDelete(user: AdminUser) {
     if (
       window.confirm(
@@ -60,8 +86,28 @@ export function AdminUsers() {
           registered characters, and module grants — past runs stay in history, just unlinked.
         </p>
 
+        {revealed && (
+          <div className={styles.revealBox}>
+            <p className={styles.warning}>
+              Password reset link for <strong>{revealed.user.username}</strong> — single use, expires{' '}
+              {formatDate(revealed.link.expires_at)}. It won't be shown again; copy it now.
+            </p>
+            <code className={styles.linkUrl} data-testid="password-reset-url">{resetUrl(revealed.link.token)}</code>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(resetUrl(revealed.link.token));
+                setCopied(true);
+              }}
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+            <button onClick={() => setRevealed(null)}>Dismiss</button>
+          </div>
+        )}
+
         <ErrorBanner error={setCanReportFailuresMutation.error} />
         <ErrorBanner error={setAdminMutation.error} />
+        <ErrorBanner error={resetPasswordMutation.error} />
         <ErrorBanner error={deleteUserMutation.error} />
 
         {usersQuery.isLoading && <p>Loading…</p>}
@@ -77,6 +123,7 @@ export function AdminUsers() {
                 <th></th>
                 <th>Characters</th>
                 <th>Modules</th>
+                <th>Password</th>
                 <th></th>
               </tr>
             </thead>
@@ -119,6 +166,11 @@ export function AdminUsers() {
                       </button>
                     </td>
                     <td>
+                      <button onClick={() => handleResetPassword(user)} disabled={resetPasswordMutation.isPending}>
+                        Reset password
+                      </button>
+                    </td>
+                    <td>
                       <button
                         onClick={() => handleDelete(user)}
                         disabled={deleteUserMutation.isPending || user.id === person?.id}
@@ -130,14 +182,14 @@ export function AdminUsers() {
                   </tr>
                   {charsExpandedId === user.id && (
                     <tr>
-                      <td colSpan={9}>
+                      <td colSpan={10}>
                         <UserCharacters personId={user.id} />
                       </td>
                     </tr>
                   )}
                   {modulesExpandedId === user.id && (
                     <tr>
-                      <td colSpan={9}>
+                      <td colSpan={10}>
                         <UserModules personId={user.id} />
                       </td>
                     </tr>
